@@ -1,0 +1,515 @@
+openapi: "3.0.3"
+info:
+  title: "Ktor Backend API"
+  version: "1.0.0"
+servers:
+  - url: "http://0.0.0.0:8080"
+tags:
+  - name: "Health"
+  - name: "Auth"
+  - name: "Storage"
+paths:
+  /health:
+    get:
+      tags: ["Health"]
+      summary: "Service health check"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /auth/health:
+    get:
+      tags: ["Auth"]
+      summary: "Authentication subsystem health check"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthHealthResponse"
+
+  /auth/register:
+    post:
+      tags: ["Auth"]
+      summary: "Register a new user"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      tags: ["Auth"]
+      summary: "Authenticate a user and issue tokens"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginSessionApiResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/password-reset/request:
+    post:
+      tags: ["Auth"]
+      summary: "Request a password reset"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestPasswordResetRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetRequestApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/password-reset/confirm:
+    post:
+      tags: ["Auth"]
+      summary: "Confirm password reset with token"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmPasswordResetRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      tags: ["Auth"]
+      summary: "Get the authenticated user's profile"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserApiResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/account:
+    delete:
+      tags: ["Auth"]
+      summary: "Delete the authenticated user's account"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /storage/upload-urls:
+    post:
+      tags: ["Storage"]
+      summary: "Create presigned S3 upload URLs"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUploadUrlsRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlsApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /storage/download-urls:
+    post:
+      tags: ["Storage"]
+      summary: "Create presigned S3 download URLs"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDownloadUrlsRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadUrlsApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: "Forbidden"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiResponseBase:
+      type: object
+      required: [success, timestampMillis]
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        timestampMillis:
+          type: integer
+          format: int64
+
+    HealthData:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: "ok"
+
+    AuthHealthData:
+      type: object
+      required: [auth]
+      properties:
+        auth:
+          type: string
+          example: "ready"
+
+    MessageData:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        fullName:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RequestPasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ConfirmPasswordResetRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+
+    DeleteAccountRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: boolean
+
+    LoginSessionResponse:
+      type: object
+      required: [accessToken, refreshToken, accessTokenExpiresInSeconds, refreshTokenExpiresInSeconds]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        accessTokenExpiresInSeconds:
+          type: integer
+          format: int64
+        refreshTokenExpiresInSeconds:
+          type: integer
+          format: int64
+
+    UserResponse:
+      type: object
+      required: [id, email, fullName]
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+
+    PasswordResetRequestResponse:
+      type: object
+      required: [message]
+      properties:
+        resetToken:
+          type: string
+          nullable: true
+        message:
+          type: string
+
+    CreateUploadUrlsRequest:
+      type: object
+      required: [fileCount]
+      properties:
+        fileCount:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 20
+
+    PresignedUploadUrl:
+      type: object
+      required: [objectKey, uploadUrl]
+      properties:
+        objectKey:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+
+    CreateUploadUrlsResponse:
+      type: object
+      required: [sessionId, uploads]
+      properties:
+        sessionId:
+          type: string
+        uploads:
+          type: array
+          items:
+            $ref: "#/components/schemas/PresignedUploadUrl"
+
+    CreateDownloadUrlsRequest:
+      type: object
+      required: [objectKeys]
+      properties:
+        objectKeys:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+
+    PresignedDownloadUrl:
+      type: object
+      required: [objectKey, downloadUrl]
+      properties:
+        objectKey:
+          type: string
+        downloadUrl:
+          type: string
+          format: uri
+
+    CreateDownloadUrlsResponse:
+      type: object
+      required: [downloads]
+      properties:
+        downloads:
+          type: array
+          items:
+            $ref: "#/components/schemas/PresignedDownloadUrl"
+
+    HealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/HealthData"
+
+    AuthHealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AuthHealthData"
+
+    MessageResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MessageData"
+
+    LoginSessionApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/LoginSessionResponse"
+
+    UserApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/UserResponse"
+
+    PasswordResetRequestApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PasswordResetRequestResponse"
+
+    UploadUrlsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreateUploadUrlsResponse"
+
+    DownloadUrlsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreateDownloadUrlsResponse"
+
+    ErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"

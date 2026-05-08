@@ -1,0 +1,29 @@
+[versions]
+aws = "2.32.15"
+h2 = "2.4.240"
+flyway = "10.20.1"
+hikari = "6.3.0"
+koin = "4.2.1"
+kotlin = "2.3.20"
+logback = "1.5.21"
+postgres = "42.7.10"
+slf4j = "2.0.17"
+ucasoft = "0.59.4"
+
+[libraries]
+aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws" }
+aws-auth = { module = "software.amazon.awssdk:auth", version.ref = "aws" }
+h2database-h2 = { module = "com.h2database:h2", version.ref = "h2" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+hikari-cp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
+koin-loggerSlf4j = { module = "io.insert-koin:koin-logger-slf4j", version.ref = "koin" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgres" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+ucasoft-ktorSimpleCache = { module = "com.ucasoft.ktor:ktor-simple-cache", version.ref = "ucasoft" }
+ucasoft-ktorSimpleRedisCache = { module = "com.ucasoft.ktor:ktor-simple-redis-cache", version.ref = "ucasoft" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
