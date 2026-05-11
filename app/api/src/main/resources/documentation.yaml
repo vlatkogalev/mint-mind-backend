@@ -3,7 +3,7 @@ info:
   title: "Ktor Backend API"
   version: "1.0.0"
 servers:
-  - url: "http://0.0.0.0:8080"
+  - url: "/"
 tags:
   - name: "Health"
   - name: "Auth"
