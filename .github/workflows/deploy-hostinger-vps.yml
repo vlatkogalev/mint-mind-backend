@@ -38,6 +38,7 @@ jobs:
             HOSTINGER_PROJECT_NAME=${{ vars.HOSTINGER_PROJECT_NAME || secrets.HOSTINGER_PROJECT_NAME || github.event.repository.name }}
             APP_IMAGE=${{ steps.image.outputs.repo }}
             IMAGE_TAG=${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+            APP_PORT=${{ vars.APP_PORT || 8081 }}
             DB_URL=${{ secrets.DB_URL }}
             DB_USER=${{ secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
