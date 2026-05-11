@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":platform:core"))
     implementation(ktorLibs.server.core)
     implementation(libs.flyway.core)
+    implementation(libs.flyway.postgresql)
     implementation(libs.hikari.cp)
     implementation(libs.h2database.h2)
     implementation(libs.postgresql)
