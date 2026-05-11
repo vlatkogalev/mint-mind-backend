@@ -23,6 +23,10 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Compute image repository
+        id: image
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY,,}-app" >> "$GITHUB_OUTPUT"
+
       - name: Deploy to Hostinger VPS
         uses: hostinger/deploy-on-vps@v2
         with:
@@ -31,7 +35,9 @@ jobs:
           project-name: ${{ vars.HOSTINGER_PROJECT_NAME || secrets.HOSTINGER_PROJECT_NAME || github.event.repository.name }}
           docker-compose-path: docker-compose.yml
           environment-variables: |
-            IMAGE_TAG=${{ github.sha }}
+            HOSTINGER_PROJECT_NAME=${{ vars.HOSTINGER_PROJECT_NAME || secrets.HOSTINGER_PROJECT_NAME || github.event.repository.name }}
+            APP_IMAGE=${{ steps.image.outputs.repo }}
+            IMAGE_TAG=${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
             DB_URL=${{ secrets.DB_URL }}
             DB_USER=${{ secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
