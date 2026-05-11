@@ -4,8 +4,8 @@ plugins {
     alias(ktorLibs.plugins.ktor) apply false
 }
 
-group = "com.vlatkogalev.template"
-version = "1.0.0-SNAPSHOT"
+group = "com.vlatkogalev.mintmind"
+version = "1.0.0"
 
 subprojects {
     group = rootProject.group

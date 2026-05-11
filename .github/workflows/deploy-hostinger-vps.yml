@@ -27,8 +27,8 @@ jobs:
         uses: hostinger/deploy-on-vps@v2
         with:
           api-key: ${{ secrets.HOSTINGER_API_KEY }}
-          virtual-machine: ${{ vars.HOSTINGER_VM_ID }}
-          project-name: ${{ vars.HOSTINGER_PROJECT_NAME || github.event.repository.name }}
+          virtual-machine: ${{ vars.HOSTINGER_VM_ID || secrets.HOSTINGER_VM_ID }}
+          project-name: ${{ vars.HOSTINGER_PROJECT_NAME || secrets.HOSTINGER_PROJECT_NAME || github.event.repository.name }}
           docker-compose-path: docker-compose.yml
           environment-variables: |
             IMAGE_TAG=${{ github.sha }}
@@ -38,4 +38,16 @@ jobs:
             POSTGRES_DB=${{ secrets.POSTGRES_DB }}
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            AUTH_SECRET=${{ secrets.AUTH_SECRET }}
+            AUTH_ISSUER=${{ vars.AUTH_ISSUER || secrets.AUTH_ISSUER }}
+            AUTH_AUDIENCE=${{ vars.AUTH_AUDIENCE || secrets.AUTH_AUDIENCE }}
+            AUTH_REALM=${{ vars.AUTH_REALM || secrets.AUTH_REALM }}
+            AUTH_ACCESS_TOKEN_TTL_SECONDS=${{ vars.AUTH_ACCESS_TOKEN_TTL_SECONDS || secrets.AUTH_ACCESS_TOKEN_TTL_SECONDS }}
+            AUTH_REFRESH_TOKEN_TTL_SECONDS=${{ vars.AUTH_REFRESH_TOKEN_TTL_SECONDS || secrets.AUTH_REFRESH_TOKEN_TTL_SECONDS }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION=${{ vars.AWS_REGION || secrets.AWS_REGION }}
+            AWS_BUCKET=${{ vars.AWS_BUCKET || secrets.AWS_BUCKET }}
+            AWS_UPLOAD_URL_TTL_SECONDS=${{ vars.AWS_UPLOAD_URL_TTL_SECONDS || secrets.AWS_UPLOAD_URL_TTL_SECONDS }}
+            AWS_DOWNLOAD_URL_TTL_SECONDS=${{ vars.AWS_DOWNLOAD_URL_TTL_SECONDS || secrets.AWS_DOWNLOAD_URL_TTL_SECONDS }}
             KTOR_ENV=docker

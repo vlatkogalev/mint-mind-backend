@@ -1,4 +1,4 @@
-rootProject.name = "ktor-backend-template"
+rootProject.name = "mint-mind-backend"
 
 pluginManagement {
     repositories {
