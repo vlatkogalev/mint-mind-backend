@@ -4,7 +4,7 @@ WORKDIR /workspace
 
 COPY . .
 
-RUN gradle :app:api:fatJar --no-daemon
+RUN chmod +x gradlew && ./gradlew :app:api:buildFatJar --no-daemon
 
 FROM eclipse-temurin:21-jre
 
