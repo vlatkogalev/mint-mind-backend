@@ -23,7 +23,7 @@ ktor {
 
 tasks.withType<ShadowJar>().configureEach {
     mergeServiceFiles()
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
 dependencies {

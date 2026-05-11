@@ -25,14 +25,9 @@ fun createDataSource(config: DatabaseConfig = loadDatabaseConfig()): DataSource 
 }
 
 fun runMigrations(dataSource: DataSource) {
-    val flywayClassLoader = Thread.currentThread().contextClassLoader ?: Flyway::class.java.classLoader
-
-    Flyway.configure(flywayClassLoader)
+    Flyway.configure()
         .dataSource(dataSource)
         .locations("classpath:db/migration")
-        .sqlMigrationPrefix("V")
-        .sqlMigrationSeparator("__")
-        .sqlMigrationSuffixes(".sql")
         .load()
         .migrate()
 }
