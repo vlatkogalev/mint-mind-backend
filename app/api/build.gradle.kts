@@ -1,3 +1,5 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -17,6 +19,11 @@ ktor {
     fatJar {
         archiveFileName.set("app-all.jar")
     }
+}
+
+tasks.withType<ShadowJar>().configureEach {
+    mergeServiceFiles()
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 dependencies {
