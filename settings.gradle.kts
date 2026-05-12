@@ -23,12 +23,13 @@ plugins {
 include(
     ":platform:core",
     ":platform:auth",
-    ":platform:storage",
-    ":platform:billing",
     ":platform:database",
     ":platform:logging",
+    ":domain:user",
+    ":domain:image",
+    ":domain:billing",
+    ":data:postgres",
+    ":data:s3",
     ":app:api",
-    ":app:domain",
-    ":app:data",
     ":app:jobs",
 )

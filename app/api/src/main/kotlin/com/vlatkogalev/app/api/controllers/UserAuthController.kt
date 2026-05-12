@@ -9,10 +9,10 @@ import com.vlatkogalev.app.api.dto.RegisterRequest
 import com.vlatkogalev.app.api.dto.RequestPasswordResetRequest
 import com.vlatkogalev.app.api.dto.UserResponse
 import com.vlatkogalev.app.api.routes.ApiTags
-import com.vlatkogalev.app.domain.model.User
-import com.vlatkogalev.app.domain.service.LoginSession
-import com.vlatkogalev.app.domain.service.PasswordResetRequestResult
-import com.vlatkogalev.app.domain.service.UserAuthService
+import com.vlatkogalev.domain.user.model.LoginSession
+import com.vlatkogalev.domain.user.model.PasswordResetRequestResult
+import com.vlatkogalev.domain.user.model.User
+import com.vlatkogalev.domain.user.service.UserAuthService
 import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.Result

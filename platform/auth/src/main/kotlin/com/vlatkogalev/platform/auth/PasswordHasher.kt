@@ -1,5 +1,6 @@
 package com.vlatkogalev.platform.auth
 
+import com.vlatkogalev.domain.user.service.UserPasswordHasher
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.SecretKeyFactory
@@ -8,17 +9,17 @@ import javax.crypto.spec.PBEKeySpec
 class PasswordHasher(
     private val iterations: Int = 65_536,
     private val keyLength: Int = 256,
-) {
+) : UserPasswordHasher {
     private val random = SecureRandom()
 
-    fun hash(password: String): String {
+    override fun hash(password: String): String {
         val salt = ByteArray(16)
         random.nextBytes(salt)
         val hash = pbkdf2(password, salt)
         return "$iterations:${Base64.getEncoder().encodeToString(salt)}:${Base64.getEncoder().encodeToString(hash)}"
     }
 
-    fun verify(password: String, encodedHash: String): Boolean {
+    override fun verify(password: String, encodedHash: String): Boolean {
         val parts = encodedHash.split(":")
         if (parts.size != 3) return false
 

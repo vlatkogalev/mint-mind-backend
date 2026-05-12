@@ -9,5 +9,4 @@ kotlin {
 dependencies {
     implementation(project(":platform:core"))
     implementation(project(":domain:user"))
-    implementation(project(":data:postgres"))
 }

@@ -29,13 +29,11 @@ tasks.withType<ShadowJar>().configureEach {
 dependencies {
     implementation(project(":platform:core"))
     implementation(project(":platform:auth"))
-    implementation(project(":platform:storage"))
     implementation(project(":platform:database"))
     implementation(project(":platform:logging"))
-    implementation(project(":platform:billing"))
-    implementation(project(":app:domain"))
-    implementation(project(":app:data"))
-    implementation(project(":app:jobs"))
+    implementation(project(":domain:user"))
+    implementation(project(":data:postgres"))
+    implementation(project(":data:s3"))
 
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.netty)

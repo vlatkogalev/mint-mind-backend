@@ -5,7 +5,6 @@ import com.vlatkogalev.app.api.routes.configureRoutes
 import com.vlatkogalev.platform.auth.configureAuth
 import com.vlatkogalev.platform.core.error.configureCore
 import com.vlatkogalev.platform.logging.configureLogging
-import com.vlatkogalev.platform.storage.configureStorage
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.server.application.Application
@@ -39,6 +38,5 @@ fun Application.module() {
     configureCore()
     configureLogging()
     configureAuth()
-    configureStorage()
     configureRoutes()
 }

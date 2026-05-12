@@ -11,8 +11,8 @@ import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.config.AwsConfig
 import com.vlatkogalev.platform.core.config.loadAwsConfig
+import com.vlatkogalev.platform.core.storage.FileStorageService
 import com.vlatkogalev.platform.core.time.TimeProvider
-import com.vlatkogalev.platform.storage.FileStorageService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
