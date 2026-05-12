@@ -2,6 +2,7 @@
 
 package com.vlatkogalev.app.api.routes
 
+import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
 import com.vlatkogalev.app.api.controllers.UserAuthController
 import com.vlatkogalev.platform.core.ApiResponse
@@ -22,17 +23,20 @@ object ApiTags {
     const val HEALTH = "Health"
     const val AUTH = "Auth"
     const val STORAGE = "Storage"
+    const val WEBHOOKS = "Webhooks"
 }
 
 fun Application.configureRoutes() {
     val userAuthController by inject<UserAuthController>()
     val storageController by inject<StorageController>()
+    val revenueCatWebhookController by inject<RevenueCatWebhookController>()
     val timeProvider by inject<TimeProvider>()
 
     routing {
         healthRoutes(timeProvider)
         authRoutes(userAuthController, timeProvider)
         storageRoutes(storageController)
+        webhookRoutes(revenueCatWebhookController)
         docsRoutes()
     }
 }
@@ -89,7 +93,14 @@ fun Routing.storageRoutes(controller: StorageController) {
     }
 }
 
+fun Routing.webhookRoutes(controller: RevenueCatWebhookController) {
+    route("/webhooks") {
+        controller.run {
+            registerRoutes()
+        }
+    }
+}
+
 fun Routing.docsRoutes() {
     swaggerUI(path = "/swagger", swaggerFile = "documentation.yaml")
 }
-

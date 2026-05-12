@@ -2,11 +2,10 @@ package com.vlatkogalev.domain.user.model
 
 import java.util.UUID
 
-data class User(
+data class UserProfile(
     val id: UUID,
-    val email: String,
+    val userId: UUID,
     val firstName: String,
     val lastName: String,
     val avatarUrl: String?,
-    val emailVerified: Boolean,
 )

@@ -1,5 +1,6 @@
 [versions]
 aws = "2.32.15"
+bcrypt = "0.10.2"
 h2 = "2.4.240"
 flyway = "10.20.1"
 hikari = "6.3.0"
@@ -13,6 +14,7 @@ ucasoft = "0.59.4"
 [libraries]
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws" }
 aws-auth = { module = "software.amazon.awssdk:auth", version.ref = "aws" }
+bcrypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
 h2database-h2 = { module = "com.h2database:h2", version.ref = "h2" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }

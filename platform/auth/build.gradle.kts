@@ -12,4 +12,5 @@ dependencies {
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.auth)
     implementation(ktorLibs.server.auth.jwt)
+    implementation(libs.bcrypt)
 }

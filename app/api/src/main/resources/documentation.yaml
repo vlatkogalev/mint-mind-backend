@@ -1,6 +1,6 @@
 openapi: "3.0.3"
 info:
-  title: "Ktor Backend API"
+  title: "Mint Mind Backend API"
   version: "1.0.0"
 servers:
   - url: "/"
@@ -8,6 +8,7 @@ tags:
   - name: "Health"
   - name: "Auth"
   - name: "Storage"
+  - name: "Webhooks"
 paths:
   /health:
     get:
@@ -37,6 +38,7 @@ paths:
     post:
       tags: ["Auth"]
       summary: "Register a new user"
+      description: "Creates a user, profile, free active subscription, and stores an email verification token. Secret auth fields are never returned."
       requestBody:
         required: true
         content:
@@ -49,7 +51,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/UserApiResponse"
         "400":
           description: "Bad request"
           content:
@@ -61,6 +63,7 @@ paths:
     post:
       tags: ["Auth"]
       summary: "Authenticate a user and issue tokens"
+      description: "Requires a verified email address. Returns a short-lived JWT access token and a long-lived refresh token."
       requestBody:
         required: true
         content:
@@ -76,6 +79,56 @@ paths:
                 $ref: "#/components/schemas/LoginSessionApiResponse"
         "401":
           description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/refresh:
+    post:
+      tags: ["Auth"]
+      summary: "Refresh an access token"
+      description: "Validates the refresh token against the stored refresh token hash and rotates it."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginSessionApiResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/verify-email:
+    get:
+      tags: ["Auth"]
+      summary: "Verify an email address"
+      parameters:
+        - name: "token"
+          in: "query"
+          required: true
+          schema:
+            type: string
+          description: "Email verification token sent during registration."
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: "Bad request"
           content:
             application/json:
               schema:
@@ -150,6 +203,33 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      tags: ["Auth"]
+      summary: "Logout the authenticated user"
+      description: "Clears the stored refresh token hash for the authenticated user."
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
           content:
             application/json:
               schema:
@@ -257,12 +337,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /webhooks/revenuecat:
+    post:
+      tags: ["Webhooks"]
+      summary: "Handle RevenueCat subscription webhooks"
+      description: "Updates mirrored subscription state from RevenueCat events. Requires Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>."
+      security:
+        - revenueCatWebhookAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevenueCatWebhookRequest"
+      responses:
+        "200":
+          description: "Processed or ignored"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    revenueCatWebhookAuth:
+      type: http
+      scheme: bearer
+      description: "RevenueCat webhook secret configured with REVENUECAT_WEBHOOK_SECRET."
 
   schemas:
     ApiResponseBase:
@@ -303,15 +414,22 @@ components:
 
     RegisterRequest:
       type: object
-      required: [email, password, fullName]
+      required: [email, password, firstName, lastName]
       properties:
         email:
           type: string
           format: email
+          example: "user@example.com"
         password:
           type: string
-        fullName:
+          format: password
+          minLength: 8
+        firstName:
           type: string
+          example: "Ada"
+        lastName:
+          type: string
+          example: "Lovelace"
 
     LoginRequest:
       type: object
@@ -320,7 +438,16 @@ components:
         email:
           type: string
           format: email
+          example: "user@example.com"
         password:
+          type: string
+          format: password
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
           type: string
 
     RequestPasswordResetRequest:
@@ -339,6 +466,8 @@ components:
           type: string
         newPassword:
           type: string
+          format: password
+          minLength: 8
 
     DeleteAccountRequest:
       type: object
@@ -353,27 +482,39 @@ components:
       properties:
         accessToken:
           type: string
+          description: "JWT access token. Default TTL is 900 seconds."
         refreshToken:
           type: string
+          description: "Long-lived refresh token. Store securely on the client."
         accessTokenExpiresInSeconds:
           type: integer
           format: int64
+          example: 900
         refreshTokenExpiresInSeconds:
           type: integer
           format: int64
+          example: 2592000
 
     UserResponse:
       type: object
-      required: [id, email, fullName]
+      required: [id, email, firstName, lastName, emailVerified]
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
         email:
           type: string
           format: email
-        fullName:
+        firstName:
           type: string
+        lastName:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        emailVerified:
+          type: boolean
 
     PasswordResetRequestResponse:
       type: object
@@ -382,8 +523,43 @@ components:
         resetToken:
           type: string
           nullable: true
+          description: "Development/testing value if exposed by the implementation; clients should rely on email delivery."
         message:
           type: string
+
+    RevenueCatWebhookRequest:
+      type: object
+      required: [event]
+      properties:
+        event:
+          $ref: "#/components/schemas/RevenueCatWebhookEvent"
+
+    RevenueCatWebhookEvent:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, UNCANCELLATION]
+        app_user_id:
+          type: string
+          description: "RevenueCat customer ID. This should match subscriptions.rc_customer_id."
+        original_app_user_id:
+          type: string
+          description: "Fallback RevenueCat customer ID when app_user_id is absent."
+        expiration_at_ms:
+          type: integer
+          format: int64
+          nullable: true
+          description: "Subscription expiration timestamp in epoch milliseconds."
+        product_id:
+          type: string
+          nullable: true
+          description: "Used to infer plan when it contains free, pro, or enterprise."
+        entitlement_id:
+          type: string
+          nullable: true
+          description: "Used to infer plan when it contains free, pro, or enterprise."
 
     CreateUploadUrlsRequest:
       type: object

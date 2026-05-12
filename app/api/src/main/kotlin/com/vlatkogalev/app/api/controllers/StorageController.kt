@@ -1,3 +1,5 @@
+@file:OptIn(io.ktor.utils.io.ExperimentalKtorApi::class)
+
 package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.CreateDownloadUrlsRequest
@@ -34,7 +36,7 @@ class StorageController(
     fun Route.registerProtectedRoutes() {
         post("/upload-urls") {
             val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.userIdOrNull()?.toLongOrNull()
+            val userId = principal?.userIdOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@post
@@ -71,7 +73,7 @@ class StorageController(
 
         post("/download-urls") {
             val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.userIdOrNull()?.toLongOrNull()
+            val userId = principal?.userIdOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@post

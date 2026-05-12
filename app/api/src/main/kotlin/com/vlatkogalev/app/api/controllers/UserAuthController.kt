@@ -1,3 +1,5 @@
+@file:OptIn(io.ktor.utils.io.ExperimentalKtorApi::class)
+
 package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.ConfirmPasswordResetRequest
@@ -5,6 +7,7 @@ import com.vlatkogalev.app.api.dto.DeleteAccountRequest
 import com.vlatkogalev.app.api.dto.LoginRequest
 import com.vlatkogalev.app.api.dto.LoginSessionResponse
 import com.vlatkogalev.app.api.dto.PasswordResetRequestResponse
+import com.vlatkogalev.app.api.dto.RefreshTokenRequest
 import com.vlatkogalev.app.api.dto.RegisterRequest
 import com.vlatkogalev.app.api.dto.RequestPasswordResetRequest
 import com.vlatkogalev.app.api.dto.UserResponse
@@ -27,6 +30,7 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.openapi.describe
+import java.util.UUID
 
 class UserAuthController(
     private val userAuthService: UserAuthService,
@@ -35,12 +39,8 @@ class UserAuthController(
     fun Route.registerPublicRoutes() {
         post("/register") {
             val payload = call.receive<RegisterRequest>()
-            when (val result = userAuthService.register(payload.email, payload.password, payload.fullName)) {
-                is Result.Success -> call.respond(
-                    HttpStatusCode.Created,
-                    success(mapOf("message" to "Account registered successfully")),
-                )
-
+            when (val result = userAuthService.register(payload.email, payload.password, payload.firstName, payload.lastName)) {
+                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
@@ -57,6 +57,28 @@ class UserAuthController(
         }.describe {
             tag(ApiTags.AUTH)
             summary = "Authenticate a user and issue tokens"
+        }
+
+        post("/refresh") {
+            val payload = call.receive<RefreshTokenRequest>()
+            when (val result = userAuthService.refresh(payload.refreshToken)) {
+                is Result.Success -> call.respond(success(result.value.toResponse()))
+                is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.AUTH)
+            summary = "Refresh an access token"
+        }
+
+        get("/verify-email") {
+            val token = call.request.queryParameters["token"].orEmpty()
+            when (val result = userAuthService.verifyEmail(token)) {
+                is Result.Success -> call.respond(success(mapOf("message" to "Email verified")))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.AUTH)
+            summary = "Verify an email address"
         }
 
         post("/password-reset/request") {
@@ -84,8 +106,7 @@ class UserAuthController(
 
     fun Route.registerProtectedRoutes() {
         get("/me") {
-            val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.userIdOrNull()?.toLongOrNull()
+            val userId = call.userUuidOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@get
@@ -100,9 +121,24 @@ class UserAuthController(
             summary = "Get the authenticated user's profile"
         }
 
+        post("/logout") {
+            val userId = call.userUuidOrNull()
+            if (userId == null) {
+                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                return@post
+            }
+
+            when (val result = userAuthService.logout(userId)) {
+                is Result.Success -> call.respond(success(mapOf("message" to "Logged out")))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.AUTH)
+            summary = "Logout the authenticated user"
+        }
+
         delete("/account") {
-            val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.userIdOrNull()?.toLongOrNull()
+            val userId = call.userUuidOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@delete
@@ -124,6 +160,9 @@ class UserAuthController(
         }
     }
 
+    private fun io.ktor.server.application.ApplicationCall.userUuidOrNull(): UUID? =
+        principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+
     private fun LoginSession.toResponse(): LoginSessionResponse =
         LoginSessionResponse(
             accessToken = accessToken,
@@ -134,9 +173,12 @@ class UserAuthController(
 
     private fun User.toResponse(): UserResponse =
         UserResponse(
-            id = id,
+            id = id.toString(),
             email = email,
-            fullName = fullName,
+            firstName = firstName,
+            lastName = lastName,
+            avatarUrl = avatarUrl,
+            emailVerified = emailVerified,
         )
 
     private fun PasswordResetRequestResult.toResponse(): PasswordResetRequestResponse =

@@ -1,37 +1,45 @@
 package com.vlatkogalev.domain.user.service
 
 import com.vlatkogalev.domain.user.model.LoginSession
+import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetRequestResult
 import com.vlatkogalev.domain.user.model.User
 import com.vlatkogalev.domain.user.model.UserAccount
-import com.vlatkogalev.domain.user.repository.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.Base64
 import java.util.UUID
 
 class UserAuthServiceImpl(
     private val userRepository: UserRepository,
     private val passwordHasher: UserPasswordHasher,
     private val jwtTokenProvider: UserTokenProvider,
+    private val emailVerificationSender: EmailVerificationSender,
 ) : UserAuthService {
-    override fun register(email: String, password: String, fullName: String): Result<Unit> {
+    override fun register(email: String, password: String, firstName: String, lastName: String): Result<User> {
         val normalizedEmail = email.trim().lowercase()
-        if (!normalizedEmail.contains('@')) return Result.Failure("Invalid email")
-        if (fullName.isBlank()) return Result.Failure("Full name is required")
+        if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
+        if (firstName.isBlank()) return Result.Failure("First name is required")
+        if (lastName.isBlank()) return Result.Failure("Last name is required")
         if (password.length < 8) return Result.Failure("Password must be at least 8 characters")
 
         return try {
             if (userRepository.findByEmail(normalizedEmail) != null) {
                 Result.Failure("Email already registered")
             } else {
-                userRepository.create(
+                val verificationToken = UUID.randomUUID().toString()
+                val user = userRepository.create(
                     email = normalizedEmail,
-                    fullName = fullName.trim(),
+                    firstName = firstName.trim(),
+                    lastName = lastName.trim(),
                     passwordHash = passwordHasher.hash(password),
+                    verificationToken = verificationToken,
                 )
-                Result.Success(Unit)
+                emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
+                Result.Success(user.toUser())
             }
         } catch (ex: Exception) {
             Result.Failure(ex.message ?: "Failed to register", ex)
@@ -46,12 +54,13 @@ class UserAuthServiceImpl(
 
             if (!passwordHasher.verify(password, user.passwordHash)) {
                 Result.Failure("Invalid email or password")
+            } else if (!user.emailVerified) {
+                Result.Failure("Email verification required")
             } else {
-                val refreshToken = jwtTokenProvider.generateRefreshToken()
-                userRepository.saveRefreshToken(
+                val refreshToken = jwtTokenProvider.generateRefreshToken(user.id)
+                userRepository.saveRefreshTokenHash(
                     userId = user.id,
-                    token = refreshToken,
-                    expiresAt = Instant.now().plus(jwtTokenProvider.refreshTokenExpiresInSeconds(), ChronoUnit.SECONDS),
+                    tokenHash = hashToken(refreshToken),
                 )
                 Result.Success(user.toLoginSession(refreshToken))
             }
@@ -60,7 +69,43 @@ class UserAuthServiceImpl(
         }
     }
 
-    override fun getUserProfile(userId: Long): Result<User> =
+    override fun refresh(refreshToken: String): Result<LoginSession> =
+        try {
+            val parsedUserId = runCatching { UUID.fromString(refreshToken.substringBefore(':')) }.getOrNull()
+                ?: return Result.Failure("Invalid refresh token")
+            val rawToken = refreshToken.substringAfter(':', missingDelimiterValue = "")
+            if (rawToken.isBlank()) return Result.Failure("Invalid refresh token")
+
+            val user = userRepository.findById(parsedUserId) ?: return Result.Failure("Invalid refresh token")
+            val storedTokenHash = user.refreshTokenHash ?: return Result.Failure("Invalid refresh token")
+            if (!constantTimeEquals(hashToken(refreshToken), storedTokenHash)) {
+                return Result.Failure("Invalid refresh token")
+            }
+
+            val rotatedRefreshToken = jwtTokenProvider.generateRefreshToken(user.id)
+            userRepository.saveRefreshTokenHash(user.id, hashToken(rotatedRefreshToken))
+            Result.Success(user.toLoginSession(rotatedRefreshToken))
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to refresh token", ex)
+        }
+
+    override fun verifyEmail(token: String): Result<Unit> =
+        try {
+            if (token.isBlank()) return Result.Failure("Verification token is required")
+            if (userRepository.verifyEmail(token)) Result.Success(Unit) else Result.Failure("Invalid verification token")
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to verify email", ex)
+        }
+
+    override fun logout(userId: UUID): Result<Unit> =
+        try {
+            userRepository.clearRefreshTokenHash(userId)
+            Result.Success(Unit)
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to logout", ex)
+        }
+
+    override fun getUserProfile(userId: UUID): Result<User> =
         try {
             val user = userRepository.findById(userId) ?: return Result.Failure("User not found")
             Result.Success(user.toUser())
@@ -100,14 +145,24 @@ class UserAuthServiceImpl(
         }
     }
 
-    override fun deleteAccount(userId: Long): Result<Unit> =
+    override fun deleteAccount(userId: UUID): Result<Unit> =
         try {
             if (userRepository.deleteById(userId)) Result.Success(Unit) else Result.Failure("User not found")
         } catch (ex: Exception) {
             Result.Failure(ex.message ?: "Failed to delete account", ex)
         }
 
-    private fun UserAccount.toUser(): User = User(id = id, email = email, fullName = fullName)
+    private fun UserAccount.toUser(): User {
+        val profile = profile ?: error("User profile is missing")
+        return User(
+            id = id,
+            email = email,
+            firstName = profile.firstName,
+            lastName = profile.lastName,
+            avatarUrl = profile.avatarUrl,
+            emailVerified = emailVerified,
+        )
+    }
 
     private fun UserAccount.toLoginSession(refreshToken: String): LoginSession =
         LoginSession(
@@ -116,4 +171,18 @@ class UserAuthServiceImpl(
             accessTokenExpiresInSeconds = jwtTokenProvider.accessTokenExpiresInSeconds(),
             refreshTokenExpiresInSeconds = jwtTokenProvider.refreshTokenExpiresInSeconds(),
         )
+
+    private fun hashToken(token: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(token.toByteArray(Charsets.UTF_8))
+        return Base64.getEncoder().encodeToString(digest)
+    }
+
+    private fun constantTimeEquals(left: String, right: String): Boolean =
+        MessageDigest.isEqual(left.toByteArray(Charsets.UTF_8), right.toByteArray(Charsets.UTF_8))
+
+    private fun isValidEmail(email: String): Boolean = EMAIL_REGEX.matches(email)
+
+    companion object {
+        private val EMAIL_REGEX = Regex("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", RegexOption.IGNORE_CASE)
+    }
 }

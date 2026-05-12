@@ -26,9 +26,16 @@ fun createDataSource(config: DatabaseConfig = loadDatabaseConfig()): DataSource 
 }
 
 fun runMigrations(dataSource: DataSource) {
+    val vendor = dataSource.connection.use { connection ->
+        when (connection.metaData.databaseProductName.lowercase()) {
+            "h2" -> "h2"
+            else -> "postgresql"
+        }
+    }
+
     Flyway.configure()
         .dataSource(dataSource)
-        .locations("classpath:db/migration")
+        .locations("classpath:db/migration/$vendor")
         .load()
         .migrate()
 }

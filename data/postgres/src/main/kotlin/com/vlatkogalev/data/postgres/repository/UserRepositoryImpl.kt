@@ -3,34 +3,60 @@ package com.vlatkogalev.data.postgres.repository
 import com.vlatkogalev.data.postgres.daos.UserQueries
 import com.vlatkogalev.data.postgres.entities.PasswordResetTokenRecord
 import com.vlatkogalev.data.postgres.entities.UserRecord
+import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
 import com.vlatkogalev.domain.user.model.UserAccount
-import com.vlatkogalev.domain.user.repository.PasswordResetConfirmationResult
+import com.vlatkogalev.domain.user.model.UserProfile
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.database.withTransaction
 import java.time.Instant
+import java.util.*
 import javax.sql.DataSource
 
 class UserRepositoryImpl(
     private val queries: UserQueries,
     private val dataSource: DataSource,
 ) : UserRepository {
-    override fun findById(userId: Long): UserAccount? = queries.findById(userId)?.toUserAccount()
+    override fun findById(userId: UUID): UserAccount? = queries.findById(userId)?.toUserAccount()
 
     override fun findByEmail(email: String): UserAccount? = queries.findByEmail(email)?.toUserAccount()
 
-    override fun create(email: String, fullName: String, passwordHash: String): UserAccount =
-        queries.create(email, fullName, passwordHash).toUserAccount()
+    override fun findByVerificationToken(token: String): UserAccount? = queries.findByVerificationToken(token)?.toUserAccount()
 
-    override fun saveRefreshToken(userId: Long, token: String, expiresAt: Instant) {
-        queries.saveRefreshToken(userId, token, expiresAt)
+    override fun create(
+        email: String,
+        firstName: String,
+        lastName: String,
+        passwordHash: String,
+        verificationToken: String,
+    ): UserAccount =
+        dataSource.withTransaction { connection ->
+            val userId = UUID.randomUUID()
+            queries.create(
+                connection = connection,
+                userId = userId,
+                profileId = UUID.randomUUID(),
+                subscriptionId = UUID.randomUUID(),
+                email = email,
+                firstName = firstName,
+                lastName = lastName,
+                passwordHash = passwordHash,
+                verificationToken = verificationToken,
+                rcCustomerId = userId.toString(),
+            ).toUserAccount()
+        }
+
+    override fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
+        queries.saveRefreshTokenHash(userId, tokenHash)
     }
 
-    override fun revokeRefreshTokensForUser(userId: Long) {
-        queries.revokeRefreshTokensForUser(userId)
+    override fun clearRefreshTokenHash(userId: UUID) {
+        queries.clearRefreshTokenHash(userId)
     }
 
-    override fun upsertPasswordResetToken(userId: Long, token: String, expiresAt: Instant) {
+    override fun verifyEmail(token: String): Boolean = queries.verifyEmail(token)
+
+    override fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant) {
         queries.upsertPasswordResetToken(userId, token, expiresAt)
     }
 
@@ -41,7 +67,7 @@ class UserRepositoryImpl(
         queries.consumePasswordResetToken(token)
     }
 
-    override fun updatePassword(userId: Long, newPasswordHash: String) {
+    override fun updatePassword(userId: UUID, newPasswordHash: String) {
         queries.updatePassword(userId, newPasswordHash)
     }
 
@@ -60,18 +86,29 @@ class UserRepositoryImpl(
 
             queries.updatePassword(connection, resetToken.userId, newPasswordHash)
             queries.consumePasswordResetToken(connection, token)
-            queries.revokeRefreshTokensForUser(connection, resetToken.userId)
+            queries.clearRefreshTokenHash(connection, resetToken.userId)
             PasswordResetConfirmationResult.SUCCESS
         }
 
-    override fun deleteById(userId: Long): Boolean = queries.deleteById(userId)
+    override fun deleteById(userId: UUID): Boolean = queries.deleteById(userId)
 
     private fun UserRecord.toUserAccount(): UserAccount =
         UserAccount(
             id = id,
             email = email,
-            fullName = fullName,
             passwordHash = passwordHash,
+            emailVerified = emailVerified,
+            verificationToken = verificationToken,
+            refreshTokenHash = refreshTokenHash,
+            profile = profileId?.let { id ->
+                UserProfile(
+                    id = id,
+                    userId = this.id,
+                    firstName = firstName.orEmpty(),
+                    lastName = lastName.orEmpty(),
+                    avatarUrl = avatarUrl,
+                )
+            },
         )
 
     private fun PasswordResetTokenRecord.toPasswordResetToken(): PasswordResetToken =

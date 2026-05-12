@@ -1,36 +1,41 @@
 package com.vlatkogalev.domain.user.repository
 
+import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
 import com.vlatkogalev.domain.user.model.UserAccount
 import java.time.Instant
-
+import java.util.UUID
 
 interface UserRepository {
-    fun findById(userId: Long): UserAccount?
+    fun findById(userId: UUID): UserAccount?
 
     fun findByEmail(email: String): UserAccount?
 
-    fun create(email: String, fullName: String, passwordHash: String): UserAccount
+    fun findByVerificationToken(token: String): UserAccount?
 
-    fun saveRefreshToken(userId: Long, token: String, expiresAt: Instant)
+    fun create(
+        email: String,
+        firstName: String,
+        lastName: String,
+        passwordHash: String,
+        verificationToken: String,
+    ): UserAccount
 
-    fun revokeRefreshTokensForUser(userId: Long)
+    fun saveRefreshTokenHash(userId: UUID, tokenHash: String)
 
-    fun upsertPasswordResetToken(userId: Long, token: String, expiresAt: Instant)
+    fun clearRefreshTokenHash(userId: UUID)
+
+    fun verifyEmail(token: String): Boolean
+
+    fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant)
 
     fun findPasswordResetToken(token: String): PasswordResetToken?
 
     fun consumePasswordResetToken(token: String)
 
-    fun updatePassword(userId: Long, newPasswordHash: String)
+    fun updatePassword(userId: UUID, newPasswordHash: String)
 
     fun confirmPasswordReset(token: String, newPasswordHash: String): PasswordResetConfirmationResult
 
-    fun deleteById(userId: Long): Boolean
-}
-
-enum class PasswordResetConfirmationResult {
-    SUCCESS,
-    INVALID_TOKEN,
-    EXPIRED_TOKEN,
+    fun deleteById(userId: UUID): Boolean
 }
