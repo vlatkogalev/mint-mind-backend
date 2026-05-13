@@ -13,6 +13,7 @@ import com.vlatkogalev.app.api.dto.RequestPasswordResetRequest
 import com.vlatkogalev.app.api.dto.ResendVerificationRequest
 import com.vlatkogalev.app.api.dto.UserResponse
 import com.vlatkogalev.app.api.routes.ApiTags
+import com.vlatkogalev.app.api.util.HtmlTemplates
 import com.vlatkogalev.domain.user.model.LoginSession
 import com.vlatkogalev.domain.user.model.PasswordResetRequestResult
 import com.vlatkogalev.domain.user.model.User
@@ -21,11 +22,13 @@ import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.time.TimeProvider
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -40,7 +43,8 @@ class UserAuthController(
     fun Route.registerPublicRoutes() {
         post("/register") {
             val payload = call.receive<RegisterRequest>()
-            when (val result = userAuthService.register(payload.email, payload.password, payload.firstName, payload.lastName)) {
+            when (val result =
+                userAuthService.register(payload.email, payload.password, payload.firstName, payload.lastName)) {
                 is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
@@ -73,13 +77,13 @@ class UserAuthController(
 
         get("/verify-email") {
             val token = call.request.queryParameters["token"].orEmpty()
-            when (val result = userAuthService.verifyEmail(token)) {
-                is Result.Success -> call.respond(success(mapOf("message" to "Email verified")))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+            when (userAuthService.verifyEmail(token)) {
+                is Result.Success -> call.respondText(HtmlTemplates.emailVerified, ContentType.Text.Html)
+                is Result.Failure -> call.respondText(HtmlTemplates.emailVerificationFailed, ContentType.Text.Html, HttpStatusCode.BadRequest)
             }
         }.describe {
             tag(ApiTags.AUTH)
-            summary = "Verify an email address"
+            summary = "Verify email address"
         }
 
         post("/resend-verification") {
@@ -88,6 +92,7 @@ class UserAuthController(
                 is Result.Success -> call.respond(
                     success(mapOf("message" to "If your email is registered and unverified, a new verification email has been sent")),
                 )
+
                 is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, error(result.reason))
             }
         }.describe {

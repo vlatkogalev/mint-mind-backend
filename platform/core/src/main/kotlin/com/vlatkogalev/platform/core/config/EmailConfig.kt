@@ -8,7 +8,7 @@ data class EmailConfig(
 
 fun loadEmailConfig(env: Map<String, String> = System.getenv()): EmailConfig =
     EmailConfig(
-        resendApiKey = envValue(env, "RESEND_API_KEY") ?: "test-resend-api-key", // error("RESEND_API_KEY env var is required"),
+        resendApiKey = envValue(env, "RESEND_API_KEY") ?: error("RESEND_API_KEY env var is required"),
         fromAddress = envValue(env, "EMAIL_FROM") ?: "noreply@mintmind.app",
         appBaseUrl = envValue(env, "APP_BASE_URL") ?: "http://localhost:8080",
     )
