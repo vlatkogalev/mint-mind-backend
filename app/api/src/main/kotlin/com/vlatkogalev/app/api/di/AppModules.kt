@@ -4,6 +4,7 @@ import com.vlatkogalev.app.api.controllers.CoinController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
 import com.vlatkogalev.app.api.controllers.UserAuthController
+import com.vlatkogalev.data.email.ResendEmailVerificationSender
 import com.vlatkogalev.data.postgres.daos.CoinQueries
 import com.vlatkogalev.data.postgres.daos.SubscriptionQueries
 import com.vlatkogalev.data.postgres.daos.UserQueries
@@ -18,13 +19,14 @@ import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.domain.coin.service.CoinServiceImpl
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.domain.user.service.EmailVerificationSender
-import com.vlatkogalev.domain.user.service.NoopEmailVerificationSender
 import com.vlatkogalev.domain.user.service.UserAuthService
 import com.vlatkogalev.domain.user.service.UserAuthServiceImpl
 import com.vlatkogalev.domain.user.service.UserPasswordHasher
 import com.vlatkogalev.domain.user.service.UserTokenProvider
 import com.vlatkogalev.platform.auth.JwtTokenProvider
 import com.vlatkogalev.platform.auth.PasswordHasher
+import com.vlatkogalev.platform.core.config.EmailConfig
+import com.vlatkogalev.platform.core.config.loadEmailConfig
 import com.vlatkogalev.platform.core.storage.FileStorageService
 import com.vlatkogalev.platform.core.time.TimeProvider
 import com.vlatkogalev.platform.database.createDataSource
@@ -41,7 +43,15 @@ val appModule = module {
 
     single<UserPasswordHasher> { PasswordHasher() }
     single<UserTokenProvider> { JwtTokenProvider() }
-    single<EmailVerificationSender> { NoopEmailVerificationSender() }
+    single<EmailConfig> { loadEmailConfig() }
+    single<EmailVerificationSender> {
+        val config = get<EmailConfig>()
+        ResendEmailVerificationSender(
+            apiKey = config.resendApiKey,
+            fromAddress = config.fromAddress,
+            appBaseUrl = config.appBaseUrl,
+        )
+    }
     single<TimeProvider> { TimeProvider.System }
 
     single { UserQueries(get()) }

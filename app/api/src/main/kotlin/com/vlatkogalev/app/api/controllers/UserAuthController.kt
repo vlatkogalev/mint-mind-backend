@@ -10,6 +10,7 @@ import com.vlatkogalev.app.api.dto.PasswordResetRequestResponse
 import com.vlatkogalev.app.api.dto.RefreshTokenRequest
 import com.vlatkogalev.app.api.dto.RegisterRequest
 import com.vlatkogalev.app.api.dto.RequestPasswordResetRequest
+import com.vlatkogalev.app.api.dto.ResendVerificationRequest
 import com.vlatkogalev.app.api.dto.UserResponse
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.user.model.LoginSession
@@ -79,6 +80,19 @@ class UserAuthController(
         }.describe {
             tag(ApiTags.AUTH)
             summary = "Verify an email address"
+        }
+
+        post("/resend-verification") {
+            val payload = call.receive<ResendVerificationRequest>()
+            when (val result = userAuthService.resendVerification(payload.email)) {
+                is Result.Success -> call.respond(
+                    success(mapOf("message" to "If your email is registered and unverified, a new verification email has been sent")),
+                )
+                is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.AUTH)
+            summary = "Resend email verification link"
         }
 
         post("/password-reset/request") {

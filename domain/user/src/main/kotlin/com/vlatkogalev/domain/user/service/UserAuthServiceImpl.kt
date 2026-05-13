@@ -97,6 +97,25 @@ class UserAuthServiceImpl(
             Result.Failure(ex.message ?: "Failed to verify email", ex)
         }
 
+    override fun resendVerification(email: String): Result<Unit> {
+        val normalizedEmail = email.trim().lowercase()
+        return try {
+            val user = userRepository.findByEmail(normalizedEmail)
+
+            if (user == null || user.emailVerified) {
+                return Result.Success(Unit)
+            }
+
+            val newToken = UUID.randomUUID().toString()
+            userRepository.updateVerificationToken(user.id, newToken)
+            emailVerificationSender.sendVerificationEmail(normalizedEmail, newToken)
+
+            Result.Success(Unit)
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to resend verification email", ex)
+        }
+    }
+
     override fun logout(userId: UUID): Result<Unit> =
         try {
             userRepository.clearRefreshTokenHash(userId)

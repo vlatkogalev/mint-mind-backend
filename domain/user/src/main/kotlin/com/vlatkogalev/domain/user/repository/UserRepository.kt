@@ -27,6 +27,8 @@ interface UserRepository {
 
     fun verifyEmail(token: String): Boolean
 
+    fun updateVerificationToken(userId: UUID, token: String)
+
     fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant)
 
     fun findPasswordResetToken(token: String): PasswordResetToken?

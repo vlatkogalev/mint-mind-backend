@@ -10,6 +10,7 @@ class ServerTest {
 
     @Test
     fun `health endpoint returns OK`() = testApplication {
+        System.setProperty("RESEND_API_KEY", "test-resend-api-key")
         application {
             module()
         }

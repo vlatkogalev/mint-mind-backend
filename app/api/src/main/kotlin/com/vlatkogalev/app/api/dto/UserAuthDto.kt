@@ -27,6 +27,11 @@ data class RequestPasswordResetRequest(
 )
 
 @Serializable
+data class ResendVerificationRequest(
+    val email: String,
+)
+
+@Serializable
 data class ConfirmPasswordResetRequest(
     val token: String,
     val newPassword: String,

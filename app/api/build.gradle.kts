@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":domain:billing"))
     implementation(project(":data:postgres"))
     implementation(project(":data:s3"))
+    implementation(project(":data:email"))
 
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.netty)

@@ -31,6 +31,7 @@ include(
     ":domain:billing",
     ":data:postgres",
     ":data:s3",
+    ":data:email",
     ":app:api",
     ":app:jobs",
 )

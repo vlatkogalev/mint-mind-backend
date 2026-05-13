@@ -127,6 +127,22 @@ class UserQueries(
             }
         }
 
+    fun updateVerificationToken(userId: UUID, token: String) {
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                UPDATE users
+                SET verification_token = ?, email_verified = FALSE
+                WHERE id = ?
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, token)
+                statement.setObject(2, userId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
     fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant) {
         dataSource.connection.use { connection ->
             connection.prepareStatement(

@@ -56,6 +56,10 @@ class UserRepositoryImpl(
 
     override fun verifyEmail(token: String): Boolean = queries.verifyEmail(token)
 
+    override fun updateVerificationToken(userId: UUID, token: String) {
+        queries.updateVerificationToken(userId, token)
+    }
+
     override fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant) {
         queries.upsertPasswordResetToken(userId, token, expiresAt)
     }

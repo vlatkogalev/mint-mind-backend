@@ -15,6 +15,8 @@ interface UserAuthService {
 
     fun verifyEmail(token: String): Result<Unit>
 
+    fun resendVerification(email: String): Result<Unit>
+
     fun logout(userId: UUID): Result<Unit>
 
     fun getUserProfile(userId: UUID): Result<User>

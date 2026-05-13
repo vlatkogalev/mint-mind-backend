@@ -9,6 +9,7 @@ kotlin = "2.3.20"
 logback = "1.5.21"
 postgres = "42.7.10"
 slf4j = "2.0.17"
+resend = "3.1.0"
 ucasoft = "0.59.4"
 
 [libraries]
@@ -23,6 +24,7 @@ koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
 koin-loggerSlf4j = { module = "io.insert-koin:koin-logger-slf4j", version.ref = "koin" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgres" }
+resend = { module = "com.resend:resend-java", version.ref = "resend" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 ucasoft-ktorSimpleCache = { module = "com.ucasoft.ktor:ktor-simple-cache", version.ref = "ucasoft" }
 ucasoft-ktorSimpleRedisCache = { module = "com.ucasoft.ktor:ktor-simple-redis-cache", version.ref = "ucasoft" }

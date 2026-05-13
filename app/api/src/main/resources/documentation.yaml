@@ -134,6 +134,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/resend-verification:
+    post:
+      tags: ["Auth"]
+      summary: "Resend email verification link"
+      description: "Always returns a generic success message to avoid account enumeration."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendVerificationRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/password-reset/request:
     post:
       tags: ["Auth"]
@@ -731,6 +756,14 @@ components:
           type: string
 
     RequestPasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResendVerificationRequest:
       type: object
       required: [email]
       properties:
