@@ -9,5 +9,6 @@ kotlin {
 dependencies {
     implementation(project(":domain:user"))
     implementation(project(":domain:billing"))
+    implementation(project(":domain:coin"))
     implementation(project(":platform:database"))
 }

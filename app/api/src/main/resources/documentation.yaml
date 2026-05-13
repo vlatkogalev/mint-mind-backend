@@ -1,14 +1,14 @@
 openapi: "3.0.3"
 info:
-  title: "Mint Mind Backend API"
+  title: "Mint Mind Documentation"
   version: "1.0.0"
-servers:
-  - url: "/"
 tags:
   - name: "Health"
   - name: "Auth"
   - name: "Storage"
   - name: "Webhooks"
+  - name: "Coins"
+  - name: "Collection"
 paths:
   /health:
     get:
@@ -337,6 +337,286 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /coins:
+    post:
+      tags: ["Coins"]
+      summary: "Save a recognized coin"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveCoinRequest"
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      tags: ["Coins"]
+      summary: "List coins in the authenticated user's collection"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "country"
+          in: "query"
+          required: false
+          schema:
+            type: string
+        - name: "year"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: "minValue"
+          in: "query"
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: "maxValue"
+          in: "query"
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: "limit"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+        - name: "offset"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 0
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinListApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /coins/{id}:
+    get:
+      tags: ["Coins"]
+      summary: "Get a coin by id"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags: ["Coins"]
+      summary: "Delete a coin"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /coins/{id}/notes:
+    patch:
+      tags: ["Coins"]
+      summary: "Update notes for a coin"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCoinNotesRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /coins/{id}/images:
+    get:
+      tags: ["Coins"]
+      summary: "Create presigned download URLs for a coin's images"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinImagesApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /collection/stats:
+    get:
+      tags: ["Collection"]
+      summary: "Get collection statistics"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionStatsApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /webhooks/revenuecat:
     post:
       tags: ["Webhooks"]
@@ -622,6 +902,163 @@ components:
           items:
             $ref: "#/components/schemas/PresignedDownloadUrl"
 
+    Confidence:
+      type: string
+      enum: [HIGH, MEDIUM, LOW]
+
+    CatalogueNumberDto:
+      type: object
+      required: [catalogueName, confidence]
+      properties:
+        catalogueName:
+          type: string
+        number:
+          type: string
+          nullable: true
+        confidence:
+          $ref: "#/components/schemas/Confidence"
+
+    RecognitionResultDto:
+      type: object
+      required: [overallConfidence, rawJson]
+      properties:
+        overallConfidence:
+          $ref: "#/components/schemas/Confidence"
+        countryOrIssuer:
+          type: string
+          nullable: true
+        denomination:
+          type: string
+          nullable: true
+        seriesName:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          format: int32
+          nullable: true
+        mintMark:
+          type: string
+          nullable: true
+        metalComposition:
+          type: string
+          nullable: true
+        estimatedGrade:
+          type: string
+          nullable: true
+        estimatedGradeValue:
+          type: string
+          nullable: true
+        rarityQualitative:
+          type: string
+          nullable: true
+        valueLowUsd:
+          type: number
+          format: double
+          nullable: true
+        valueHighUsd:
+          type: number
+          format: double
+          nullable: true
+        obverseDescription:
+          type: string
+          nullable: true
+        reverseDescription:
+          type: string
+          nullable: true
+        historicalContext:
+          type: string
+          nullable: true
+        rawJson:
+          type: string
+
+    SaveCoinRequest:
+      type: object
+      required: [obverseKey, reverseKey, recognitionResult]
+      properties:
+        obverseKey:
+          type: string
+        reverseKey:
+          type: string
+        recognitionResult:
+          $ref: "#/components/schemas/RecognitionResultDto"
+        catalogueNumbers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogueNumberDto"
+        notes:
+          type: string
+          nullable: true
+
+    UpdateCoinNotesRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          nullable: true
+
+    CoinResponse:
+      type: object
+      required: [id, userId, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        obverseKey:
+          type: string
+        reverseKey:
+          type: string
+        recognitionResult:
+          $ref: "#/components/schemas/RecognitionResultDto"
+        catalogueNumbers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogueNumberDto"
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CollectionStatsResponse:
+      type: object
+      required: [totalCoins, estimatedTotalValueLowUsd, estimatedTotalValueHighUsd, byCountry, byYear]
+      properties:
+        totalCoins:
+          type: integer
+          format: int32
+        estimatedTotalValueLowUsd:
+          type: number
+          format: double
+        estimatedTotalValueHighUsd:
+          type: number
+          format: double
+        byCountry:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        byYear:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+
+    CoinImagesResponse:
+      type: object
+      required: [obverseUrl, reverseUrl]
+      properties:
+        obverseUrl:
+          type: string
+          format: uri
+        reverseUrl:
+          type: string
+          format: uri
+
     HealthResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponseBase"
@@ -685,6 +1122,40 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CreateDownloadUrlsResponse"
+
+    CoinApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CoinResponse"
+
+    CoinListApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/CoinResponse"
+
+    CollectionStatsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CollectionStatsResponse"
+
+    CoinImagesApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CoinImagesResponse"
 
     ErrorResponse:
       allOf:

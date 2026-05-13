@@ -27,6 +27,7 @@ include(
     ":platform:logging",
     ":domain:user",
     ":domain:image",
+    ":domain:coin",
     ":domain:billing",
     ":data:postgres",
     ":data:s3",

@@ -32,6 +32,7 @@ dependencies {
     implementation(project(":platform:database"))
     implementation(project(":platform:logging"))
     implementation(project(":domain:user"))
+    implementation(project(":domain:coin"))
     implementation(project(":domain:billing"))
     implementation(project(":data:postgres"))
     implementation(project(":data:s3"))

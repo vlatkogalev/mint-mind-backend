@@ -2,6 +2,7 @@
 
 package com.vlatkogalev.app.api.routes
 
+import com.vlatkogalev.app.api.controllers.CoinController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
 import com.vlatkogalev.app.api.controllers.UserAuthController
@@ -24,11 +25,14 @@ object ApiTags {
     const val AUTH = "Auth"
     const val STORAGE = "Storage"
     const val WEBHOOKS = "Webhooks"
+    const val COINS = "Coins"
+    const val COLLECTION = "Collection"
 }
 
 fun Application.configureRoutes() {
     val userAuthController by inject<UserAuthController>()
     val storageController by inject<StorageController>()
+    val coinController by inject<CoinController>()
     val revenueCatWebhookController by inject<RevenueCatWebhookController>()
     val timeProvider by inject<TimeProvider>()
 
@@ -36,6 +40,7 @@ fun Application.configureRoutes() {
         healthRoutes(timeProvider)
         authRoutes(userAuthController, timeProvider)
         storageRoutes(storageController)
+        coinRoutes(coinController)
         webhookRoutes(revenueCatWebhookController)
         docsRoutes()
     }
@@ -93,6 +98,23 @@ fun Routing.storageRoutes(controller: StorageController) {
     }
 }
 
+fun Routing.coinRoutes(controller: CoinController) {
+    route("/coins") {
+        authenticate("jwt-auth") {
+            controller.run {
+                registerProtectedRoutes()
+            }
+        }
+    }
+    route("/collection") {
+        authenticate("jwt-auth") {
+            controller.run {
+                registerCollectionRoutes()
+            }
+        }
+    }
+}
+
 fun Routing.webhookRoutes(controller: RevenueCatWebhookController) {
     route("/webhooks") {
         controller.run {
@@ -102,5 +124,5 @@ fun Routing.webhookRoutes(controller: RevenueCatWebhookController) {
 }
 
 fun Routing.docsRoutes() {
-    swaggerUI(path = "/swagger", swaggerFile = "documentation.yaml")
+    swaggerUI(path = "/docs", swaggerFile = "documentation.yaml")
 }

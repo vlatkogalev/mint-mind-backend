@@ -8,7 +8,7 @@ data class DatabaseConfig(
 
 fun loadDatabaseConfig(env: Map<String, String> = System.getenv()): DatabaseConfig =
     DatabaseConfig(
-        url = env["DB_URL"] ?: "jdbc:h2:mem:template;DB_CLOSE_DELAY=-1",
+        url = env["DB_URL"] ?: "jdbc:h2:mem:template;DB_CLOSE_DELAY=-1;NON_KEYWORDS=YEAR",
         user = env["DB_USER"] ?: "sa",
         password = env["DB_PASSWORD"] ?: "",
     )
