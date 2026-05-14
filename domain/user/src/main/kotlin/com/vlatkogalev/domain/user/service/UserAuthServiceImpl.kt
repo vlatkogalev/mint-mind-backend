@@ -3,6 +3,7 @@ package com.vlatkogalev.domain.user.service
 import com.vlatkogalev.domain.user.model.*
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
+import com.vlatkogalev.platform.core.config.EmailConfig
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -15,8 +16,10 @@ class UserAuthServiceImpl(
     private val userRepository: UserRepository,
     private val passwordHasher: UserPasswordHasher,
     private val jwtTokenProvider: UserTokenProvider,
+    private val emailConfig: EmailConfig,
     private val emailVerificationSender: EmailVerificationSender,
 ) : UserAuthService {
+
     override fun register(email: String, password: String, firstName: String, lastName: String): Result<User> {
         val normalizedEmail = email.trim().lowercase()
         if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
@@ -39,7 +42,13 @@ class UserAuthServiceImpl(
                     passwordHash = passwordHasher.hash(password),
                     verificationToken = verificationToken,
                 )
-                emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
+
+                if (emailConfig.skipVerification) {
+                    userRepository.verifyEmail(verificationToken)
+                } else {
+                    emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
+                }
+
                 Result.Success(user.toUser())
             }
         } catch (ex: Exception) {
