@@ -106,6 +106,7 @@ class UserRepositoryImpl(
             passwordHash = passwordHash,
             emailVerified = emailVerified,
             verificationToken = verificationToken,
+            verificationEmailSentAt = verificationEmailSentAt,
             refreshTokenHash = refreshTokenHash,
             profile = profileId?.let { id ->
                 UserProfile(

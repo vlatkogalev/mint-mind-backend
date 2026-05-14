@@ -5,7 +5,7 @@ import com.resend.services.emails.model.CreateEmailOptions
 import com.vlatkogalev.domain.user.service.EmailVerificationSender
 
 class ResendEmailVerificationSender(
-    private val apiKey: String,
+    apiKey: String,
     private val fromAddress: String,
     private val appBaseUrl: String,
 ) : EmailVerificationSender {
@@ -17,7 +17,7 @@ class ResendEmailVerificationSender(
         val params = CreateEmailOptions.builder()
             .from(fromAddress)
             .to(email)
-            .subject("Verify your MintMind email")
+            .subject("[Action required] Verify your e-mail")
             .html(htmlBody(verifyLink))
             .text(textBody(verifyLink))
             .build()

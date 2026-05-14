@@ -7,6 +7,9 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.*
+import java.time.Duration
+
+private const val RESEND_COOLDOWN_MINUTES = 10L
 
 class UserAuthServiceImpl(
     private val userRepository: UserRepository,
@@ -102,6 +105,15 @@ class UserAuthServiceImpl(
 
             if (user == null || user.emailVerified) {
                 return Result.Success(Unit)
+            }
+
+            val lastSent = user.verificationEmailSentAt
+            if (lastSent != null) {
+                val minutesSince = Duration.between(lastSent, Instant.now()).toMinutes()
+                if (minutesSince < RESEND_COOLDOWN_MINUTES) {
+                    val waitMinutes = RESEND_COOLDOWN_MINUTES - minutesSince
+                    return Result.Failure("Please wait $waitMinutes more minute(s) before requesting another verification email")
+                }
             }
 
             val newToken = UUID.randomUUID().toString()

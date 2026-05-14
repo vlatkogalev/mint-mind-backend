@@ -149,7 +149,7 @@ class UserQueries(
             connection.prepareStatement(
                 """
                 UPDATE users
-                SET verification_token = ?, email_verified = FALSE
+                SET verification_token = ?, email_verified = FALSE, verification_email_sent_at = NOW()
                 WHERE id = ?
                 """.trimIndent(),
             ).use { statement ->
@@ -281,6 +281,7 @@ class UserQueries(
             passwordHash = getString("password_hash"),
             emailVerified = getBoolean("email_verified"),
             verificationToken = getString("verification_token"),
+            verificationEmailSentAt = getTimestamp("verification_email_sent_at")?.toInstant(),
             refreshTokenHash = getString("refresh_token_hash"),
             profileId = getObject("profile_id", UUID::class.java),
             firstName = getString("first_name"),

@@ -65,7 +65,11 @@ class UserAuthController(
             val token = call.request.queryParameters["token"].orEmpty()
             when (userAuthService.verifyEmail(token)) {
                 is Result.Success -> call.respondText(HtmlTemplates.emailVerified, ContentType.Text.Html)
-                is Result.Failure -> call.respondText(HtmlTemplates.emailVerificationFailed, ContentType.Text.Html, HttpStatusCode.BadRequest)
+                is Result.Failure -> call.respondText(
+                    HtmlTemplates.emailVerificationFailed,
+                    ContentType.Text.Html,
+                    HttpStatusCode.BadRequest
+                )
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -75,11 +79,8 @@ class UserAuthController(
         post("/resend-verification") {
             val payload = call.receive<ResendVerificationRequest>()
             when (val result = userAuthService.resendVerification(payload.email)) {
-                is Result.Success -> call.respond(
-                    success(mapOf("message" to "If your email is registered and unverified, a new verification email has been sent")),
-                )
-
-                is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, error(result.reason))
+                is Result.Success -> call.respond(success(mapOf("message" to "Verification email has been sent")))
+                is Result.Failure -> call.respond(HttpStatusCode.TooManyRequests, error(result.reason))
             }
         }.describe {
             tag(ApiTags.AUTH)
