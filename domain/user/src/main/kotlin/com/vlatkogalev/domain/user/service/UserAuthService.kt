@@ -4,7 +4,7 @@ import com.vlatkogalev.domain.user.model.LoginSession
 import com.vlatkogalev.domain.user.model.PasswordResetRequestResult
 import com.vlatkogalev.domain.user.model.User
 import com.vlatkogalev.platform.core.Result
-import java.util.UUID
+import java.util.*
 
 interface UserAuthService {
     fun register(email: String, password: String, firstName: String, lastName: String): Result<User>
@@ -17,9 +17,9 @@ interface UserAuthService {
 
     fun resendVerification(email: String): Result<Unit>
 
-    fun logout(userId: UUID): Result<Unit>
-
     fun getUserProfile(userId: UUID): Result<User>
+
+    fun updateProfile(userId: UUID, firstName: String, lastName: String): Result<User>
 
     fun requestPasswordReset(email: String): Result<PasswordResetRequestResult>
 

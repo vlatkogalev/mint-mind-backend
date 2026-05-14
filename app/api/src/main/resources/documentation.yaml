@@ -122,17 +122,17 @@ paths:
           description: "Email verification token sent during registration."
       responses:
         "200":
-          description: "OK"
+          description: "Verified — returns an HTML success page"
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                type: string
         "400":
-          description: "Bad request"
+          description: "Invalid or already-used token — returns an HTML error page"
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
 
   /auth/resend-verification:
     post:
@@ -233,20 +233,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /auth/logout:
-    post:
+    patch:
       tags: ["Auth"]
-      summary: "Logout the authenticated user"
-      description: "Clears the stored refresh token hash for the authenticated user."
+      summary: "Update the authenticated user's profile"
       security:
         - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
       responses:
         "200":
           description: "OK"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/UserApiResponse"
         "400":
           description: "Bad request"
           content:
@@ -266,12 +270,6 @@ paths:
       summary: "Delete the authenticated user's account"
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeleteAccountRequest"
       responses:
         "200":
           description: "OK"
@@ -729,11 +727,16 @@ components:
           type: string
           format: password
           minLength: 8
+          description: |
+            Must be at least 8 characters and contain at least one uppercase letter,
+            one lowercase letter, one digit, and one special character.
         firstName:
           type: string
+          maxLength: 50
           example: "Ada"
         lastName:
           type: string
+          maxLength: 50
           example: "Lovelace"
 
     LoginRequest:
@@ -781,13 +784,22 @@ components:
           type: string
           format: password
           minLength: 8
+          description: |
+            Must be at least 8 characters and contain at least one uppercase letter,
+            one lowercase letter, one digit, and one special character.
 
-    DeleteAccountRequest:
+    UpdateProfileRequest:
       type: object
-      required: [confirm]
+      required: [firstName, lastName]
       properties:
-        confirm:
-          type: boolean
+        firstName:
+          type: string
+          maxLength: 50
+          example: "Ada"
+        lastName:
+          type: string
+          maxLength: 50
+          example: "Lovelace"
 
     LoginSessionResponse:
       type: object

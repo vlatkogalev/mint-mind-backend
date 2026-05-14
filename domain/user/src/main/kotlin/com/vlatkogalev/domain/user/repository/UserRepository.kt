@@ -4,7 +4,7 @@ import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
 import com.vlatkogalev.domain.user.model.UserAccount
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 
 interface UserRepository {
     fun findById(userId: UUID): UserAccount?
@@ -20,6 +20,8 @@ interface UserRepository {
         passwordHash: String,
         verificationToken: String,
     ): UserAccount
+
+    fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount?
 
     fun saveRefreshTokenHash(userId: UUID, tokenHash: String)
 

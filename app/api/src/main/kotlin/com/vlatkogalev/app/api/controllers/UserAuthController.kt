@@ -2,16 +2,7 @@
 
 package com.vlatkogalev.app.api.controllers
 
-import com.vlatkogalev.app.api.dto.ConfirmPasswordResetRequest
-import com.vlatkogalev.app.api.dto.DeleteAccountRequest
-import com.vlatkogalev.app.api.dto.LoginRequest
-import com.vlatkogalev.app.api.dto.LoginSessionResponse
-import com.vlatkogalev.app.api.dto.PasswordResetRequestResponse
-import com.vlatkogalev.app.api.dto.RefreshTokenRequest
-import com.vlatkogalev.app.api.dto.RegisterRequest
-import com.vlatkogalev.app.api.dto.RequestPasswordResetRequest
-import com.vlatkogalev.app.api.dto.ResendVerificationRequest
-import com.vlatkogalev.app.api.dto.UserResponse
+import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.app.api.util.HtmlTemplates
 import com.vlatkogalev.domain.user.model.LoginSession
@@ -22,19 +13,14 @@ import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.time.TimeProvider
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.auth.jwt.JWTPrincipal
-import io.ktor.server.auth.principal
-import io.ktor.server.request.receive
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.delete
-import io.ktor.server.routing.get
-import io.ktor.server.routing.post
-import io.ktor.server.routing.openapi.describe
-import java.util.UUID
+import io.ktor.http.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.routing.openapi.*
+import java.util.*
 
 class UserAuthController(
     private val userAuthService: UserAuthService,
@@ -140,20 +126,20 @@ class UserAuthController(
             summary = "Get the authenticated user's profile"
         }
 
-        post("/logout") {
+        patch("/me") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
-                return@post
+                return@patch
             }
-
-            when (val result = userAuthService.logout(userId)) {
-                is Result.Success -> call.respond(success(mapOf("message" to "Logged out")))
+            val payload = call.receive<UpdateProfileRequest>()
+            when (val result = userAuthService.updateProfile(userId, payload.firstName, payload.lastName)) {
+                is Result.Success -> call.respond(success(result.value.toResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
             tag(ApiTags.AUTH)
-            summary = "Logout the authenticated user"
+            summary = "Update the authenticated user's profile"
         }
 
         delete("/account") {
@@ -162,13 +148,6 @@ class UserAuthController(
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@delete
             }
-
-            val payload = call.receive<DeleteAccountRequest>()
-            if (!payload.confirm) {
-                call.respond(HttpStatusCode.BadRequest, error("Set confirm=true to delete account"))
-                return@delete
-            }
-
             when (val result = userAuthService.deleteAccount(userId)) {
                 is Result.Success -> call.respond(success(mapOf("message" to "Account deleted")))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))

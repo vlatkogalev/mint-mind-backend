@@ -46,6 +46,9 @@ class UserRepositoryImpl(
             ).toUserAccount()
         }
 
+    override fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount? =
+        queries.updateProfile(userId, firstName, lastName)?.toUserAccount()
+
     override fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
         queries.saveRefreshTokenHash(userId, tokenHash)
     }

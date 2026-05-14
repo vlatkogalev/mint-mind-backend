@@ -1,17 +1,12 @@
 package com.vlatkogalev.domain.user.service
 
-import com.vlatkogalev.domain.user.model.LoginSession
-import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
-import com.vlatkogalev.domain.user.model.PasswordResetRequestResult
-import com.vlatkogalev.domain.user.model.User
-import com.vlatkogalev.domain.user.model.UserAccount
+import com.vlatkogalev.domain.user.model.*
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Base64
-import java.util.UUID
+import java.util.*
 
 class UserAuthServiceImpl(
     private val userRepository: UserRepository,
@@ -23,8 +18,11 @@ class UserAuthServiceImpl(
         val normalizedEmail = email.trim().lowercase()
         if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
         if (firstName.isBlank()) return Result.Failure("First name is required")
+        if (firstName.trim().length > 50) return Result.Failure("First name must be 50 characters or fewer")
         if (lastName.isBlank()) return Result.Failure("Last name is required")
-        if (password.length < 8) return Result.Failure("Password must be at least 8 characters")
+        if (lastName.trim().length > 50) return Result.Failure("Last name must be 50 characters or fewer")
+
+        validatePassword(password)?.let { return it }
 
         return try {
             if (userRepository.findByEmail(normalizedEmail) != null) {
@@ -116,14 +114,6 @@ class UserAuthServiceImpl(
         }
     }
 
-    override fun logout(userId: UUID): Result<Unit> =
-        try {
-            userRepository.clearRefreshTokenHash(userId)
-            Result.Success(Unit)
-        } catch (ex: Exception) {
-            Result.Failure(ex.message ?: "Failed to logout", ex)
-        }
-
     override fun getUserProfile(userId: UUID): Result<User> =
         try {
             val user = userRepository.findById(userId) ?: return Result.Failure("User not found")
@@ -131,6 +121,20 @@ class UserAuthServiceImpl(
         } catch (ex: Exception) {
             Result.Failure(ex.message ?: "Failed to fetch user profile", ex)
         }
+
+    override fun updateProfile(userId: UUID, firstName: String, lastName: String): Result<User> {
+        if (firstName.isBlank()) return Result.Failure("First name is required")
+        if (lastName.isBlank()) return Result.Failure("Last name is required")
+        if (firstName.trim().length > 50) return Result.Failure("First name must be 50 characters or fewer")
+        if (lastName.trim().length > 50) return Result.Failure("Last name must be 50 characters or fewer")
+        return try {
+            val user = userRepository.updateProfile(userId, firstName.trim(), lastName.trim())
+                ?: return Result.Failure("User not found")
+            Result.Success(user.toUser())
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to update profile", ex)
+        }
+    }
 
     override fun requestPasswordReset(email: String): Result<PasswordResetRequestResult> {
         val normalizedEmail = email.trim().lowercase()
@@ -151,7 +155,7 @@ class UserAuthServiceImpl(
     }
 
     override fun confirmPasswordReset(token: String, newPassword: String): Result<Unit> {
-        if (newPassword.length < 8) return Result.Failure("Password must be at least 8 characters")
+        validatePassword(newPassword)?.let { return it }
 
         return try {
             when (userRepository.confirmPasswordReset(token, passwordHasher.hash(newPassword))) {
@@ -200,6 +204,15 @@ class UserAuthServiceImpl(
         MessageDigest.isEqual(left.toByteArray(Charsets.UTF_8), right.toByteArray(Charsets.UTF_8))
 
     private fun isValidEmail(email: String): Boolean = EMAIL_REGEX.matches(email)
+
+    private fun validatePassword(password: String): Result.Failure? {
+        if (password.length < 8) return Result.Failure("Password must be at least 8 characters")
+        if (!password.any { it.isUpperCase() }) return Result.Failure("Password must contain at least one uppercase letter")
+        if (!password.any { it.isLowerCase() }) return Result.Failure("Password must contain at least one lowercase letter")
+        if (!password.any { it.isDigit() }) return Result.Failure("Password must contain at least one digit")
+        if (!password.any { !it.isLetterOrDigit() }) return Result.Failure("Password must contain at least one special character")
+        return null
+    }
 
     companion object {
         private val EMAIL_REGEX = Regex("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", RegexOption.IGNORE_CASE)

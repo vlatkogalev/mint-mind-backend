@@ -38,8 +38,9 @@ data class ConfirmPasswordResetRequest(
 )
 
 @Serializable
-data class DeleteAccountRequest(
-    val confirm: Boolean,
+data class UpdateProfileRequest(
+    val firstName: String,
+    val lastName: String,
 )
 
 @Serializable

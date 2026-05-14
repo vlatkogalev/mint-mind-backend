@@ -7,7 +7,7 @@ import java.sql.ResultSet
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
-import java.util.UUID
+import java.util.*
 import javax.sql.DataSource
 
 class UserQueries(
@@ -100,6 +100,23 @@ class UserQueries(
 
         return findById(connection, userId) ?: error("Created user could not be loaded")
     }
+
+    fun updateProfile(userId: UUID, firstName: String, lastName: String): UserRecord? =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+            UPDATE profiles
+            SET first_name = ?, last_name = ?
+            WHERE user_id = ?
+            """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, firstName)
+                statement.setString(2, lastName)
+                statement.setObject(3, userId)
+                statement.executeUpdate()
+            }
+            findById(connection, userId)
+        }
 
     fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
         dataSource.connection.use { connection ->
