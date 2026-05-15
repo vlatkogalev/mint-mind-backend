@@ -8,4 +8,5 @@ kotlin {
 
 dependencies {
     implementation(project(":platform:core"))
+    testImplementation(kotlin("test"))
 }
