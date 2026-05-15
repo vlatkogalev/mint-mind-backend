@@ -1,4 +1,4 @@
-package com.vlatkogalev.domain.billing
+package com.vlatkogalev.domain.billing.service
 
 interface BillingService {
     fun healthCheck(): Boolean

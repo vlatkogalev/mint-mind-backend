@@ -4,22 +4,20 @@ package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.RevenueCatWebhookRequest
 import com.vlatkogalev.app.api.routes.ApiTags
-import com.vlatkogalev.domain.billing.RevenueCatEventType
-import com.vlatkogalev.domain.billing.RevenueCatSubscriptionEvent
-import com.vlatkogalev.domain.billing.SubscriptionPlan
-import com.vlatkogalev.domain.billing.SubscriptionService
+import com.vlatkogalev.domain.billing.model.RevenueCatEventType
+import com.vlatkogalev.domain.billing.model.RevenueCatSubscriptionEvent
+import com.vlatkogalev.domain.billing.model.SubscriptionPlan
+import com.vlatkogalev.domain.billing.service.SubscriptionService
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.RevenueCatConfig
 import com.vlatkogalev.platform.core.config.loadRevenueCatConfig
 import com.vlatkogalev.platform.core.time.TimeProvider
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.receive
-import io.ktor.server.response.respond
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.post
-import io.ktor.server.routing.openapi.describe
+import io.ktor.http.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.routing.openapi.*
 import java.time.Instant
 
 class RevenueCatWebhookController(

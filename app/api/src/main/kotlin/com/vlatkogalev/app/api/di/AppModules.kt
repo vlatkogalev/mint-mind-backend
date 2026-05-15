@@ -12,8 +12,8 @@ import com.vlatkogalev.data.postgres.repository.CoinRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.SubscriptionRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.UserRepositoryImpl
 import com.vlatkogalev.data.s3.S3FileStorageService
-import com.vlatkogalev.domain.billing.SubscriptionRepository
-import com.vlatkogalev.domain.billing.SubscriptionService
+import com.vlatkogalev.domain.billing.repository.SubscriptionRepository
+import com.vlatkogalev.domain.billing.service.SubscriptionService
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.domain.coin.service.CoinServiceImpl

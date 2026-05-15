@@ -1,19 +1,7 @@
-package com.vlatkogalev.domain.billing
+package com.vlatkogalev.domain.billing.model
 
 import java.time.Instant
 import java.util.UUID
-
-enum class SubscriptionPlan {
-    FREE,
-    PRO,
-    ENTERPRISE,
-}
-
-enum class SubscriptionStatus {
-    ACTIVE,
-    EXPIRED,
-    CANCELLED,
-}
 
 data class Subscription(
     val id: UUID,

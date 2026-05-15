@@ -2,10 +2,10 @@ package com.vlatkogalev.data.postgres.repository
 
 import com.vlatkogalev.data.postgres.daos.SubscriptionQueries
 import com.vlatkogalev.data.postgres.entities.SubscriptionRecord
-import com.vlatkogalev.domain.billing.Subscription
-import com.vlatkogalev.domain.billing.SubscriptionPlan
-import com.vlatkogalev.domain.billing.SubscriptionRepository
-import com.vlatkogalev.domain.billing.SubscriptionStatus
+import com.vlatkogalev.domain.billing.model.Subscription
+import com.vlatkogalev.domain.billing.model.SubscriptionPlan
+import com.vlatkogalev.domain.billing.repository.SubscriptionRepository
+import com.vlatkogalev.domain.billing.model.SubscriptionStatus
 import java.time.Instant
 import java.util.UUID
 

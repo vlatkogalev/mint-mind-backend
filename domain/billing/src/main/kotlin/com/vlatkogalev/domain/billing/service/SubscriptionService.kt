@@ -1,8 +1,13 @@
-package com.vlatkogalev.domain.billing
+package com.vlatkogalev.domain.billing.service
 
+import com.vlatkogalev.domain.billing.model.RevenueCatEventType
+import com.vlatkogalev.domain.billing.model.RevenueCatSubscriptionEvent
+import com.vlatkogalev.domain.billing.model.SubscriptionPlan
+import com.vlatkogalev.domain.billing.model.SubscriptionStatus
+import com.vlatkogalev.domain.billing.repository.SubscriptionRepository
 import com.vlatkogalev.platform.core.Result
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 
 class SubscriptionService(
     private val subscriptionRepository: SubscriptionRepository,
@@ -37,19 +42,4 @@ class SubscriptionService(
             RevenueCatEventType.CANCELLATION -> SubscriptionStatus.CANCELLED
             RevenueCatEventType.EXPIRATION -> SubscriptionStatus.EXPIRED
         }
-}
-
-data class RevenueCatSubscriptionEvent(
-    val revenueCatCustomerId: String,
-    val type: RevenueCatEventType,
-    val expiresAt: Instant?,
-    val plan: SubscriptionPlan?,
-)
-
-enum class RevenueCatEventType {
-    INITIAL_PURCHASE,
-    RENEWAL,
-    CANCELLATION,
-    EXPIRATION,
-    UNCANCELLATION,
 }
