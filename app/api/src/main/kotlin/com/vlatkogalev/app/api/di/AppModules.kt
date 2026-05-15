@@ -69,7 +69,7 @@ val appModule = module {
             userRepository = get<UserRepository>(),
             passwordHasher = get<UserPasswordHasher>(),
             jwtTokenProvider = get<UserTokenProvider>(),
-            emailConfig = get<EmailConfig>(),
+            skipEmailVerification = get<EmailConfig>().skipVerification,
             emailVerificationSender = get<EmailVerificationSender>(),
         )
     }

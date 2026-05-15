@@ -6,7 +6,6 @@ import com.vlatkogalev.domain.user.model.UserAccount
 import com.vlatkogalev.domain.user.model.UserProfile
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
-import com.vlatkogalev.platform.core.config.EmailConfig
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Base64
@@ -246,12 +245,7 @@ abstract class UserAuthServiceTestBase {
     protected val hasher = FakePasswordHasher()
     protected val tokenProvider = FakeTokenProvider()
     protected val emailSender = RecordingEmailSender()
-    protected val emailConfigDefault = EmailConfig(
-        resendApiKey = "",
-        fromAddress = "noreply@test.com",
-        appBaseUrl = "http://localhost:8080",
-        skipVerification = false,
-    )
+    protected val skipVerificationDefault = false
 
     protected lateinit var service: UserAuthServiceImpl
 
@@ -259,7 +253,7 @@ abstract class UserAuthServiceTestBase {
     fun setup() {
         repo.reset()
         emailSender.reset()
-        service = UserAuthServiceImpl(repo, hasher, tokenProvider, emailConfigDefault, emailSender)
+        service = UserAuthServiceImpl(repo, hasher, tokenProvider, skipVerificationDefault, emailSender)
     }
 
     protected fun verifiedUser(email: String = TestFixtures.VALID_EMAIL): UserAccount = repo.insert(
@@ -274,7 +268,7 @@ abstract class UserAuthServiceTestBase {
         repo,
         hasher,
         tokenProvider,
-        emailConfigDefault.copy(skipVerification = true),
+        true,
         emailSender,
     )
 

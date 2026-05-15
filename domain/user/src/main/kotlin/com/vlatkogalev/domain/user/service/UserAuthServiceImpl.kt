@@ -3,7 +3,6 @@ package com.vlatkogalev.domain.user.service
 import com.vlatkogalev.domain.user.model.*
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
-import com.vlatkogalev.platform.core.config.EmailConfig
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -16,7 +15,7 @@ class UserAuthServiceImpl(
     private val userRepository: UserRepository,
     private val passwordHasher: UserPasswordHasher,
     private val jwtTokenProvider: UserTokenProvider,
-    private val emailConfig: EmailConfig,
+    private val skipEmailVerification: Boolean,
     private val emailVerificationSender: EmailVerificationSender,
 ) : UserAuthService {
 
@@ -43,7 +42,7 @@ class UserAuthServiceImpl(
                     verificationToken = verificationToken,
                 )
 
-                if (emailConfig.skipVerification) {
+                if (skipEmailVerification) {
                     userRepository.verifyEmail(verificationToken)
                 } else {
                     emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
