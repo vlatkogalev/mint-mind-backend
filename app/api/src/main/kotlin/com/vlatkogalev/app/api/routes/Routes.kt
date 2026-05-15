@@ -38,7 +38,7 @@ fun Application.configureRoutes() {
 
     routing {
         healthRoutes(timeProvider)
-        authRoutes(userAuthController, timeProvider)
+        authRoutes(userAuthController)
         storageRoutes(storageController)
         coinRoutes(coinController)
         webhookRoutes(revenueCatWebhookController)
@@ -61,21 +61,8 @@ fun Routing.healthRoutes(timeProvider: TimeProvider = TimeProvider.System) {
     }
 }
 
-fun Routing.authRoutes(controller: UserAuthController, timeProvider: TimeProvider = TimeProvider.System) {
+fun Routing.authRoutes(controller: UserAuthController) {
     route("/auth") {
-        get("/health") {
-            call.respond(
-                ApiResponse(
-                    success = true,
-                    data = mapOf("auth" to "ready"),
-                    timestampMillis = timeProvider.nowMillis(),
-                ),
-            )
-        }.describe {
-            tag(ApiTags.AUTH)
-            summary = "Authentication subsystem health check"
-        }
-
         controller.run {
             registerPublicRoutes()
         }

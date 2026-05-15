@@ -22,18 +22,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
 
-  /auth/health:
-    get:
-      tags: ["Auth"]
-      summary: "Authentication subsystem health check"
-      responses:
-        "200":
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthHealthResponse"
-
   /auth/register:
     post:
       tags: ["Auth"]
@@ -270,7 +258,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /auth/account:
     delete:
       tags: ["Auth"]
       summary: "Delete the authenticated user's account"

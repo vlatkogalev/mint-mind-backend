@@ -143,7 +143,7 @@ class UserAuthController(
             summary = "Update the authenticated user's profile"
         }
 
-        delete("/account") {
+        delete("/me") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))

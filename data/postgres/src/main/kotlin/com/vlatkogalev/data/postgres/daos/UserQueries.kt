@@ -300,6 +300,7 @@ class UserQueries(
         p.id AS profile_id,
         p.first_name,
         p.last_name,
-        p.avatar_url
+        p.avatar_url,
+        p.verification_email_sent_at
         """.trimIndent()
 }
