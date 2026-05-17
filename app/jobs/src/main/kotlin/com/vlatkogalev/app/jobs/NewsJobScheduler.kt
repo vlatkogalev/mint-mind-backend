@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 class NewsJobScheduler(
     private val fetcher: RssFeedFetcher,
     private val initialDelaySeconds: Long = 10,
-    private val intervalSeconds: Long = 3600,           // every hour
+    private val intervalSeconds: Long = 43200,           // every 12 hours
 ) {
     private val log = LoggerFactory.getLogger(NewsJobScheduler::class.java)
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
