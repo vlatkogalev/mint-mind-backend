@@ -1,1 +1,0 @@
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS verification_email_sent_at TIMESTAMP WITH TIME ZONE;

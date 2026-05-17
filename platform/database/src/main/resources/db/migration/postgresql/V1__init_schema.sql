@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(512) NOT NULL,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     verification_token VARCHAR(128),
+    verification_email_sent_at TIMESTAMP WITH TIME ZONE,
     refresh_token_hash VARCHAR(512),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
