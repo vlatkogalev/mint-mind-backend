@@ -83,12 +83,12 @@ val appModule = module {
 
     single<FileStorageService> { S3FileStorageService() }
 
+    single { RssFeedFetcher(get()) }
+    single { NewsJobScheduler(get()) }
 
     single { UserAuthController(get(), get()) }
     single { RevenueCatWebhookController(get(), get()) }
     single { StorageController(get(), get()) }
     single { CoinController(get(), get(), get()) }
-    single { RssFeedFetcher(get()) }
-    single { NewsJobScheduler(get()) }
     single { NewsController(get(), get()) }
 }
