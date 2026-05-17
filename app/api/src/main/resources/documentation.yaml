@@ -13,7 +13,7 @@ tags:
 paths:
   /health:
     get:
-      tags: ["Health"]
+      tags: [ "Health" ]
       summary: "Service health check"
       responses:
         "200":
@@ -25,7 +25,7 @@ paths:
 
   /auth/register:
     post:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Register a new user"
       description: "Creates a user, profile, free active subscription, and stores an email verification token. Secret auth fields are never returned."
       requestBody:
@@ -50,7 +50,7 @@ paths:
 
   /auth/login:
     post:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Authenticate a user and issue tokens"
       description: "Requires a verified email address. Returns a short-lived JWT access token and a long-lived refresh token."
       requestBody:
@@ -75,7 +75,7 @@ paths:
 
   /auth/refresh:
     post:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Refresh an access token"
       description: "Validates the refresh token against the stored refresh token hash and rotates it."
       requestBody:
@@ -100,7 +100,7 @@ paths:
 
   /auth/verify-email:
     get:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Verify an email address"
       parameters:
         - name: "token"
@@ -125,7 +125,7 @@ paths:
 
   /auth/resend-verification:
     post:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Resend email verification link"
       description: "Always returns a generic success message to avoid account enumeration."
       requestBody:
@@ -156,7 +156,7 @@ paths:
 
   /auth/password-reset/request:
     post:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Request a password reset"
       requestBody:
         required: true
@@ -180,7 +180,7 @@ paths:
 
   /auth/password-reset/confirm:
     post:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Confirm password reset with token"
       requestBody:
         required: true
@@ -204,10 +204,10 @@ paths:
 
   /auth/me:
     get:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Get the authenticated user's profile"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         "200":
           description: "OK"
@@ -229,10 +229,10 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
     patch:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Update the authenticated user's profile"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -260,10 +260,10 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
     delete:
-      tags: ["Auth"]
+      tags: [ "Auth" ]
       summary: "Delete the authenticated user's account"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         "200":
           description: "OK"
@@ -286,10 +286,10 @@ paths:
 
   /storage/upload-urls:
     post:
-      tags: ["Storage"]
+      tags: [ "Storage" ]
       summary: "Create presigned S3 upload URLs"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -318,10 +318,10 @@ paths:
 
   /storage/download-urls:
     post:
-      tags: ["Storage"]
+      tags: [ "Storage" ]
       summary: "Create presigned S3 download URLs"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -356,10 +356,10 @@ paths:
 
   /coins:
     post:
-      tags: ["Coins"]
+      tags: [ "Coins" ]
       summary: "Save a recognized coin"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -386,10 +386,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
     get:
-      tags: ["Coins"]
+      tags: [ "Coins" ]
       summary: "List coins in the authenticated user's collection"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: "country"
           in: "query"
@@ -450,10 +450,10 @@ paths:
 
   /coins/{id}:
     get:
-      tags: ["Coins"]
+      tags: [ "Coins" ]
       summary: "Get a coin by id"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: "id"
           in: "path"
@@ -487,10 +487,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
     delete:
-      tags: ["Coins"]
+      tags: [ "Coins" ]
       summary: "Delete a coin"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: "id"
           in: "path"
@@ -526,10 +526,10 @@ paths:
 
   /coins/{id}/notes:
     patch:
-      tags: ["Coins"]
+      tags: [ "Coins" ]
       summary: "Update notes for a coin"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: "id"
           in: "path"
@@ -571,10 +571,10 @@ paths:
 
   /coins/{id}/images:
     get:
-      tags: ["Coins"]
+      tags: [ "Coins" ]
       summary: "Create presigned download URLs for a coin's images"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: "id"
           in: "path"
@@ -610,10 +610,10 @@ paths:
 
   /collection/stats:
     get:
-      tags: ["Collection"]
+      tags: [ "Collection" ]
       summary: "Get collection statistics"
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         "200":
           description: "OK"
@@ -636,7 +636,7 @@ paths:
 
   /news:
     get:
-      tags: ["News"]
+      tags: [ "News" ]
       summary: "List latest news articles"
       parameters:
         - name: "limit"
@@ -666,7 +666,7 @@ paths:
 
   /news/{id}:
     get:
-      tags: ["News"]
+      tags: [ "News" ]
       summary: "Get a single news article by id"
       parameters:
         - name: "id"
@@ -697,11 +697,11 @@ paths:
 
   /webhooks/revenuecat:
     post:
-      tags: ["Webhooks"]
+      tags: [ "Webhooks" ]
       summary: "Handle RevenueCat subscription webhooks"
       description: "Updates mirrored subscription state from RevenueCat events. Requires Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>."
       security:
-        - revenueCatWebhookAuth: []
+        - revenueCatWebhookAuth: [ ]
       requestBody:
         required: true
         content:
@@ -736,7 +736,7 @@ components:
   schemas:
     ApiResponseBase:
       type: object
-      required: [success, timestampMillis]
+      required: [ success, timestampMillis ]
       properties:
         success:
           type: boolean
@@ -749,7 +749,7 @@ components:
 
     HealthData:
       type: object
-      required: [status]
+      required: [ status ]
       properties:
         status:
           type: string
@@ -757,7 +757,7 @@ components:
 
     AuthHealthData:
       type: object
-      required: [auth]
+      required: [ auth ]
       properties:
         auth:
           type: string
@@ -765,14 +765,14 @@ components:
 
     MessageData:
       type: object
-      required: [message]
+      required: [ message ]
       properties:
         message:
           type: string
 
     RegisterRequest:
       type: object
-      required: [email, password, firstName, lastName]
+      required: [ email, password, firstName, lastName ]
       properties:
         email:
           type: string
@@ -796,7 +796,7 @@ components:
 
     LoginRequest:
       type: object
-      required: [email, password]
+      required: [ email, password ]
       properties:
         email:
           type: string
@@ -808,14 +808,14 @@ components:
 
     RefreshTokenRequest:
       type: object
-      required: [refreshToken]
+      required: [ refreshToken ]
       properties:
         refreshToken:
           type: string
 
     RequestPasswordResetRequest:
       type: object
-      required: [email]
+      required: [ email ]
       properties:
         email:
           type: string
@@ -823,7 +823,7 @@ components:
 
     ResendVerificationRequest:
       type: object
-      required: [email]
+      required: [ email ]
       properties:
         email:
           type: string
@@ -831,7 +831,7 @@ components:
 
     ConfirmPasswordResetRequest:
       type: object
-      required: [token, newPassword]
+      required: [ token, newPassword ]
       properties:
         token:
           type: string
@@ -845,7 +845,7 @@ components:
 
     UpdateProfileRequest:
       type: object
-      required: [firstName, lastName]
+      required: [ firstName, lastName ]
       properties:
         firstName:
           type: string
@@ -858,7 +858,7 @@ components:
 
     LoginSessionResponse:
       type: object
-      required: [accessToken, refreshToken, accessTokenExpiresInSeconds, refreshTokenExpiresInSeconds]
+      required: [ accessToken, refreshToken, accessTokenExpiresInSeconds, refreshTokenExpiresInSeconds ]
       properties:
         accessToken:
           type: string
@@ -877,7 +877,7 @@ components:
 
     UserResponse:
       type: object
-      required: [id, email, firstName, lastName, emailVerified]
+      required: [ id, email, firstName, lastName, emailVerified ]
       properties:
         id:
           type: string
@@ -898,25 +898,25 @@ components:
 
     PasswordResetRequestResponse:
       type: object
-      required: [message]
+      required: [ message ]
       properties:
         message:
           type: string
 
     RevenueCatWebhookRequest:
       type: object
-      required: [event]
+      required: [ event ]
       properties:
         event:
           $ref: "#/components/schemas/RevenueCatWebhookEvent"
 
     RevenueCatWebhookEvent:
       type: object
-      required: [type]
+      required: [ type ]
       properties:
         type:
           type: string
-          enum: [INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, UNCANCELLATION]
+          enum: [ INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, UNCANCELLATION ]
         app_user_id:
           type: string
           description: "RevenueCat customer ID. This should match subscriptions.rc_customer_id."
@@ -939,7 +939,7 @@ components:
 
     CreateUploadUrlsRequest:
       type: object
-      required: [fileCount]
+      required: [ fileCount ]
       properties:
         fileCount:
           type: integer
@@ -949,7 +949,7 @@ components:
 
     PresignedUploadUrl:
       type: object
-      required: [objectKey, uploadUrl]
+      required: [ objectKey, uploadUrl ]
       properties:
         objectKey:
           type: string
@@ -959,7 +959,7 @@ components:
 
     CreateUploadUrlsResponse:
       type: object
-      required: [sessionId, uploads]
+      required: [ sessionId, uploads ]
       properties:
         sessionId:
           type: string
@@ -970,7 +970,7 @@ components:
 
     CreateDownloadUrlsRequest:
       type: object
-      required: [objectKeys]
+      required: [ objectKeys ]
       properties:
         objectKeys:
           type: array
@@ -981,7 +981,7 @@ components:
 
     PresignedDownloadUrl:
       type: object
-      required: [objectKey, downloadUrl]
+      required: [ objectKey, downloadUrl ]
       properties:
         objectKey:
           type: string
@@ -991,7 +991,7 @@ components:
 
     CreateDownloadUrlsResponse:
       type: object
-      required: [downloads]
+      required: [ downloads ]
       properties:
         downloads:
           type: array
@@ -1000,11 +1000,11 @@ components:
 
     Confidence:
       type: string
-      enum: [HIGH, MEDIUM, LOW]
+      enum: [ HIGH, MEDIUM, LOW ]
 
     CatalogueNumberDto:
       type: object
-      required: [catalogueName, confidence]
+      required: [ catalogueName, confidence ]
       properties:
         catalogueName:
           type: string
@@ -1016,7 +1016,7 @@ components:
 
     RecognitionResultDto:
       type: object
-      required: [overallConfidence, rawJson]
+      required: [ overallConfidence, rawJson ]
       properties:
         overallConfidence:
           $ref: "#/components/schemas/Confidence"
@@ -1070,7 +1070,7 @@ components:
 
     SaveCoinRequest:
       type: object
-      required: [obverseKey, reverseKey, recognitionResult]
+      required: [ obverseKey, reverseKey, recognitionResult ]
       properties:
         obverseKey:
           type: string
@@ -1095,7 +1095,7 @@ components:
 
     CoinResponse:
       type: object
-      required: [id, userId, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt]
+      required: [ id, userId, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt ]
       properties:
         id:
           type: string
@@ -1122,7 +1122,7 @@ components:
 
     CollectionStatsResponse:
       type: object
-      required: [totalCoins, estimatedTotalValueLowUsd, estimatedTotalValueHighUsd, byCountry, byYear]
+      required: [ totalCoins, estimatedTotalValueLowUsd, estimatedTotalValueHighUsd, byCountry, byYear ]
       properties:
         totalCoins:
           type: integer
@@ -1146,7 +1146,7 @@ components:
 
     CoinImagesResponse:
       type: object
-      required: [obverseUrl, reverseUrl]
+      required: [ obverseUrl, reverseUrl ]
       properties:
         obverseUrl:
           type: string
@@ -1157,34 +1157,46 @@ components:
 
     NewsArticleResponse:
       type: object
-      required: [id, title, link, description, content, publishedAt]
+      required: [ id, title, link, description, content, publishedAt ]
       properties:
         id:
           type: string
           format: uuid
+          example: "2b8950ae-0376-49c8-9231-71824a6176f6"
         title:
           type: string
+          example: "CAC Coins Bring Strong Premiums in April 2026 Auctions"
         link:
           type: string
           format: uri
+          description: "Canonical URL of the original article."
+          example: "https://coinweek.com/cac-coins-bring-strong-premiums-in-april-2026-auctions/"
         description:
           type: string
+          description: "Plain-text summary of the article, safe for list views and previews."
+          example: "CAC-approved and CACG-encapsulated coins performed well in April 2026 public sales."
         content:
           type: string
+          description: "Sanitized HTML body of the full article. Scripts, iframes, and inline styles have been removed."
         author:
           type: string
           nullable: true
+          example: "CoinWeek"
         imageUrl:
           type: string
           format: uri
           nullable: true
+          description: "URL of the first image found in the article content. Use as a thumbnail in list views."
+          example: "https://coinweek.com/wp-content/uploads/2026/05/1933-Eagle-cac-1200.webp"
         publishedAt:
           type: string
           format: date-time
+          description: "ISO-8601 UTC timestamp from the RSS feed's <pubDate>."
+          example: "2026-05-15T15:52:12Z"
 
     NewsListResponse:
       type: object
-      required: [articles, total, limit, offset]
+      required: [ articles, total, limit, offset ]
       properties:
         articles:
           type: array

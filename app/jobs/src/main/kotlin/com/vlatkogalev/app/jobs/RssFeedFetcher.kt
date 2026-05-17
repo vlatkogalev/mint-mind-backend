@@ -5,6 +5,7 @@ import com.vlatkogalev.domain.news.repository.NewsRepository
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.parser.Parser
+import org.jsoup.safety.Safelist
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
@@ -16,13 +17,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
-/**
- * Fetches the CoinWeek RSS feed (or any RSS 2.0 feed) and persists new
- * articles to the database.  Duplicate detection is done by <guid>.
- *
- * Call [run] from a scheduler (e.g. java.util.concurrent.ScheduledExecutorService
- * or a Ktor background coroutine).
- */
 class RssFeedFetcher(
     private val newsRepository: NewsRepository,
     private val feedUrl: String = "https://coinweek.com/feed/",
@@ -30,9 +24,33 @@ class RssFeedFetcher(
     private val log = LoggerFactory.getLogger(RssFeedFetcher::class.java)
     private val http = HttpClient.newHttpClient()
 
-    // RFC 1123 / RFC 2822 date format used by RSS feeds
     private val rssDateFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.ENGLISH)
+
+    /**
+     * Categories to silently drop. Comparison is case-insensitive and
+     * trims whitespace so minor feed inconsistencies don't slip through.
+     */
+    private val excludedCategories = setOf(
+        "dealers and companies",
+        "bullion & precious metals",
+        "paper money",
+    )
+
+    /**
+     * Tags allowed in the stored HTML content.
+     * Strips scripts, iframes, inline styles, and anything that could
+     * cause layout or security issues inside a mobile WebView.
+     */
+    private val contentSafelist: Safelist = Safelist.relaxed()
+        .removeTags("script", "iframe", "style", "form", "input", "button")
+        .removeAttributes(":all", "style", "onclick", "onload", "onerror")
+        .addAttributes("img", "src", "alt", "width", "height")
+        .addAttributes("a", "href")
+        .addAttributes("p", "class")
+        .addAttributes("h1", "class")
+        .addAttributes("h2", "class")
+        .addAttributes("h3", "class")
 
     fun run() {
         log.info("RssFeedFetcher: fetching {}", feedUrl)
@@ -52,25 +70,23 @@ class RssFeedFetcher(
         }
 
         if (items.isEmpty()) {
-            log.info("RssFeedFetcher: no items found in feed")
+            log.info("RssFeedFetcher: no items after filtering")
             return
         }
 
-        // Dedup – only insert items whose guid isn't in the DB yet
         val incomingGuids = items.map { it.guid }.toSet()
         val existingGuids = newsRepository.existingGuids(incomingGuids)
         val newItems = items.filter { it.guid !in existingGuids }
 
         if (newItems.isEmpty()) {
-            log.info("RssFeedFetcher: all {} items already present, nothing to insert", items.size)
+            log.info("RssFeedFetcher: all {} items already present", items.size)
             return
         }
 
         newsRepository.saveAll(newItems)
         log.info(
-            "RssFeedFetcher: inserted {} new articles ({} already existed)",
-            newItems.size,
-            existingGuids.size,
+            "RssFeedFetcher: inserted {} new articles ({} skipped as duplicates)",
+            newItems.size, existingGuids.size,
         )
     }
 
@@ -88,31 +104,42 @@ class RssFeedFetcher(
     }
 
     private fun parseItems(xml: String): List<NewsArticle> {
-        // Use Jsoup's XML parser so HTML entities in CDATA are handled correctly
         val doc: Document = Jsoup.parse(xml, feedUrl, Parser.xmlParser())
         val now = Instant.now()
 
         return doc.select("item").mapNotNull { item ->
             try {
+                val categories = item.select("category")
+                    .map { it.text().trim().lowercase() }
+
+                if (categories.any { it in excludedCategories }) {
+                    log.debug(
+                        "RssFeedFetcher: skipping '{}' (excluded category: {})",
+                        item.selectFirst("title")?.text(),
+                        categories.filter { it in excludedCategories },
+                    )
+                    return@mapNotNull null
+                }
+
                 val guid = item.selectFirst("guid")?.text()?.trim()
                     ?: item.selectFirst("link")?.text()?.trim()
-                    ?: return@mapNotNull null   // can't dedup without a guid
+                    ?: return@mapNotNull null
 
                 val title = item.selectFirst("title")?.text()?.trim() ?: ""
                 val link = item.selectFirst("link")?.text()?.trim() ?: ""
                 val author = item.selectFirst("dc|creator")?.text()?.trim()
 
-                // <description> is a plain-text excerpt; strip any residual tags
-                val descriptionHtml = item.selectFirst("description")?.text() ?: ""
-                val description = Jsoup.parse(descriptionHtml).text().trim()
+                val descriptionRaw = item.selectFirst("description")?.text() ?: ""
+                val description = Jsoup.parse(descriptionRaw).text().trim()
 
-                // content:encoded is the full HTML body
-                val contentHtml = item.selectFirst("content|encoded")?.text()
+                val contentRaw = item.selectFirst("content|encoded")?.text()
                     ?: item.selectFirst("description")?.text()
                     ?: ""
-                val contentDoc = Jsoup.parse(contentHtml)
-                val imageUrl = contentDoc.selectFirst("img[src]")?.attr("src")
-                val content = contentDoc.text().trim()
+                val contentHtml = sanitizeHtml(contentRaw)
+
+                val imageUrl = Jsoup.parse(contentRaw)
+                    .selectFirst("img[src]")
+                    ?.attr("src")
 
                 val pubDateRaw = item.selectFirst("pubDate")?.text()?.trim()
                 val publishedAt = pubDateRaw?.let { parseRssDate(it) } ?: now
@@ -123,7 +150,7 @@ class RssFeedFetcher(
                     title = title,
                     link = link,
                     description = description,
-                    content = content,
+                    content = contentHtml,
                     author = author,
                     imageUrl = imageUrl,
                     publishedAt = publishedAt,
@@ -135,6 +162,15 @@ class RssFeedFetcher(
             }
         }
     }
+
+    /**
+     * Sanitizes raw HTML from the RSS feed:
+     * - Removes scripts, iframes, inline styles, forms
+     * - Keeps semantic structure: headings, paragraphs, lists, images, links
+     * - Rewrites relative URLs to absolute using the feed's base URL
+     */
+    private fun sanitizeHtml(rawHtml: String): String =
+        Jsoup.clean(rawHtml, feedUrl, contentSafelist)
 
     private fun parseRssDate(raw: String): Instant =
         ZonedDateTime.parse(raw.trim(), rssDateFormatter).toInstant()
