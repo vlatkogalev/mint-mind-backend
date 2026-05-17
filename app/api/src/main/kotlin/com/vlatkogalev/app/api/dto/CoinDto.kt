@@ -36,7 +36,15 @@ data class SaveCoinRequest(
     val recognitionResult: RecognitionResultDto,
     val catalogueNumbers: List<CatalogueNumberDto> = emptyList(),
     val notes: String? = null,
-)
+) {
+    fun validate(): String? {
+        if (obverseKey.isBlank()) return "obverseKey is required"
+        if (reverseKey.isBlank()) return "reverseKey is required"
+        if (recognitionResult.rawJson.isBlank()) return "recognitionResult.rawJson is required"
+        if (catalogueNumbers.any { it.catalogueName.isBlank() }) return "catalogueName must not be blank"
+        return null
+    }
+}
 
 @Serializable
 data class UpdateCoinNotesRequest(

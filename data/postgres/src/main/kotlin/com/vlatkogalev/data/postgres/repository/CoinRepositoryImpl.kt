@@ -52,8 +52,8 @@ class CoinRepositoryImpl(
         maxValueUsd: Double?,
         limit: Int,
         offset: Int,
-    ): List<Coin> =
-        queries.findByUserId(
+    ): List<Coin> {
+        val coinRecords = queries.findByUserId(
             userId = userId,
             country = country,
             year = year,
@@ -61,9 +61,14 @@ class CoinRepositoryImpl(
             maxValue = maxValueUsd,
             limit = limit,
             offset = offset,
-        ).map { coin ->
-            coin.toDomain(queries.findCatalogueNumbersByCoinId(coin.id))
+        )
+        if (coinRecords.isEmpty()) return emptyList()
+
+        val cataloguesByCoinId = queries.findCatalogueNumbersByCoinIds(coinRecords.map { it.id })
+        return coinRecords.map { coin ->
+            coin.toDomain(cataloguesByCoinId[coin.id].orEmpty())
         }
+    }
 
     override fun getCollectionStats(userId: UUID): CoinCollectionStats {
         val valueStats = queries.getValueStats(userId)

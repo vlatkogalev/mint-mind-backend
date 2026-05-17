@@ -296,11 +296,11 @@ class UserQueries(
         u.password_hash,
         u.email_verified,
         u.verification_token,
+        u.verification_email_sent_at,
         u.refresh_token_hash,
         p.id AS profile_id,
         p.first_name,
         p.last_name,
-        p.avatar_url,
-        p.verification_email_sent_at
+        p.avatar_url
         """.trimIndent()
 }

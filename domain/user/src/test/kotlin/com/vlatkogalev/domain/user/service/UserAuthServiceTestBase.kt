@@ -50,6 +50,9 @@ class FakeUserRepository : UserRepository {
         return user
     }
 
+    fun findPasswordResetTokenByUserId(userId: UUID): PasswordResetToken? =
+        resetTokens.values.firstOrNull { it.userId == userId }
+
     override fun findById(userId: UUID): UserAccount? {
         if (throwOnFindById) error("findById failed")
         return users[userId]

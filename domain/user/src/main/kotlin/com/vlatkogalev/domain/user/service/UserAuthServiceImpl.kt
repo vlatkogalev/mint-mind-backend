@@ -156,19 +156,20 @@ class UserAuthServiceImpl(
         }
     }
 
-    override fun requestPasswordReset(email: String): Result<PasswordResetRequestResult> {
+    override fun requestPasswordReset(email: String): Result<Unit> {
         val normalizedEmail = email.trim().lowercase()
         return try {
             val user = userRepository.findByEmail(normalizedEmail)
-                ?: return Result.Success(PasswordResetRequestResult(resetToken = ""))
-
-            val token = UUID.randomUUID().toString()
-            userRepository.upsertPasswordResetToken(
-                userId = user.id,
-                token = token,
-                expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES),
-            )
-            Result.Success(PasswordResetRequestResult(resetToken = token))
+            if (user != null) {
+                val token = UUID.randomUUID().toString()
+                userRepository.upsertPasswordResetToken(
+                    userId = user.id,
+                    token = token,
+                    expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES),
+                )
+                // TODO: send password reset email.
+            }
+            Result.Success(Unit)
         } catch (ex: Exception) {
             Result.Failure(ex.message ?: "Failed to request password reset", ex)
         }

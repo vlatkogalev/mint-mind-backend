@@ -6,53 +6,59 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RequestPasswordResetTest : UserAuthServiceTestBase() {
     @Test
-    fun requestPasswordReset_withUnknownEmail_returnsSuccessWithEmptyToken() {
+    fun requestPasswordReset_withUnknownEmail_returnsSuccess() {
         val result = service.requestPasswordReset("missing@example.com")
 
-        assertEquals("", assertSuccess(result).value.resetToken)
+        assertSuccess(result)
     }
 
     @Test
-    fun requestPasswordReset_withKnownEmail_returnsNonEmptyToken() {
+    fun requestPasswordReset_withKnownEmail_returnsSuccess() {
         verifiedUser()
 
         val result = service.requestPasswordReset(TestFixtures.VALID_EMAIL)
 
-        assertTrue(assertSuccess(result).value.resetToken.isNotBlank())
+        assertSuccess(result)
     }
 
     @Test
     fun requestPasswordReset_withKnownEmail_storesResetToken() {
-        verifiedUser()
+        val user = verifiedUser()
 
-        val token = assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL)).value.resetToken
+        assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL))
+        val storedToken = repo.findPasswordResetTokenByUserId(user.id)
 
-        assertNotNull(repo.findPasswordResetToken(token))
+        assertNotNull(storedToken)
+        assertTrue(storedToken.token.isNotBlank())
     }
 
     @Test
     fun requestPasswordReset_tokenExpiry_isSet15MinutesFromNow() {
-        verifiedUser()
+        val user = verifiedUser()
         val before = Instant.now().plus(Duration.ofMinutes(15)).minusSeconds(2)
 
-        val token = assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL)).value.resetToken
+        assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL))
 
         val after = Instant.now().plus(Duration.ofMinutes(15)).plusSeconds(2)
-        val storedToken = assertNotNull(repo.findPasswordResetToken(token))
+        val storedToken = assertNotNull(repo.findPasswordResetTokenByUserId(user.id))
         assertTrue(storedToken.expiresAt.isAfter(before))
         assertTrue(storedToken.expiresAt.isBefore(after))
     }
 
     @Test
     fun requestPasswordReset_calledTwice_upsertsPreviousToken() {
-        verifiedUser()
-        val firstToken = assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL)).value.resetToken
+        val user = verifiedUser()
 
-        val secondToken = assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL)).value.resetToken
+        assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL))
+        val firstToken = assertNotNull(repo.findPasswordResetTokenByUserId(user.id)).token
+
+        assertSuccess(service.requestPasswordReset(TestFixtures.VALID_EMAIL))
+        val secondToken = assertNotNull(repo.findPasswordResetTokenByUserId(user.id)).token
 
         assertNotEquals(firstToken, secondToken)
         assertEquals(null, repo.findPasswordResetToken(firstToken))
@@ -65,7 +71,16 @@ class RequestPasswordResetTest : UserAuthServiceTestBase() {
 
         val result = service.requestPasswordReset("  USER@EXAMPLE.COM  ")
 
-        assertTrue(assertSuccess(result).value.resetToken.isNotBlank())
+        assertSuccess(result)
+    }
+
+    @Test
+    fun requestPasswordReset_withUnknownEmail_doesNotStoreToken() {
+        val user = verifiedUser()
+
+        assertSuccess(service.requestPasswordReset("missing@example.com"))
+
+        assertNull(repo.findPasswordResetTokenByUserId(user.id))
     }
 
     @Test

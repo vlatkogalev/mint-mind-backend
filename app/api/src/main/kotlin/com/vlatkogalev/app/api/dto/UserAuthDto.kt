@@ -14,12 +14,23 @@ data class RegisterRequest(
 data class LoginRequest(
     val email: String,
     val password: String,
-)
+) {
+    fun validate(): String? {
+        if (email.isBlank()) return "email is required"
+        if (password.isBlank()) return "password is required"
+        return null
+    }
+}
 
 @Serializable
 data class RefreshTokenRequest(
     val refreshToken: String,
-)
+) {
+    fun validate(): String? {
+        if (refreshToken.isBlank()) return "refreshToken is required"
+        return null
+    }
+}
 
 @Serializable
 data class RequestPasswordResetRequest(
@@ -35,7 +46,13 @@ data class ResendVerificationRequest(
 data class ConfirmPasswordResetRequest(
     val token: String,
     val newPassword: String,
-)
+) {
+    fun validate(): String? {
+        if (token.isBlank()) return "token is required"
+        if (newPassword.isBlank()) return "newPassword is required"
+        return null
+    }
+}
 
 @Serializable
 data class UpdateProfileRequest(
@@ -63,6 +80,5 @@ data class UserResponse(
 
 @Serializable
 data class PasswordResetRequestResponse(
-    val resetToken: String?,
     val message: String,
 )

@@ -2,6 +2,7 @@ package com.vlatkogalev.domain.coin.service
 
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
+import com.vlatkogalev.domain.coin.model.CoinCollectionStats
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.platform.core.Result
@@ -84,17 +85,8 @@ class CoinServiceImpl(
         Result.Failure(ex.message ?: "Failed to update notes", ex)
     }
 
-    override fun getCollectionStats(userId: UUID): Result<CollectionStats> = try {
-        val stats = coinRepository.getCollectionStats(userId)
-        Result.Success(
-            CollectionStats(
-                totalCoins = stats.totalCoins,
-                estimatedTotalValueLowUsd = stats.estimatedTotalValueLowUsd,
-                estimatedTotalValueHighUsd = stats.estimatedTotalValueHighUsd,
-                byCountry = stats.byCountry,
-                byYear = stats.byYear,
-            ),
-        )
+    override fun getCollectionStats(userId: UUID): Result<CoinCollectionStats> = try {
+        Result.Success(coinRepository.getCollectionStats(userId))
     } catch (ex: Exception) {
         Result.Failure(ex.message ?: "Failed to get collection stats", ex)
     }

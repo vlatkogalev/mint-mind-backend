@@ -113,6 +113,31 @@ class CoinQueries(
             }
         }
 
+    fun findCatalogueNumbersByCoinIds(coinIds: List<UUID>): Map<UUID, List<CatalogueNumberRecord>> {
+        if (coinIds.isEmpty()) return emptyMap()
+        val placeholders = coinIds.joinToString(",") { "?" }
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                SELECT coin_id, catalogue_name, number, confidence
+                FROM coin_catalogue_numbers
+                WHERE coin_id IN ($placeholders)
+                """.trimIndent(),
+            ).use { statement ->
+                coinIds.forEachIndexed { index, id -> statement.setObject(index + 1, id) }
+                statement.executeQuery().use { rs ->
+                    buildMap<UUID, MutableList<CatalogueNumberRecord>> {
+                        while (rs.next()) {
+                            val coinId = rs.getObject("coin_id", UUID::class.java)
+                            getOrPut(coinId) { mutableListOf() }.add(rs.toCatalogueNumberRecord())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fun findByUserId(
         userId: UUID,
         country: String?,

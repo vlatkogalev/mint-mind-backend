@@ -6,7 +6,6 @@ import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.app.api.util.HtmlTemplates
 import com.vlatkogalev.domain.user.model.LoginSession
-import com.vlatkogalev.domain.user.model.PasswordResetRequestResult
 import com.vlatkogalev.domain.user.model.User
 import com.vlatkogalev.domain.user.service.UserAuthService
 import com.vlatkogalev.platform.auth.userIdOrNull
@@ -41,6 +40,10 @@ class UserAuthController(
 
         post("/login") {
             val payload = call.receive<LoginRequest>()
+            payload.validate()?.let {
+                call.respond(HttpStatusCode.BadRequest, error(it))
+                return@post
+            }
             when (val result = userAuthService.login(payload.email, payload.password)) {
                 is Result.Success -> call.respond(success(result.value.toResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, error(result.reason))
@@ -52,6 +55,10 @@ class UserAuthController(
 
         post("/refresh") {
             val payload = call.receive<RefreshTokenRequest>()
+            payload.validate()?.let {
+                call.respond(HttpStatusCode.BadRequest, error(it))
+                return@post
+            }
             when (val result = userAuthService.refresh(payload.refreshToken)) {
                 is Result.Success -> call.respond(success(result.value.toResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, error(result.reason))
@@ -90,7 +97,9 @@ class UserAuthController(
         post("/password-reset/request") {
             val payload = call.receive<RequestPasswordResetRequest>()
             when (val result = userAuthService.requestPasswordReset(payload.email)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
+                is Result.Success -> call.respond(
+                    success(PasswordResetRequestResponse(message = "If the email exists, a reset link has been sent")),
+                )
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
@@ -100,6 +109,10 @@ class UserAuthController(
 
         post("/password-reset/confirm") {
             val payload = call.receive<ConfirmPasswordResetRequest>()
+            payload.validate()?.let {
+                call.respond(HttpStatusCode.BadRequest, error(it))
+                return@post
+            }
             when (val result = userAuthService.confirmPasswordReset(payload.token, payload.newPassword)) {
                 is Result.Success -> call.respond(success(mapOf("message" to "Password updated")))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
@@ -178,12 +191,6 @@ class UserAuthController(
             lastName = lastName,
             avatarUrl = avatarUrl,
             emailVerified = emailVerified,
-        )
-
-    private fun PasswordResetRequestResult.toResponse(): PasswordResetRequestResponse =
-        PasswordResetRequestResponse(
-            resetToken = resetToken.takeIf { it.isNotBlank() },
-            message = "If the email exists, a reset token has been issued",
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

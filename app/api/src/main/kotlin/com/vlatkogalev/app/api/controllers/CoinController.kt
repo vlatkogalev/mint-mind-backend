@@ -12,10 +12,10 @@ import com.vlatkogalev.app.api.dto.UpdateCoinNotesRequest
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
+import com.vlatkogalev.domain.coin.model.CoinCollectionStats
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.service.CoinService
-import com.vlatkogalev.domain.coin.service.CollectionStats
 import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.Result
@@ -49,6 +49,10 @@ class CoinController(
             }
 
             val payload = call.receive<SaveCoinRequest>()
+            payload.validate()?.let {
+                call.respond(HttpStatusCode.BadRequest, error(it))
+                return@post
+            }
             val recognitionResult = payload.recognitionResult.toDomainOrNull()
             val catalogueNumbers = payload.catalogueNumbers.mapNotNull { it.toDomainOrNull() }
             if (recognitionResult == null || catalogueNumbers.size != payload.catalogueNumbers.size) {
@@ -299,7 +303,7 @@ class CoinController(
             confidence = confidence.name,
         )
 
-    private fun CollectionStats.toResponse(): CollectionStatsResponse =
+    private fun CoinCollectionStats.toResponse(): CollectionStatsResponse =
         CollectionStatsResponse(
             totalCoins = totalCoins,
             estimatedTotalValueLowUsd = estimatedTotalValueLowUsd,

@@ -1,7 +1,6 @@
 package com.vlatkogalev.domain.user.service
 
 import com.vlatkogalev.domain.user.model.LoginSession
-import com.vlatkogalev.domain.user.model.PasswordResetRequestResult
 import com.vlatkogalev.domain.user.model.User
 import com.vlatkogalev.platform.core.Result
 import java.util.*
@@ -21,7 +20,7 @@ interface UserAuthService {
 
     fun updateProfile(userId: UUID, firstName: String, lastName: String): Result<User>
 
-    fun requestPasswordReset(email: String): Result<PasswordResetRequestResult>
+    fun requestPasswordReset(email: String): Result<Unit>
 
     fun confirmPasswordReset(token: String, newPassword: String): Result<Unit>
 

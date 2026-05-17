@@ -838,10 +838,6 @@ components:
       type: object
       required: [message]
       properties:
-        resetToken:
-          type: string
-          nullable: true
-          description: "Development/testing value if exposed by the implementation; clients should rely on email delivery."
         message:
           type: string
 

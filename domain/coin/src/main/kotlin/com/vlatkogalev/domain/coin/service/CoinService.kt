@@ -2,6 +2,7 @@ package com.vlatkogalev.domain.coin.service
 
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
+import com.vlatkogalev.domain.coin.model.CoinCollectionStats
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.platform.core.Result
 import java.util.UUID
@@ -32,13 +33,5 @@ interface CoinService {
 
     fun updateNotes(coinId: UUID, userId: UUID, notes: String?): Result<Coin>
 
-    fun getCollectionStats(userId: UUID): Result<CollectionStats>
+    fun getCollectionStats(userId: UUID): Result<CoinCollectionStats>
 }
-
-data class CollectionStats(
-    val totalCoins: Int,
-    val estimatedTotalValueLowUsd: Double,
-    val estimatedTotalValueHighUsd: Double,
-    val byCountry: Map<String, Int>,
-    val byYear: Map<Int, Int>,
-)
