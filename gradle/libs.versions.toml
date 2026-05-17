@@ -11,6 +11,7 @@ postgres = "42.7.10"
 slf4j = "2.0.17"
 resend = "3.1.0"
 ucasoft = "0.59.4"
+jsoup = "1.22.2"
 
 [libraries]
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws" }
@@ -26,6 +27,7 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgres" }
 resend = { module = "com.resend:resend-java", version.ref = "resend" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 ucasoft-ktorSimpleCache = { module = "com.ucasoft.ktor:ktor-simple-cache", version.ref = "ucasoft" }
 ucasoft-ktorSimpleRedisCache = { module = "com.ucasoft.ktor:ktor-simple-redis-cache", version.ref = "ucasoft" }
 

@@ -9,6 +9,7 @@ tags:
   - name: "Webhooks"
   - name: "Coins"
   - name: "Collection"
+  - name: "News"
 paths:
   /health:
     get:
@@ -633,6 +634,67 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /news:
+    get:
+      tags: ["News"]
+      summary: "List latest news articles"
+      parameters:
+        - name: "limit"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: "offset"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsListApiResponse"
+
+  /news/{id}:
+    get:
+      tags: ["News"]
+      summary: "Get a single news article by id"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsArticleApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /webhooks/revenuecat:
     post:
       tags: ["Webhooks"]
@@ -1093,6 +1155,51 @@ components:
           type: string
           format: uri
 
+    NewsArticleResponse:
+      type: object
+      required: [id, title, link, description, content, publishedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        link:
+          type: string
+          format: uri
+        description:
+          type: string
+        content:
+          type: string
+        author:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+
+    NewsListResponse:
+      type: object
+      required: [articles, total, limit, offset]
+      properties:
+        articles:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsArticleResponse"
+        total:
+          type: integer
+          format: int32
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+
     HealthResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponseBase"
@@ -1190,6 +1297,22 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CoinImagesResponse"
+
+    NewsArticleApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NewsArticleResponse"
+
+    NewsListApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NewsListResponse"
 
     ErrorResponse:
       allOf:

@@ -9,5 +9,8 @@ kotlin {
 dependencies {
     implementation(project(":platform:core"))
     implementation(project(":domain:user"))
+    implementation(project(":domain:news"))
     implementation(project(":data:postgres"))
+    implementation(libs.jsoup)
+    implementation(libs.slf4j.api)
 }

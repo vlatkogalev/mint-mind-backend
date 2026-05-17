@@ -29,6 +29,7 @@ include(
     ":domain:image",
     ":domain:coin",
     ":domain:billing",
+    ":domain:news",
     ":data:postgres",
     ":data:s3",
     ":data:email",
