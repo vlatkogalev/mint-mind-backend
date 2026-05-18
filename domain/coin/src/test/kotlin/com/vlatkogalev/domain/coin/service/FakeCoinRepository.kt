@@ -1,16 +1,10 @@
 package com.vlatkogalev.domain.coin.service
 
-import com.vlatkogalev.domain.coin.model.CatalogueNumber
-import com.vlatkogalev.domain.coin.model.Coin
-import com.vlatkogalev.domain.coin.model.CoinCollectionStats
-import com.vlatkogalev.domain.coin.model.CoinSortField
-import com.vlatkogalev.domain.coin.model.CollectionHighlights
-import com.vlatkogalev.domain.coin.model.Confidence
-import com.vlatkogalev.domain.coin.model.RecognitionResult
+import com.vlatkogalev.domain.coin.model.*
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.platform.core.Result
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 import kotlin.test.BeforeTest
 import kotlin.test.assertIs
 
@@ -71,6 +65,7 @@ class FakeCoinRepository : CoinRepository {
     ): List<Coin> {
         if (throwOnFindByUserId) error("findByUserId failed")
         return coins.values
+            .asSequence()
             .filter { it.userId == userId }
             .filter { country == null || it.recognitionResult.countryOrIssuer == country }
             .filter { year == null || it.recognitionResult.year == year }
@@ -79,6 +74,7 @@ class FakeCoinRepository : CoinRepository {
             .sortedWith(sortBy.comparator())
             .drop(offset.coerceAtLeast(0))
             .take(limit.coerceIn(1, 100))
+            .toList()
     }
 
     override fun getCollectionStats(userId: UUID): CoinCollectionStats {
