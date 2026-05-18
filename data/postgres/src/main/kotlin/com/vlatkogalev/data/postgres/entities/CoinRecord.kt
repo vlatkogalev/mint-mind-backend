@@ -22,10 +22,12 @@ data class CoinRecord(
     val rarityQualitative: String?,
     val valueLowUsd: Double?,
     val valueHighUsd: Double?,
+    val mintage: Long?,
     val obverseDescription: String?,
     val reverseDescription: String?,
     val historicalContext: String?,
     val rawJson: String,
+    val setId: UUID?,
 )
 
 data class CatalogueNumberRecord(

@@ -1,0 +1,89 @@
+package com.vlatkogalev.domain.coin.service
+
+import com.vlatkogalev.domain.coin.model.CoinSet
+import com.vlatkogalev.domain.coin.repository.CoinRepository
+import com.vlatkogalev.domain.coin.repository.CoinSetRepository
+import com.vlatkogalev.platform.core.Result
+import java.time.Instant
+import java.util.UUID
+
+class CoinSetServiceImpl(
+    private val coinSetRepository: CoinSetRepository,
+    private val coinRepository: CoinRepository,
+) : CoinSetService {
+    override fun createSet(userId: UUID, name: String, description: String?): Result<CoinSet> = try {
+        if (name.isBlank()) return Result.Failure("name must not be blank")
+        Result.Success(
+            coinSetRepository.create(
+                CoinSet(
+                    id = UUID.randomUUID(),
+                    userId = userId,
+                    name = name.trim(),
+                    description = description,
+                    coinIds = emptyList(),
+                    createdAt = Instant.now(),
+                ),
+            ),
+        )
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to create set", ex)
+    }
+
+    override fun getSet(setId: UUID, userId: UUID): Result<CoinSet> = try {
+        val set = coinSetRepository.findById(setId)
+        when {
+            set == null -> Result.Failure("Set not found")
+            set.userId != userId -> Result.Failure("Set not found")
+            else -> Result.Success(set)
+        }
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to get set", ex)
+    }
+
+    override fun listSets(userId: UUID): Result<List<CoinSet>> = try {
+        Result.Success(coinSetRepository.findByUserId(userId))
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to list sets", ex)
+    }
+
+    override fun addCoinsToSet(setId: UUID, userId: UUID, coinIds: List<UUID>): Result<CoinSet> = try {
+        if (coinIds.isEmpty()) return Result.Failure("coinIds must not be empty")
+        val set = coinSetRepository.findById(setId) ?: return Result.Failure("Set not found")
+        if (set.userId != userId) return Result.Failure("Set not found")
+
+        for (coinId in coinIds) {
+            val coin = coinRepository.findById(coinId)
+            if (coin == null || coin.userId != userId) {
+                return Result.Failure("One or more coin IDs are invalid or do not belong to the user")
+            }
+        }
+
+        val updated = coinSetRepository.addCoins(setId, userId, coinIds) ?: return Result.Failure("Set not found")
+        Result.Success(updated)
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to add coins to set", ex)
+    }
+
+    override fun removeCoinsFromSet(setId: UUID, userId: UUID, coinIds: List<UUID>): Result<CoinSet> = try {
+        if (coinIds.isEmpty()) return Result.Failure("coinIds must not be empty")
+        val updated = coinSetRepository.removeCoins(setId, userId, coinIds) ?: return Result.Failure("Set not found")
+        Result.Success(updated)
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to remove coins from set", ex)
+    }
+
+    override fun updateSet(setId: UUID, userId: UUID, name: String, description: String?): Result<CoinSet> = try {
+        if (name.isBlank()) return Result.Failure("name must not be blank")
+        val updated = coinSetRepository.update(setId, userId, name.trim(), description) ?: return Result.Failure("Set not found")
+        Result.Success(updated)
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to update set", ex)
+    }
+
+    override fun deleteSet(setId: UUID, userId: UUID): Result<Unit> = try {
+        if (coinSetRepository.deleteById(setId, userId)) Result.Success(Unit)
+        else Result.Failure("Set not found")
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to delete set", ex)
+    }
+}

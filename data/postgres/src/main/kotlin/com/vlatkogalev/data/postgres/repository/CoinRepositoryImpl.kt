@@ -6,6 +6,8 @@ import com.vlatkogalev.data.postgres.entities.CoinRecord
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinCollectionStats
+import com.vlatkogalev.domain.coin.model.CollectionHighlights
+import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.repository.CoinRepository
@@ -50,6 +52,7 @@ class CoinRepositoryImpl(
         year: Int?,
         minValueUsd: Double?,
         maxValueUsd: Double?,
+        sortBy: CoinSortField,
         limit: Int,
         offset: Int,
     ): List<Coin> {
@@ -59,6 +62,7 @@ class CoinRepositoryImpl(
             year = year,
             minValue = minValueUsd,
             maxValue = maxValueUsd,
+            sortBy = sortBy,
             limit = limit,
             offset = offset,
         )
@@ -70,20 +74,24 @@ class CoinRepositoryImpl(
         }
     }
 
-    override fun getCollectionStats(userId: UUID): CoinCollectionStats {
-        val valueStats = queries.getValueStats(userId)
-        return CoinCollectionStats(
-            totalCoins = valueStats.totalCoins,
-            estimatedTotalValueLowUsd = valueStats.estimatedTotalValueLowUsd,
-            estimatedTotalValueHighUsd = valueStats.estimatedTotalValueHighUsd,
-            byCountry = queries.countByCountry(userId),
-            byYear = queries.countByYear(userId),
+    override fun getCollectionStats(userId: UUID): CoinCollectionStats =
+        CoinCollectionStats(
+            totalCoins = queries.countByUserId(userId),
+            totalIssuers = queries.countDistinctIssuers(userId),
+            estimatedTotalValueMeanUsd = queries.getMeanValue(userId),
+            highlights = CollectionHighlights(
+                mostValuable = queries.findMostValuable(userId)?.toDomainWithCatalogueNumbers(),
+                mostAncient = queries.findMostAncient(userId)?.toDomainWithCatalogueNumbers(),
+                rarest = queries.findRarest(userId)?.toDomainWithCatalogueNumbers(),
+            ),
         )
-    }
 
     override fun countByUserId(userId: UUID): Int = queries.countByUserId(userId)
 
     override fun deleteById(id: UUID, userId: UUID): Boolean = queries.deleteById(id, userId)
+
+    private fun CoinRecord.toDomainWithCatalogueNumbers(): Coin =
+        toDomain(queries.findCatalogueNumbersByCoinId(id))
 
     private fun CoinRecord.toDomain(catalogueNumbers: List<CatalogueNumberRecord>): Coin =
         Coin(
@@ -104,12 +112,14 @@ class CoinRepositoryImpl(
                 rarityQualitative = rarityQualitative,
                 valueLowUsd = valueLowUsd,
                 valueHighUsd = valueHighUsd,
+                mintage = mintage,
                 obverseDescription = obverseDescription,
                 reverseDescription = reverseDescription,
                 historicalContext = historicalContext,
                 rawJson = rawJson,
             ),
             catalogueNumbers = catalogueNumbers.map { it.toDomain() },
+            setId = setId,
             notes = notes,
             createdAt = createdAt,
         )

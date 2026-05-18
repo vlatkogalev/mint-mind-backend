@@ -1,6 +1,7 @@
 package com.vlatkogalev.app.api.di
 
 import com.vlatkogalev.app.api.controllers.CoinController
+import com.vlatkogalev.app.api.controllers.CoinSetController
 import com.vlatkogalev.app.api.controllers.NewsController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
@@ -9,10 +10,12 @@ import com.vlatkogalev.app.jobs.NewsJobScheduler
 import com.vlatkogalev.app.jobs.RssFeedFetcher
 import com.vlatkogalev.data.email.ResendEmailVerificationSender
 import com.vlatkogalev.data.postgres.daos.CoinQueries
+import com.vlatkogalev.data.postgres.daos.CoinSetQueries
 import com.vlatkogalev.data.postgres.daos.NewsQueries
 import com.vlatkogalev.data.postgres.daos.SubscriptionQueries
 import com.vlatkogalev.data.postgres.daos.UserQueries
 import com.vlatkogalev.data.postgres.repository.CoinRepositoryImpl
+import com.vlatkogalev.data.postgres.repository.CoinSetRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.NewsRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.SubscriptionRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.UserRepositoryImpl
@@ -20,8 +23,11 @@ import com.vlatkogalev.data.s3.S3FileStorageService
 import com.vlatkogalev.domain.billing.repository.SubscriptionRepository
 import com.vlatkogalev.domain.billing.service.SubscriptionService
 import com.vlatkogalev.domain.coin.repository.CoinRepository
+import com.vlatkogalev.domain.coin.repository.CoinSetRepository
 import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.domain.coin.service.CoinServiceImpl
+import com.vlatkogalev.domain.coin.service.CoinSetService
+import com.vlatkogalev.domain.coin.service.CoinSetServiceImpl
 import com.vlatkogalev.domain.news.repository.NewsRepository
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.domain.user.service.EmailVerificationSender
@@ -63,13 +69,16 @@ val appModule = module {
     single { UserQueries(get()) }
     single { SubscriptionQueries(get()) }
     single { CoinQueries(get()) }
+    single { CoinSetQueries(get()) }
     single { NewsQueries(get()) }
 
     single<UserRepository> { UserRepositoryImpl(get(), get()) }
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get()) }
     single<CoinRepository> { CoinRepositoryImpl(get()) }
+    single<CoinSetRepository> { CoinSetRepositoryImpl(get()) }
     single { SubscriptionService(get()) }
     single<CoinService> { CoinServiceImpl(get()) }
+    single<CoinSetService> { CoinSetServiceImpl(get(), get()) }
     single<NewsRepository> { NewsRepositoryImpl(get()) }
     single<UserAuthService> {
         UserAuthServiceImpl(
@@ -90,5 +99,6 @@ val appModule = module {
     single { RevenueCatWebhookController(get(), get()) }
     single { StorageController(get(), get()) }
     single { CoinController(get(), get(), get()) }
+    single { CoinSetController(get(), get()) }
     single { NewsController(get(), get()) }
 }

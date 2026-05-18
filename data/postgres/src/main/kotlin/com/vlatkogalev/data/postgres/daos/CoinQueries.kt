@@ -4,6 +4,7 @@ import com.vlatkogalev.data.postgres.entities.CatalogueNumberRecord
 import com.vlatkogalev.data.postgres.entities.CoinRecord
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
+import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.platform.database.withTransaction
 import java.sql.Connection
 import java.sql.ResultSet
@@ -24,9 +25,10 @@ class CoinQueries(
                 id, user_id, obverse_key, reverse_key, notes, created_at,
                 overall_confidence, country_or_issuer, denomination, series_name, year, mint_mark,
                 metal_composition, estimated_grade, estimated_grade_value, rarity_qualitative,
-                value_low_usd, value_high_usd, obverse_description, reverse_description, historical_context, raw_json
+                value_low_usd, value_high_usd, mintage, obverse_description, reverse_description,
+                historical_context, raw_json, set_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
         ).use { statement ->
             statement.setObject(1, coin.id)
@@ -47,10 +49,12 @@ class CoinQueries(
             statement.setString(16, coin.recognitionResult.rarityQualitative)
             statement.setObject(17, coin.recognitionResult.valueLowUsd)
             statement.setObject(18, coin.recognitionResult.valueHighUsd)
-            statement.setString(19, coin.recognitionResult.obverseDescription)
-            statement.setString(20, coin.recognitionResult.reverseDescription)
-            statement.setString(21, coin.recognitionResult.historicalContext)
-            statement.setString(22, coin.recognitionResult.rawJson)
+            statement.setObject(19, coin.recognitionResult.mintage)
+            statement.setString(20, coin.recognitionResult.obverseDescription)
+            statement.setString(21, coin.recognitionResult.reverseDescription)
+            statement.setString(22, coin.recognitionResult.historicalContext)
+            statement.setString(23, coin.recognitionResult.rawJson)
+            statement.setObject(24, coin.setId)
             statement.executeUpdate()
         }
     }
@@ -144,6 +148,7 @@ class CoinQueries(
         year: Int?,
         minValue: Double?,
         maxValue: Double?,
+        sortBy: CoinSortField,
         limit: Int,
         offset: Int,
     ): List<CoinRecord> =
@@ -174,7 +179,7 @@ class CoinQueries(
                 SELECT ${coinColumns()}
                 FROM coins
                 WHERE $whereClause
-                ORDER BY created_at DESC
+                ${orderByClause(sortBy)}
                 LIMIT ? OFFSET ?
                 """.trimIndent()
 
@@ -230,10 +235,12 @@ class CoinQueries(
                 rarity_qualitative = ?,
                 value_low_usd = ?,
                 value_high_usd = ?,
+                mintage = ?,
                 obverse_description = ?,
                 reverse_description = ?,
                 historical_context = ?,
-                raw_json = ?
+                raw_json = ?,
+                set_id = ?
             WHERE id = ? AND user_id = ?
             """.trimIndent(),
         ).use { statement ->
@@ -250,12 +257,14 @@ class CoinQueries(
             statement.setString(11, coin.recognitionResult.rarityQualitative)
             statement.setObject(12, coin.recognitionResult.valueLowUsd)
             statement.setObject(13, coin.recognitionResult.valueHighUsd)
-            statement.setString(14, coin.recognitionResult.obverseDescription)
-            statement.setString(15, coin.recognitionResult.reverseDescription)
-            statement.setString(16, coin.recognitionResult.historicalContext)
-            statement.setString(17, coin.recognitionResult.rawJson)
-            statement.setObject(18, coin.id)
-            statement.setObject(19, coin.userId)
+            statement.setObject(14, coin.recognitionResult.mintage)
+            statement.setString(15, coin.recognitionResult.obverseDescription)
+            statement.setString(16, coin.recognitionResult.reverseDescription)
+            statement.setString(17, coin.recognitionResult.historicalContext)
+            statement.setString(18, coin.recognitionResult.rawJson)
+            statement.setObject(19, coin.setId)
+            statement.setObject(20, coin.id)
+            statement.setObject(21, coin.userId)
             statement.executeUpdate()
         }
     }
@@ -274,71 +283,79 @@ class CoinQueries(
             statement.executeUpdate() > 0
         }
 
-    fun getValueStats(userId: UUID): CoinValueStats =
+    fun countDistinctIssuers(userId: UUID): Int =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                SELECT
-                    COUNT(*) AS total_coins,
-                    COALESCE(SUM(value_low_usd), 0) AS total_low,
-                    COALESCE(SUM(value_high_usd), 0) AS total_high
+                SELECT COUNT(DISTINCT country_or_issuer) AS total_issuers
                 FROM coins
-                WHERE user_id = ?
+                WHERE user_id = ? AND country_or_issuer IS NOT NULL
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, userId)
-                statement.executeQuery().use { rs ->
-                    if (!rs.next()) return@use CoinValueStats(0, 0.0, 0.0)
-                    CoinValueStats(
-                        totalCoins = rs.getInt("total_coins"),
-                        estimatedTotalValueLowUsd = rs.getBigDecimal("total_low")?.toDouble() ?: 0.0,
-                        estimatedTotalValueHighUsd = rs.getBigDecimal("total_high")?.toDouble() ?: 0.0,
-                    )
-                }
+                statement.executeQuery().use { rs -> if (rs.next()) rs.getInt("total_issuers") else 0 }
             }
         }
 
-    fun countByCountry(userId: UUID): Map<String, Int> =
+    fun getMeanValue(userId: UUID): Double =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                SELECT
-                    COALESCE(country_or_issuer, 'Unknown') AS country,
-                    COUNT(*) AS total
+                SELECT AVG((value_low_usd + value_high_usd) / 2.0) AS mean_value
                 FROM coins
-                WHERE user_id = ?
-                GROUP BY COALESCE(country_or_issuer, 'Unknown')
+                WHERE user_id = ? AND value_low_usd IS NOT NULL AND value_high_usd IS NOT NULL
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, userId)
-                statement.executeQuery().use { rs ->
-                    buildMap {
-                        while (rs.next()) {
-                            put(rs.getString("country"), rs.getInt("total"))
-                        }
-                    }
-                }
+                statement.executeQuery().use { rs -> if (rs.next()) rs.getBigDecimal("mean_value")?.toDouble() ?: 0.0 else 0.0 }
             }
         }
 
-    fun countByYear(userId: UUID): Map<Int, Int> =
+    fun findMostValuable(userId: UUID): CoinRecord? =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                SELECT year, COUNT(*) AS total
+                SELECT ${coinColumns()}
                 FROM coins
-                WHERE user_id = ? AND year IS NOT NULL
-                GROUP BY year
+                WHERE user_id = ?
+                ORDER BY ((value_low_usd + value_high_usd) / 2.0) DESC NULLS LAST
+                LIMIT 1
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, userId)
-                statement.executeQuery().use { rs ->
-                    buildMap {
-                        while (rs.next()) {
-                            put(rs.getInt("year"), rs.getInt("total"))
-                        }
-                    }
-                }
+                statement.executeQuery().use { rs -> if (rs.next()) rs.toCoinRecord() else null }
+            }
+        }
+
+    fun findMostAncient(userId: UUID): CoinRecord? =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                SELECT ${coinColumns()}
+                FROM coins
+                WHERE user_id = ?
+                ORDER BY year ASC NULLS LAST
+                LIMIT 1
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, userId)
+                statement.executeQuery().use { rs -> if (rs.next()) rs.toCoinRecord() else null }
+            }
+        }
+
+    fun findRarest(userId: UUID): CoinRecord? =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                SELECT ${coinColumns()}
+                FROM coins
+                WHERE user_id = ? AND mintage IS NOT NULL
+                ORDER BY mintage ASC
+                LIMIT 1
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, userId)
+                statement.executeQuery().use { rs -> if (rs.next()) rs.toCoinRecord() else null }
             }
         }
 
@@ -370,10 +387,12 @@ class CoinQueries(
             rarityQualitative = getString("rarity_qualitative"),
             valueLowUsd = getBigDecimal("value_low_usd")?.toDouble(),
             valueHighUsd = getBigDecimal("value_high_usd")?.toDouble(),
+            mintage = getLong("mintage").takeUnless { wasNull() },
             obverseDescription = getString("obverse_description"),
             reverseDescription = getString("reverse_description"),
             historicalContext = getString("historical_context"),
             rawJson = getString("raw_json"),
+            setId = getObject("set_id", UUID::class.java),
         )
 
     private fun ResultSet.toCatalogueNumberRecord(): CatalogueNumberRecord =
@@ -404,15 +423,21 @@ class CoinQueries(
         rarity_qualitative,
         value_low_usd,
         value_high_usd,
+        mintage,
         obverse_description,
         reverse_description,
         historical_context,
-        raw_json
+        raw_json,
+        set_id
         """.trimIndent()
-}
 
-data class CoinValueStats(
-    val totalCoins: Int,
-    val estimatedTotalValueLowUsd: Double,
-    val estimatedTotalValueHighUsd: Double,
-)
+    private fun orderByClause(sortBy: CoinSortField): String =
+        when (sortBy) {
+            CoinSortField.VALUE_HIGH_TO_LOW -> "ORDER BY ((value_low_usd + value_high_usd) / 2.0) DESC NULLS LAST"
+            CoinSortField.VALUE_LOW_TO_HIGH -> "ORDER BY ((value_low_usd + value_high_usd) / 2.0) ASC NULLS LAST"
+            CoinSortField.RELEASE_YEAR_OLD_TO_NEW -> "ORDER BY year ASC NULLS LAST"
+            CoinSortField.RELEASE_YEAR_NEW_TO_OLD -> "ORDER BY year DESC NULLS LAST"
+            CoinSortField.DATE_ADDED_OLD_TO_NEW -> "ORDER BY created_at ASC"
+            CoinSortField.DATE_ADDED_NEW_TO_OLD -> "ORDER BY created_at DESC"
+        }
+}

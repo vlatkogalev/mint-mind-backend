@@ -3,6 +3,7 @@
 package com.vlatkogalev.app.api.routes
 
 import com.vlatkogalev.app.api.controllers.CoinController
+import com.vlatkogalev.app.api.controllers.CoinSetController
 import com.vlatkogalev.app.api.controllers.NewsController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
@@ -28,6 +29,7 @@ object ApiTags {
     const val WEBHOOKS = "Webhooks"
     const val COINS = "Coins"
     const val COLLECTION = "Collection"
+    const val SETS = "Sets"
     const val NEWS = "News"
 }
 
@@ -35,6 +37,7 @@ fun Application.configureRoutes() {
     val userAuthController by inject<UserAuthController>()
     val storageController by inject<StorageController>()
     val coinController by inject<CoinController>()
+    val coinSetController by inject<CoinSetController>()
     val newsController by inject<NewsController>()
     val revenueCatWebhookController by inject<RevenueCatWebhookController>()
     val timeProvider by inject<TimeProvider>()
@@ -44,6 +47,7 @@ fun Application.configureRoutes() {
         authRoutes(userAuthController)
         storageRoutes(storageController)
         coinRoutes(coinController)
+        coinSetRoutes(coinSetController)
         newsRoutes(newsController)
         webhookRoutes(revenueCatWebhookController)
         docsRoutes()
@@ -101,6 +105,16 @@ fun Routing.coinRoutes(controller: CoinController) {
         authenticate("jwt-auth") {
             controller.run {
                 registerCollectionRoutes()
+            }
+        }
+    }
+}
+
+fun Routing.coinSetRoutes(controller: CoinSetController) {
+    route("/sets") {
+        authenticate("jwt-auth") {
+            controller.run {
+                registerProtectedRoutes()
             }
         }
     }

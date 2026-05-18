@@ -5,6 +5,7 @@ package com.vlatkogalev.app.api.controllers
 import com.vlatkogalev.app.api.dto.CatalogueNumberDto
 import com.vlatkogalev.app.api.dto.CoinImagesResponse
 import com.vlatkogalev.app.api.dto.CoinResponse
+import com.vlatkogalev.app.api.dto.CollectionHighlightsResponse
 import com.vlatkogalev.app.api.dto.CollectionStatsResponse
 import com.vlatkogalev.app.api.dto.RecognitionResultDto
 import com.vlatkogalev.app.api.dto.SaveCoinRequest
@@ -13,6 +14,7 @@ import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinCollectionStats
+import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.service.CoinService
@@ -90,6 +92,9 @@ class CoinController(
             val maxValue = call.request.queryParameters["maxValue"]?.toDoubleOrNull()
             val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
             val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
+            val sortBy = call.request.queryParameters["sortBy"]
+                ?.let { runCatching { CoinSortField.valueOf(it.uppercase()) }.getOrNull() }
+                ?: CoinSortField.DATE_ADDED_NEW_TO_OLD
 
             when (
                 val result = coinService.listCoins(
@@ -98,6 +103,7 @@ class CoinController(
                     year = year,
                     minValueUsd = minValue,
                     maxValueUsd = maxValue,
+                    sortBy = sortBy,
                     limit = limit,
                     offset = offset,
                 )
@@ -245,6 +251,7 @@ class CoinController(
             rarityQualitative = rarityQualitative,
             valueLowUsd = valueLowUsd,
             valueHighUsd = valueHighUsd,
+            mintage = mintage,
             obverseDescription = obverseDescription,
             reverseDescription = reverseDescription,
             historicalContext = historicalContext,
@@ -272,6 +279,7 @@ class CoinController(
             reverseKey = reverseKey,
             recognitionResult = recognitionResult.toResponse(),
             catalogueNumbers = catalogueNumbers.map { it.toResponse() },
+            setId = setId?.toString(),
             notes = notes,
             createdAt = createdAt.toString(),
         )
@@ -290,6 +298,7 @@ class CoinController(
             rarityQualitative = rarityQualitative,
             valueLowUsd = valueLowUsd,
             valueHighUsd = valueHighUsd,
+            mintage = mintage,
             obverseDescription = obverseDescription,
             reverseDescription = reverseDescription,
             historicalContext = historicalContext,
@@ -306,10 +315,13 @@ class CoinController(
     private fun CoinCollectionStats.toResponse(): CollectionStatsResponse =
         CollectionStatsResponse(
             totalCoins = totalCoins,
-            estimatedTotalValueLowUsd = estimatedTotalValueLowUsd,
-            estimatedTotalValueHighUsd = estimatedTotalValueHighUsd,
-            byCountry = byCountry,
-            byYear = byYear,
+            totalIssuers = totalIssuers,
+            estimatedTotalValueMeanUsd = estimatedTotalValueMeanUsd,
+            highlights = CollectionHighlightsResponse(
+                mostValuable = highlights.mostValuable?.toResponse(),
+                mostAncient = highlights.mostAncient?.toResponse(),
+                rarest = highlights.rarest?.toResponse(),
+            ),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

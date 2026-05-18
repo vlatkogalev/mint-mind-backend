@@ -3,6 +3,8 @@ package com.vlatkogalev.domain.coin.service
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinCollectionStats
+import com.vlatkogalev.domain.coin.model.CoinSortField
+import com.vlatkogalev.domain.coin.model.CollectionHighlights
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.repository.CoinRepository
@@ -63,6 +65,7 @@ class FakeCoinRepository : CoinRepository {
         year: Int?,
         minValueUsd: Double?,
         maxValueUsd: Double?,
+        sortBy: CoinSortField,
         limit: Int,
         offset: Int,
     ): List<Coin> {
@@ -73,6 +76,7 @@ class FakeCoinRepository : CoinRepository {
             .filter { year == null || it.recognitionResult.year == year }
             .filter { minValueUsd == null || (it.recognitionResult.valueLowUsd ?: 0.0) >= minValueUsd }
             .filter { maxValueUsd == null || (it.recognitionResult.valueHighUsd ?: 0.0) <= maxValueUsd }
+            .sortedWith(sortBy.comparator())
             .drop(offset.coerceAtLeast(0))
             .take(limit.coerceIn(1, 100))
     }
@@ -82,15 +86,13 @@ class FakeCoinRepository : CoinRepository {
         val userCoins = coins.values.filter { it.userId == userId }
         return CoinCollectionStats(
             totalCoins = userCoins.size,
-            estimatedTotalValueLowUsd = userCoins.mapNotNull { it.recognitionResult.valueLowUsd }.sum(),
-            estimatedTotalValueHighUsd = userCoins.mapNotNull { it.recognitionResult.valueHighUsd }.sum(),
-            byCountry = userCoins
-                .groupingBy { it.recognitionResult.countryOrIssuer ?: "Unknown" }
-                .eachCount(),
-            byYear = userCoins
-                .filter { it.recognitionResult.year != null }
-                .groupingBy { it.recognitionResult.year!! }
-                .eachCount(),
+            totalIssuers = userCoins.mapNotNull { it.recognitionResult.countryOrIssuer }.distinct().size,
+            estimatedTotalValueMeanUsd = userCoins.mapNotNull { it.meanValue() }.average().takeUnless { it.isNaN() } ?: 0.0,
+            highlights = CollectionHighlights(
+                mostValuable = userCoins.maxByOrNull { it.meanValue() ?: Double.NEGATIVE_INFINITY },
+                mostAncient = userCoins.filter { it.recognitionResult.year != null }.minByOrNull { it.recognitionResult.year!! },
+                rarest = userCoins.filter { it.recognitionResult.mintage != null }.minByOrNull { it.recognitionResult.mintage!! },
+            ),
         )
     }
 
@@ -103,6 +105,22 @@ class FakeCoinRepository : CoinRepository {
         coins.remove(id)
         return true
     }
+
+    private fun Coin.meanValue(): Double? {
+        val low = recognitionResult.valueLowUsd ?: return null
+        val high = recognitionResult.valueHighUsd ?: return null
+        return (low + high) / 2.0
+    }
+
+    private fun CoinSortField.comparator(): Comparator<Coin> =
+        when (this) {
+            CoinSortField.VALUE_HIGH_TO_LOW -> compareByDescending<Coin> { it.meanValue() ?: Double.NEGATIVE_INFINITY }
+            CoinSortField.VALUE_LOW_TO_HIGH -> compareBy<Coin> { it.meanValue() ?: Double.POSITIVE_INFINITY }
+            CoinSortField.RELEASE_YEAR_OLD_TO_NEW -> compareBy<Coin> { it.recognitionResult.year ?: Int.MAX_VALUE }
+            CoinSortField.RELEASE_YEAR_NEW_TO_OLD -> compareByDescending<Coin> { it.recognitionResult.year ?: Int.MIN_VALUE }
+            CoinSortField.DATE_ADDED_OLD_TO_NEW -> compareBy { it.createdAt }
+            CoinSortField.DATE_ADDED_NEW_TO_OLD -> compareByDescending { it.createdAt }
+        }
 }
 
 object TestFixtures {
@@ -115,6 +133,7 @@ object TestFixtures {
         year: Int? = 1921,
         valueLowUsd: Double? = 25.0,
         valueHighUsd: Double? = 50.0,
+        mintage: Long? = 1_000_000,
         rawJson: String = """{"is_coin": true}""",
     ) = RecognitionResult(
         overallConfidence = overallConfidence,
@@ -129,6 +148,7 @@ object TestFixtures {
         rarityQualitative = "Common",
         valueLowUsd = valueLowUsd,
         valueHighUsd = valueHighUsd,
+        mintage = mintage,
         obverseDescription = "Lady Liberty facing left",
         reverseDescription = "Eagle with wings spread",
         historicalContext = "Minted during the silver era",
@@ -152,6 +172,7 @@ object TestFixtures {
         reverseKey: String = "users/$userId/reverse.jpg",
         recognitionResult: RecognitionResult = makeRecognitionResult(),
         catalogueNumbers: List<CatalogueNumber> = listOf(makeCatalogueNumber()),
+        setId: UUID? = null,
         notes: String? = null,
         createdAt: Instant = Instant.now(),
     ) = Coin(
@@ -161,6 +182,7 @@ object TestFixtures {
         reverseKey = reverseKey,
         recognitionResult = recognitionResult,
         catalogueNumbers = catalogueNumbers,
+        setId = setId,
         notes = notes,
         createdAt = createdAt,
     )

@@ -13,6 +13,7 @@ data class RecognitionResult(
     val rarityQualitative: String?,
     val valueLowUsd: Double?,
     val valueHighUsd: Double?,
+    val mintage: Long?,
     val obverseDescription: String?,
     val reverseDescription: String?,
     val historicalContext: String?,

@@ -10,6 +10,7 @@ data class Coin(
     val reverseKey: String,
     val recognitionResult: RecognitionResult,
     val catalogueNumbers: List<CatalogueNumber>,
+    val setId: UUID?,
     val notes: String?,
     val createdAt: Instant,
 )

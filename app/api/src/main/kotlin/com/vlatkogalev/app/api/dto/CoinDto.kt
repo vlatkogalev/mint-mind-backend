@@ -23,6 +23,7 @@ data class RecognitionResultDto(
     val rarityQualitative: String? = null,
     val valueLowUsd: Double? = null,
     val valueHighUsd: Double? = null,
+    val mintage: Long? = null,
     val obverseDescription: String? = null,
     val reverseDescription: String? = null,
     val historicalContext: String? = null,
@@ -59,6 +60,7 @@ data class CoinResponse(
     val reverseKey: String,
     val recognitionResult: RecognitionResultDto,
     val catalogueNumbers: List<CatalogueNumberDto>,
+    val setId: String?,
     val notes: String?,
     val createdAt: String,
 )
@@ -66,10 +68,16 @@ data class CoinResponse(
 @Serializable
 data class CollectionStatsResponse(
     val totalCoins: Int,
-    val estimatedTotalValueLowUsd: Double,
-    val estimatedTotalValueHighUsd: Double,
-    val byCountry: Map<String, Int>,
-    val byYear: Map<Int, Int>,
+    val totalIssuers: Int,
+    val estimatedTotalValueMeanUsd: Double,
+    val highlights: CollectionHighlightsResponse,
+)
+
+@Serializable
+data class CollectionHighlightsResponse(
+    val mostValuable: CoinResponse?,
+    val mostAncient: CoinResponse?,
+    val rarest: CoinResponse?,
 )
 
 @Serializable

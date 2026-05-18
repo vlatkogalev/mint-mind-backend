@@ -3,6 +3,7 @@ package com.vlatkogalev.domain.coin.service
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinCollectionStats
+import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.platform.core.Result
@@ -28,6 +29,7 @@ class CoinServiceImpl(
             reverseKey = reverseKey,
             recognitionResult = recognitionResult,
             catalogueNumbers = catalogueNumbers,
+            setId = null,
             notes = notes,
             createdAt = Instant.now(),
         )
@@ -53,6 +55,7 @@ class CoinServiceImpl(
         year: Int?,
         minValueUsd: Double?,
         maxValueUsd: Double?,
+        sortBy: CoinSortField,
         limit: Int,
         offset: Int,
     ): Result<List<Coin>> = try {
@@ -63,6 +66,7 @@ class CoinServiceImpl(
                 year = year,
                 minValueUsd = minValueUsd,
                 maxValueUsd = maxValueUsd,
+                sortBy = sortBy,
                 limit = limit.coerceIn(1, 100),
                 offset = offset.coerceAtLeast(0),
             ),

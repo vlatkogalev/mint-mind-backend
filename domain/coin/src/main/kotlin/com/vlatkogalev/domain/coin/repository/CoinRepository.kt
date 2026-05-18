@@ -2,6 +2,7 @@ package com.vlatkogalev.domain.coin.repository
 
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinCollectionStats
+import com.vlatkogalev.domain.coin.model.CoinSortField
 import java.util.UUID
 
 interface CoinRepository {
@@ -14,6 +15,7 @@ interface CoinRepository {
         year: Int? = null,
         minValueUsd: Double? = null,
         maxValueUsd: Double? = null,
+        sortBy: CoinSortField = CoinSortField.DATE_ADDED_NEW_TO_OLD,
         limit: Int = 20,
         offset: Int = 0,
     ): List<Coin>

@@ -3,6 +3,7 @@ package com.vlatkogalev.domain.coin.service
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinCollectionStats
+import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.platform.core.Result
 import java.util.UUID
@@ -25,6 +26,7 @@ interface CoinService {
         year: Int?,
         minValueUsd: Double?,
         maxValueUsd: Double?,
+        sortBy: CoinSortField = CoinSortField.DATE_ADDED_NEW_TO_OLD,
         limit: Int,
         offset: Int,
     ): Result<List<Coin>>

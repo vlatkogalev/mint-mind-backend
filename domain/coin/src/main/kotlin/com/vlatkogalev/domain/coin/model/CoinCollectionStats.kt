@@ -2,8 +2,13 @@ package com.vlatkogalev.domain.coin.model
 
 data class CoinCollectionStats(
     val totalCoins: Int,
-    val estimatedTotalValueLowUsd: Double,
-    val estimatedTotalValueHighUsd: Double,
-    val byCountry: Map<String, Int>,
-    val byYear: Map<Int, Int>,
+    val totalIssuers: Int,
+    val estimatedTotalValueMeanUsd: Double,
+    val highlights: CollectionHighlights,
+)
+
+data class CollectionHighlights(
+    val mostValuable: Coin?,
+    val mostAncient: Coin?,
+    val rarest: Coin?,
 )
