@@ -1548,6 +1548,25 @@ components:
           description: "ISO-8601 UTC timestamp from the RSS feed's <pubDate>."
           example: "2026-05-15T15:52:12Z"
 
+    NewsArticleSummaryResponse:
+      type: object
+      required: [ id, title, description, publishedAt ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+
     NewsListResponse:
       type: object
       required: [ articles, total, limit, offset ]
@@ -1555,7 +1574,7 @@ components:
         articles:
           type: array
           items:
-            $ref: "#/components/schemas/NewsArticleResponse"
+            $ref: "#/components/schemas/NewsArticleSummaryResponse"
         total:
           type: integer
           format: int32

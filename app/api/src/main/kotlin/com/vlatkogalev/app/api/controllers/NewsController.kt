@@ -3,6 +3,7 @@
 package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.NewsArticleResponse
+import com.vlatkogalev.app.api.dto.NewsArticleSummaryResponse
 import com.vlatkogalev.app.api.dto.NewsListResponse
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.news.model.NewsArticle
@@ -33,7 +34,7 @@ class NewsController(
             call.respond(
                 success(
                     NewsListResponse(
-                        articles = articles.map { it.toResponse() },
+                        articles = articles.map { it.toSummaryResponse() },
                         total = total,
                         limit = limit,
                         offset = offset,
@@ -66,6 +67,14 @@ class NewsController(
             summary = "Get a single news article by id"
         }
     }
+
+    private fun NewsArticle.toSummaryResponse() = NewsArticleSummaryResponse(
+        id = id.toString(),
+        title = title,
+        description = description,
+        imageUrl = imageUrl,
+        publishedAt = publishedAt.toString(),
+    )
 
     private fun NewsArticle.toResponse() = NewsArticleResponse(
         id = id.toString(),

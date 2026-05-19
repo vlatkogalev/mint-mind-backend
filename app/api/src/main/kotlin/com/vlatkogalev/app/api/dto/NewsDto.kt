@@ -3,6 +3,15 @@ package com.vlatkogalev.app.api.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class NewsArticleSummaryResponse(
+    val id: String,
+    val title: String,
+    val description: String,
+    val imageUrl: String?,
+    val publishedAt: String,
+)
+
+@Serializable
 data class NewsArticleResponse(
     val id: String,
     val title: String,
@@ -11,12 +20,12 @@ data class NewsArticleResponse(
     val content: String,
     val author: String?,
     val imageUrl: String?,
-    val publishedAt: String,   // ISO-8601
+    val publishedAt: String,
 )
 
 @Serializable
 data class NewsListResponse(
-    val articles: List<NewsArticleResponse>,
+    val articles: List<NewsArticleSummaryResponse>,
     val total: Int,
     val limit: Int,
     val offset: Int,
