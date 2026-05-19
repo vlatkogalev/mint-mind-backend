@@ -95,14 +95,6 @@ data class CoinListResponse(
 )
 
 @Serializable
-data class CollectionStatsResponse(
-    val totalCoins: Int,
-    val totalIssuers: Int,
-    val estimatedTotalValueMean: Double,
-    val highlights: CollectionHighlightsResponse,
-)
-
-@Serializable
 data class CoinImagesResponse(
     val obverseUrl: String,
     val reverseUrl: String,

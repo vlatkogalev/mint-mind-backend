@@ -8,7 +8,6 @@ tags:
   - name: "Storage"
   - name: "Webhooks"
   - name: "Coins"
-  - name: "Collection"
   - name: "Sets"
   - name: "News"
 paths:
@@ -623,32 +622,6 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: "Not found"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /collection/stats:
-    get:
-      tags: [ "Collection" ]
-      summary: "Get collection statistics"
-      security:
-        - bearerAuth: [ ]
-      responses:
-        "200":
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CollectionStatsApiResponse"
-        "400":
-          description: "Bad request"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: "Unauthorized"
           content:
             application/json:
               schema:
@@ -1365,7 +1338,7 @@ components:
         notes:
           type: string
           nullable: true
-          
+
     CoinSummaryResponse:
       type: object
       required: [ id, obverseKey, reverseKey, createdAt ]
@@ -1453,22 +1426,6 @@ components:
           type: string
           format: date-time
 
-    CollectionStatsResponse:
-      type: object
-      required: [ totalCoins, totalIssuers, estimatedTotalValueMean, highlights ]
-      properties:
-        totalCoins:
-          type: integer
-          format: int32
-        totalIssuers:
-          type: integer
-          format: int32
-        estimatedTotalValueMean:
-          type: number
-          format: double
-        highlights:
-          $ref: "#/components/schemas/CollectionHighlightsResponse"
-
     CollectionHighlightsResponse:
       type: object
       required: [ mostValuable, mostAncient, rarest ]
@@ -1522,12 +1479,9 @@ components:
 
     CoinSetResponse:
       type: object
-      required: [ id, userId, name, coinIds, createdAt ]
+      required: [ id, name, previewObverseKeys, createdAt ]
       properties:
         id:
-          type: string
-          format: uuid
-        userId:
           type: string
           format: uuid
         name:
@@ -1535,11 +1489,11 @@ components:
         description:
           type: string
           nullable: true
-        coinIds:
+        previewObverseKeys:
           type: array
+          description: "S3 object keys for the obverse images of the first 5 coins in this set."
           items:
             type: string
-            format: uuid
         createdAt:
           type: string
           format: date-time
@@ -1691,14 +1645,6 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CoinListResponse"
-
-    CollectionStatsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CollectionStatsResponse"
 
     CoinSetApiResponse:
       allOf:

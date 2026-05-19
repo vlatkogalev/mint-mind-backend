@@ -28,7 +28,6 @@ object ApiTags {
     const val STORAGE = "Storage"
     const val WEBHOOKS = "Webhooks"
     const val COINS = "Coins"
-    const val COLLECTION = "Collection"
     const val SETS = "Sets"
     const val NEWS = "News"
 }
@@ -98,13 +97,6 @@ fun Routing.coinRoutes(controller: CoinController) {
         authenticate("jwt-auth") {
             controller.run {
                 registerProtectedRoutes()
-            }
-        }
-    }
-    route("/collection") {
-        authenticate("jwt-auth") {
-            controller.run {
-                registerCollectionRoutes()
             }
         }
     }

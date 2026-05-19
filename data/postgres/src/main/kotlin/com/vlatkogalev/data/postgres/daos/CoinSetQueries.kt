@@ -42,7 +42,9 @@ class CoinSetQueries(
             """.trimIndent(),
         ).use { statement ->
             statement.setObject(1, id)
-            statement.executeQuery().use { rs -> if (rs.next()) rs.toCoinSet(connection) else null }
+            statement.executeQuery().use { rs ->
+                if (rs.next()) rs.toCoinSet(connection) else null
+            }
         }
 
     fun findByUserId(userId: UUID): List<CoinSet> =
@@ -140,6 +142,24 @@ class CoinSetQueries(
             }
         }
 
+    private fun findPreviewObverseKeys(connection: Connection, setId: UUID): List<String> =
+        connection.prepareStatement(
+            """
+            SELECT obverse_key
+            FROM coins
+            WHERE set_id = ?
+            ORDER BY created_at DESC
+            LIMIT 5
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, setId)
+            statement.executeQuery().use { rs ->
+                buildList {
+                    while (rs.next()) add(rs.getString("obverse_key"))
+                }
+            }
+        }
+
     private fun ResultSet.toCoinSet(connection: Connection): CoinSet {
         val id = getObject("id", UUID::class.java)
         return CoinSet(
@@ -148,6 +168,7 @@ class CoinSetQueries(
             name = getString("name"),
             description = getString("description"),
             coinIds = findCoinIds(connection, id),
+            previewObverseKeys = findPreviewObverseKeys(connection, id),
             createdAt = getObject("created_at", OffsetDateTime::class.java).toInstant(),
         )
     }

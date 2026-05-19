@@ -7,7 +7,6 @@ import com.vlatkogalev.app.api.dto.CoinImagesResponse
 import com.vlatkogalev.app.api.dto.CoinListResponse
 import com.vlatkogalev.app.api.dto.CoinDetailResponse
 import com.vlatkogalev.app.api.dto.CollectionHighlightsResponse
-import com.vlatkogalev.app.api.dto.CollectionStatsResponse
 import com.vlatkogalev.app.api.dto.CoinSummaryResponse
 import com.vlatkogalev.app.api.dto.RecognitionResultDto
 import com.vlatkogalev.app.api.dto.SaveCoinRequest
@@ -15,7 +14,6 @@ import com.vlatkogalev.app.api.dto.UpdateCoinNotesRequest
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
-import com.vlatkogalev.domain.coin.model.CoinCollectionStats
 import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
@@ -237,26 +235,6 @@ class CoinController(
         }
     }
 
-    fun Route.registerCollectionRoutes() {
-        get("/stats") {
-            val userId = call.userUuidOrNull()
-            if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
-                return@get
-            }
-
-            when (val result = coinService.getCollectionStats(userId)) {
-                is Result.Success -> call.respond(success(result.value.toStatsResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
-            }
-        }.describe {
-            tag(ApiTags.COLLECTION)
-            summary = "Get collection statistics"
-        }
-    }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
     private fun ApplicationCall.userUuidOrNull(): UUID? =
         principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
@@ -298,7 +276,6 @@ class CoinController(
     private fun String.toConfidenceOrNull(): Confidence? =
         runCatching { Confidence.valueOf(uppercase()) }.getOrNull()
 
-    /** Lean projection used in list responses. */
     private fun Coin.toLeanResponse(): CoinSummaryResponse {
         val low = recognitionResult.valueLow
         val high = recognitionResult.valueHigh
@@ -317,7 +294,6 @@ class CoinController(
         )
     }
 
-    /** Full detail response — no userId. */
     private fun Coin.toDetailResponse(): CoinDetailResponse =
         CoinDetailResponse(
             id = id.toString(),
@@ -358,19 +334,11 @@ class CoinController(
             confidence = confidence.name,
         )
 
-    private fun CoinCollectionStats.toHighlightsResponse(): CollectionHighlightsResponse =
+    private fun com.vlatkogalev.domain.coin.model.CoinCollectionStats.toHighlightsResponse(): CollectionHighlightsResponse =
         CollectionHighlightsResponse(
             mostValuable = highlights.mostValuable?.toLeanResponse(),
             mostAncient = highlights.mostAncient?.toLeanResponse(),
             rarest = highlights.rarest?.toLeanResponse(),
-        )
-
-    private fun CoinCollectionStats.toStatsResponse(): CollectionStatsResponse =
-        CollectionStatsResponse(
-            totalCoins = totalCoins,
-            totalIssuers = totalIssuers,
-            estimatedTotalValueMean = estimatedTotalValueMean,
-            highlights = toHighlightsResponse(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

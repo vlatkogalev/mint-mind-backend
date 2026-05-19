@@ -9,5 +9,6 @@ data class CoinSet(
     val name: String,
     val description: String?,
     val coinIds: List<UUID>,
+    val previewObverseKeys: List<String>,
     val createdAt: Instant,
 )

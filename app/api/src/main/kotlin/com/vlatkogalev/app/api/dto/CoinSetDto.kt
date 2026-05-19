@@ -39,9 +39,8 @@ data class ModifySetCoinsRequest(
 @Serializable
 data class CoinSetResponse(
     val id: String,
-    val userId: String,
     val name: String,
     val description: String?,
-    val coinIds: List<String>,
+    val previewObverseKeys: List<String>,
     val createdAt: String,
 )

@@ -203,15 +203,16 @@ class CoinSetController(
         parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
     private fun ModifySetCoinsRequest.validatedCoinIdsOrNull(): List<UUID>? =
-        coinIds.map { runCatching { UUID.fromString(it) }.getOrNull() }.takeIf { ids -> ids.all { it != null } }?.filterNotNull()
+        coinIds.map { runCatching { UUID.fromString(it) }.getOrNull() }
+            .takeIf { ids -> ids.all { it != null } }
+            ?.filterNotNull()
 
     private fun CoinSet.toResponse(): CoinSetResponse =
         CoinSetResponse(
             id = id.toString(),
-            userId = userId.toString(),
             name = name,
             description = description,
-            coinIds = coinIds.map { it.toString() },
+            previewObverseKeys = previewObverseKeys,
             createdAt = createdAt.toString(),
         )
 

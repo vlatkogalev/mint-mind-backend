@@ -21,6 +21,7 @@ class CoinSetServiceImpl(
                     name = name.trim(),
                     description = description,
                     coinIds = emptyList(),
+                    previewObverseKeys = emptyList(),
                     createdAt = Instant.now(),
                 ),
             ),

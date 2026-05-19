@@ -18,10 +18,10 @@ class FakeCoinSetRepository(
         return set
     }
 
-    override fun findById(id: UUID): CoinSet? = sets[id]?.withCurrentCoinIds()
+    override fun findById(id: UUID): CoinSet? = sets[id]?.withCurrentCoinData()
 
     override fun findByUserId(userId: UUID): List<CoinSet> =
-        sets.values.filter { it.userId == userId }.map { it.withCurrentCoinIds() }
+        sets.values.filter { it.userId == userId }.map { it.withCurrentCoinData() }
 
     override fun addCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet? {
         val set = sets[setId] ?: return null
@@ -48,7 +48,7 @@ class FakeCoinSetRepository(
         if (set.userId != userId) return null
         val updated = set.copy(name = name, description = description)
         sets[setId] = updated
-        return updated.withCurrentCoinIds()
+        return updated.withCurrentCoinData()
     }
 
     override fun deleteById(id: UUID, userId: UUID): Boolean {
@@ -61,6 +61,11 @@ class FakeCoinSetRepository(
         return true
     }
 
-    private fun CoinSet.withCurrentCoinIds(): CoinSet =
-        copy(coinIds = coinRepository.findByUserId(userId = userId).filter { it.setId == id }.map { it.id })
+    private fun CoinSet.withCurrentCoinData(): CoinSet {
+        val coinsInSet = coinRepository.findByUserId(userId = userId).filter { it.setId == id }
+        return copy(
+            coinIds = coinsInSet.map { it.id },
+            previewObverseKeys = coinsInSet.take(5).map { it.obverseKey },
+        )
+    }
 }
