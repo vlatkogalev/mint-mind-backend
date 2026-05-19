@@ -137,7 +137,7 @@ class CoinController(
             call.respond(
                 success(
                     CoinListResponse(
-                        coins = coins.map { it.toLeanResponse() },
+                        coins = coins.map { it.toSummaryResponse() },
                         totalCoins = stats.totalCoins,
                         totalIssuers = stats.totalIssuers,
                         estimatedMeanValue = stats.estimatedTotalValueMean,
@@ -287,7 +287,7 @@ class CoinController(
     private fun String.toConfidenceOrNull(): Confidence? =
         runCatching { Confidence.valueOf(uppercase()) }.getOrNull()
 
-    private fun Coin.toLeanResponse(): CoinSummaryResponse {
+    private fun Coin.toSummaryResponse(): CoinSummaryResponse {
         val low = recognitionResult.valueLow
         val high = recognitionResult.valueHigh
         val meanValue = if (low != null && high != null) (low + high) / 2.0 else null
@@ -298,6 +298,7 @@ class CoinController(
             denomination = recognitionResult.denomination,
             countryOrIssuer = recognitionResult.countryOrIssuer,
             year = recognitionResult.year,
+            mintage = recognitionResult.mintage,
             estimatedGrade = recognitionResult.estimatedGrade,
             estimatedValueMean = meanValue,
             setId = setId?.toString(),
@@ -347,9 +348,9 @@ class CoinController(
 
     private fun com.vlatkogalev.domain.coin.model.CoinCollectionStats.toHighlightsResponse(): CollectionHighlightsResponse =
         CollectionHighlightsResponse(
-            mostValuable = highlights.mostValuable?.toLeanResponse(),
-            mostAncient = highlights.mostAncient?.toLeanResponse(),
-            rarest = highlights.rarest?.toLeanResponse(),
+            mostValuable = highlights.mostValuable?.toSummaryResponse(),
+            mostAncient = highlights.mostAncient?.toSummaryResponse(),
+            rarest = highlights.rarest?.toSummaryResponse(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

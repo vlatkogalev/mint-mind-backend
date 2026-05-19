@@ -60,6 +60,7 @@ data class CoinSummaryResponse(
     val denomination: String?,
     val countryOrIssuer: String?,
     val year: Int?,
+    val mintage: Long?,
     val estimatedGrade: String?,
     val estimatedValueMean: Double?,
     val setId: String?,
