@@ -43,8 +43,8 @@ class SaveCoinTest : CoinServiceTestBase() {
             overallConfidence = Confidence.MEDIUM,
             countryOrIssuer = "Germany",
             year = 1938,
-            valueLowUsd = 100.0,
-            valueHighUsd = 250.0,
+            valueLow = 100.0,
+            valueHigh = 250.0,
         )
 
         val coin = assertSuccess(service.saveCoin(TestFixtures.USER_ID, "k1", "k2", recognition, emptyList(), null)).value
@@ -52,8 +52,8 @@ class SaveCoinTest : CoinServiceTestBase() {
         assertEquals(Confidence.MEDIUM, coin.recognitionResult.overallConfidence)
         assertEquals("Germany", coin.recognitionResult.countryOrIssuer)
         assertEquals(1938, coin.recognitionResult.year)
-        assertEquals(100.0, coin.recognitionResult.valueLowUsd)
-        assertEquals(250.0, coin.recognitionResult.valueHighUsd)
+        assertEquals(100.0, coin.recognitionResult.valueLow)
+        assertEquals(250.0, coin.recognitionResult.valueHigh)
     }
 
     @Test

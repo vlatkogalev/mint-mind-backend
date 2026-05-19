@@ -21,8 +21,8 @@ data class RecognitionResultDto(
     val estimatedGrade: String? = null,
     val estimatedGradeValue: String? = null,
     val rarityQualitative: String? = null,
-    val valueLowUsd: Double? = null,
-    val valueHighUsd: Double? = null,
+    val valueLow: Double? = null,
+    val valueHigh: Double? = null,
     val mintage: Long? = null,
     val obverseDescription: String? = null,
     val reverseDescription: String? = null,
@@ -53,9 +53,22 @@ data class UpdateCoinNotesRequest(
 )
 
 @Serializable
-data class CoinResponse(
+data class CoinSummaryResponse(
     val id: String,
-    val userId: String,
+    val obverseKey: String,
+    val reverseKey: String,
+    val denomination: String?,
+    val countryOrIssuer: String?,
+    val year: Int?,
+    val estimatedGrade: String?,
+    val estimatedValueMean: Double?,
+    val setId: String?,
+    val createdAt: String,
+)
+
+@Serializable
+data class CoinDetailResponse(
+    val id: String,
     val obverseKey: String,
     val reverseKey: String,
     val recognitionResult: RecognitionResultDto,
@@ -66,18 +79,27 @@ data class CoinResponse(
 )
 
 @Serializable
-data class CollectionStatsResponse(
+data class CollectionHighlightsResponse(
+    val mostValuable: CoinSummaryResponse?,
+    val mostAncient: CoinSummaryResponse?,
+    val rarest: CoinSummaryResponse?,
+)
+
+@Serializable
+data class CoinListResponse(
+    val coins: List<CoinSummaryResponse>,
     val totalCoins: Int,
     val totalIssuers: Int,
-    val estimatedTotalValueMeanUsd: Double,
+    val estimatedMeanValue: Double,
     val highlights: CollectionHighlightsResponse,
 )
 
 @Serializable
-data class CollectionHighlightsResponse(
-    val mostValuable: CoinResponse?,
-    val mostAncient: CoinResponse?,
-    val rarest: CoinResponse?,
+data class CollectionStatsResponse(
+    val totalCoins: Int,
+    val totalIssuers: Int,
+    val estimatedTotalValueMean: Double,
+    val highlights: CollectionHighlightsResponse,
 )
 
 @Serializable

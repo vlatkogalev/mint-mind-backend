@@ -1,10 +1,16 @@
 package com.vlatkogalev.domain.coin.service
 
-import com.vlatkogalev.domain.coin.model.*
+import com.vlatkogalev.domain.coin.model.CatalogueNumber
+import com.vlatkogalev.domain.coin.model.Coin
+import com.vlatkogalev.domain.coin.model.CoinCollectionStats
+import com.vlatkogalev.domain.coin.model.CoinSortField
+import com.vlatkogalev.domain.coin.model.CollectionHighlights
+import com.vlatkogalev.domain.coin.model.Confidence
+import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.platform.core.Result
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 import kotlin.test.BeforeTest
 import kotlin.test.assertIs
 
@@ -57,8 +63,9 @@ class FakeCoinRepository : CoinRepository {
         userId: UUID,
         country: String?,
         year: Int?,
-        minValueUsd: Double?,
-        maxValueUsd: Double?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
         sortBy: CoinSortField,
         limit: Int,
         offset: Int,
@@ -69,8 +76,9 @@ class FakeCoinRepository : CoinRepository {
             .filter { it.userId == userId }
             .filter { country == null || it.recognitionResult.countryOrIssuer == country }
             .filter { year == null || it.recognitionResult.year == year }
-            .filter { minValueUsd == null || (it.recognitionResult.valueLowUsd ?: 0.0) >= minValueUsd }
-            .filter { maxValueUsd == null || (it.recognitionResult.valueHighUsd ?: 0.0) <= maxValueUsd }
+            .filter { minValue == null || (it.recognitionResult.valueLow ?: 0.0) >= minValue }
+            .filter { maxValue == null || (it.recognitionResult.valueHigh ?: 0.0) <= maxValue }
+            .filter { setId == null || it.setId == setId }
             .sortedWith(sortBy.comparator())
             .drop(offset.coerceAtLeast(0))
             .take(limit.coerceIn(1, 100))
@@ -83,7 +91,7 @@ class FakeCoinRepository : CoinRepository {
         return CoinCollectionStats(
             totalCoins = userCoins.size,
             totalIssuers = userCoins.mapNotNull { it.recognitionResult.countryOrIssuer }.distinct().size,
-            estimatedTotalValueMeanUsd = userCoins.mapNotNull { it.meanValue() }.average().takeUnless { it.isNaN() } ?: 0.0,
+            estimatedTotalValueMean = userCoins.mapNotNull { it.meanValue() }.average().takeUnless { it.isNaN() } ?: 0.0,
             highlights = CollectionHighlights(
                 mostValuable = userCoins.maxByOrNull { it.meanValue() ?: Double.NEGATIVE_INFINITY },
                 mostAncient = userCoins.filter { it.recognitionResult.year != null }.minByOrNull { it.recognitionResult.year!! },
@@ -103,8 +111,8 @@ class FakeCoinRepository : CoinRepository {
     }
 
     private fun Coin.meanValue(): Double? {
-        val low = recognitionResult.valueLowUsd ?: return null
-        val high = recognitionResult.valueHighUsd ?: return null
+        val low = recognitionResult.valueLow ?: return null
+        val high = recognitionResult.valueHigh ?: return null
         return (low + high) / 2.0
     }
 
@@ -127,8 +135,8 @@ object TestFixtures {
         overallConfidence: Confidence = Confidence.HIGH,
         countryOrIssuer: String? = "United States",
         year: Int? = 1921,
-        valueLowUsd: Double? = 25.0,
-        valueHighUsd: Double? = 50.0,
+        valueLow: Double? = 25.0,
+        valueHigh: Double? = 50.0,
         mintage: Long? = 1_000_000,
         rawJson: String = """{"is_coin": true}""",
     ) = RecognitionResult(
@@ -142,8 +150,8 @@ object TestFixtures {
         estimatedGrade = "Very Fine (VF)",
         estimatedGradeValue = "VF-30",
         rarityQualitative = "Common",
-        valueLowUsd = valueLowUsd,
-        valueHighUsd = valueHighUsd,
+        valueLow = valueLow,
+        valueHigh = valueHigh,
         mintage = mintage,
         obverseDescription = "Lady Liberty facing left",
         reverseDescription = "Eagle with wings spread",

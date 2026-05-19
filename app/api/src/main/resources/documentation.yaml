@@ -392,6 +392,12 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - name: "setId"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
         - name: "country"
           in: "query"
           required: false
@@ -1310,11 +1316,11 @@ components:
         rarityQualitative:
           type: string
           nullable: true
-        valueLowUsd:
+        valueLow:
           type: number
           format: double
           nullable: true
-        valueHighUsd:
+        valueHigh:
           type: number
           format: double
           nullable: true
@@ -1359,15 +1365,71 @@ components:
         notes:
           type: string
           nullable: true
-
-    CoinResponse:
+          
+    CoinSummaryResponse:
       type: object
-      required: [ id, userId, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt ]
+      required: [ id, obverseKey, reverseKey, createdAt ]
       properties:
         id:
           type: string
           format: uuid
-        userId:
+        obverseKey:
+          type: string
+        reverseKey:
+          type: string
+        denomination:
+          type: string
+          nullable: true
+        countryOrIssuer:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          format: int32
+          nullable: true
+        estimatedGrade:
+          type: string
+          nullable: true
+        estimatedValueMean:
+          type: number
+          format: double
+          nullable: true
+          description: "Mean of valueLow and valueHigh. Null if either bound is absent."
+        setId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CoinListResponse:
+      type: object
+      required: [ coins, totalCoins, totalIssuers, estimatedMeanValue, highlights ]
+      properties:
+        coins:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoinSummaryResponse"
+        totalCoins:
+          type: integer
+          format: int32
+          description: "Total coins in the user's collection (not just the current page)."
+        totalIssuers:
+          type: integer
+          format: int32
+        estimatedMeanValue:
+          type: number
+          format: double
+          description: "Mean estimated value across all coins in the collection."
+        highlights:
+          $ref: "#/components/schemas/CollectionHighlightsResponse"
+
+    CoinDetailResponse:
+      type: object
+      required: [ id, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt ]
+      properties:
+        id:
           type: string
           format: uuid
         obverseKey:
@@ -1384,7 +1446,6 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: "ID of the set this coin belongs to, or null if not in any set."
         notes:
           type: string
           nullable: true
@@ -1394,7 +1455,7 @@ components:
 
     CollectionStatsResponse:
       type: object
-      required: [ totalCoins, totalIssuers, estimatedTotalValueMeanUsd, highlights ]
+      required: [ totalCoins, totalIssuers, estimatedTotalValueMean, highlights ]
       properties:
         totalCoins:
           type: integer
@@ -1402,7 +1463,7 @@ components:
         totalIssuers:
           type: integer
           format: int32
-        estimatedTotalValueMeanUsd:
+        estimatedTotalValueMean:
           type: number
           format: double
         highlights:
@@ -1415,16 +1476,16 @@ components:
         mostValuable:
           nullable: true
           allOf:
-            - $ref: "#/components/schemas/CoinResponse"
+            - $ref: "#/components/schemas/CoinSummaryResponse"
         mostAncient:
           nullable: true
           allOf:
-            - $ref: "#/components/schemas/CoinResponse"
+            - $ref: "#/components/schemas/CoinSummaryResponse"
         rarest:
           nullable: true
-          description: "Coin with the lowest mintage in the collection. Null if no coin has a mintage value."
+          description: "Coin with the lowest mintage. Null if no coin has a mintage value."
           allOf:
-            - $ref: "#/components/schemas/CoinResponse"
+            - $ref: "#/components/schemas/CoinSummaryResponse"
 
     CreateCoinSetRequest:
       type: object
@@ -1621,7 +1682,7 @@ components:
         - type: object
           properties:
             data:
-              $ref: "#/components/schemas/CoinResponse"
+              $ref: "#/components/schemas/CoinDetailResponse"
 
     CoinListApiResponse:
       allOf:
@@ -1629,9 +1690,7 @@ components:
         - type: object
           properties:
             data:
-              type: array
-              items:
-                $ref: "#/components/schemas/CoinResponse"
+              $ref: "#/components/schemas/CoinListResponse"
 
     CollectionStatsApiResponse:
       allOf:

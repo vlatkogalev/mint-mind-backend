@@ -25,7 +25,7 @@ class CoinQueries(
                 id, user_id, obverse_key, reverse_key, notes, created_at,
                 overall_confidence, country_or_issuer, denomination, series_name, year, mint_mark,
                 metal_composition, estimated_grade, estimated_grade_value, rarity_qualitative,
-                value_low_usd, value_high_usd, mintage, obverse_description, reverse_description,
+                value_low, value_high, mintage, obverse_description, reverse_description,
                 historical_context, raw_json, set_id
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -47,8 +47,8 @@ class CoinQueries(
             statement.setString(14, coin.recognitionResult.estimatedGrade)
             statement.setString(15, coin.recognitionResult.estimatedGradeValue)
             statement.setString(16, coin.recognitionResult.rarityQualitative)
-            statement.setObject(17, coin.recognitionResult.valueLowUsd)
-            statement.setObject(18, coin.recognitionResult.valueHighUsd)
+            statement.setObject(17, coin.recognitionResult.valueLow)
+            statement.setObject(18, coin.recognitionResult.valueHigh)
             statement.setObject(19, coin.recognitionResult.mintage)
             statement.setString(20, coin.recognitionResult.obverseDescription)
             statement.setString(21, coin.recognitionResult.reverseDescription)
@@ -148,6 +148,7 @@ class CoinQueries(
         year: Int?,
         minValue: Double?,
         maxValue: Double?,
+        setId: UUID?,
         sortBy: CoinSortField,
         limit: Int,
         offset: Int,
@@ -165,12 +166,16 @@ class CoinQueries(
                 params += year
             }
             if (minValue != null) {
-                conditions += "value_low_usd >= ?"
+                conditions += "value_low >= ?"
                 params += minValue
             }
             if (maxValue != null) {
-                conditions += "value_high_usd <= ?"
+                conditions += "value_high <= ?"
                 params += maxValue
+            }
+            if (setId != null) {
+                conditions += "set_id = ?"
+                params += setId
             }
 
             val whereClause = conditions.joinToString(" AND ")
@@ -233,8 +238,8 @@ class CoinQueries(
                 estimated_grade = ?,
                 estimated_grade_value = ?,
                 rarity_qualitative = ?,
-                value_low_usd = ?,
-                value_high_usd = ?,
+                value_low = ?,
+                value_high = ?,
                 mintage = ?,
                 obverse_description = ?,
                 reverse_description = ?,
@@ -255,8 +260,8 @@ class CoinQueries(
             statement.setString(9, coin.recognitionResult.estimatedGrade)
             statement.setString(10, coin.recognitionResult.estimatedGradeValue)
             statement.setString(11, coin.recognitionResult.rarityQualitative)
-            statement.setObject(12, coin.recognitionResult.valueLowUsd)
-            statement.setObject(13, coin.recognitionResult.valueHighUsd)
+            statement.setObject(12, coin.recognitionResult.valueLow)
+            statement.setObject(13, coin.recognitionResult.valueHigh)
             statement.setObject(14, coin.recognitionResult.mintage)
             statement.setString(15, coin.recognitionResult.obverseDescription)
             statement.setString(16, coin.recognitionResult.reverseDescription)
@@ -301,9 +306,9 @@ class CoinQueries(
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                SELECT AVG((value_low_usd + value_high_usd) / 2.0) AS mean_value
+                SELECT AVG((value_low + value_high) / 2.0) AS mean_value
                 FROM coins
-                WHERE user_id = ? AND value_low_usd IS NOT NULL AND value_high_usd IS NOT NULL
+                WHERE user_id = ? AND value_low IS NOT NULL AND value_high IS NOT NULL
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, userId)
@@ -318,7 +323,7 @@ class CoinQueries(
                 SELECT ${coinColumns()}
                 FROM coins
                 WHERE user_id = ?
-                ORDER BY ((value_low_usd + value_high_usd) / 2.0) DESC NULLS LAST
+                ORDER BY ((value_low + value_high) / 2.0) DESC NULLS LAST
                 LIMIT 1
                 """.trimIndent(),
             ).use { statement ->
@@ -385,8 +390,8 @@ class CoinQueries(
             estimatedGrade = getString("estimated_grade"),
             estimatedGradeValue = getString("estimated_grade_value"),
             rarityQualitative = getString("rarity_qualitative"),
-            valueLowUsd = getBigDecimal("value_low_usd")?.toDouble(),
-            valueHighUsd = getBigDecimal("value_high_usd")?.toDouble(),
+            valueLow = getBigDecimal("value_low")?.toDouble(),
+            valueHigh = getBigDecimal("value_high")?.toDouble(),
             mintage = getLong("mintage").takeUnless { wasNull() },
             obverseDescription = getString("obverse_description"),
             reverseDescription = getString("reverse_description"),
@@ -421,8 +426,8 @@ class CoinQueries(
         estimated_grade,
         estimated_grade_value,
         rarity_qualitative,
-        value_low_usd,
-        value_high_usd,
+        value_low,
+        value_high,
         mintage,
         obverse_description,
         reverse_description,
@@ -433,8 +438,8 @@ class CoinQueries(
 
     private fun orderByClause(sortBy: CoinSortField): String =
         when (sortBy) {
-            CoinSortField.VALUE_HIGH_TO_LOW -> "ORDER BY ((value_low_usd + value_high_usd) / 2.0) DESC NULLS LAST"
-            CoinSortField.VALUE_LOW_TO_HIGH -> "ORDER BY ((value_low_usd + value_high_usd) / 2.0) ASC NULLS LAST"
+            CoinSortField.VALUE_HIGH_TO_LOW -> "ORDER BY ((value_low + value_high) / 2.0) DESC NULLS LAST"
+            CoinSortField.VALUE_LOW_TO_HIGH -> "ORDER BY ((value_low + value_high) / 2.0) ASC NULLS LAST"
             CoinSortField.RELEASE_YEAR_OLD_TO_NEW -> "ORDER BY year ASC NULLS LAST"
             CoinSortField.RELEASE_YEAR_NEW_TO_OLD -> "ORDER BY year DESC NULLS LAST"
             CoinSortField.DATE_ADDED_OLD_TO_NEW -> "ORDER BY created_at ASC"

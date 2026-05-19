@@ -3,7 +3,7 @@ package com.vlatkogalev.domain.coin.model
 data class CoinCollectionStats(
     val totalCoins: Int,
     val totalIssuers: Int,
-    val estimatedTotalValueMeanUsd: Double,
+    val estimatedTotalValueMean: Double,
     val highlights: CollectionHighlights,
 )
 

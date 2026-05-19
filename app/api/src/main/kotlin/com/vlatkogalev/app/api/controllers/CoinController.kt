@@ -4,9 +4,11 @@ package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.CatalogueNumberDto
 import com.vlatkogalev.app.api.dto.CoinImagesResponse
-import com.vlatkogalev.app.api.dto.CoinResponse
+import com.vlatkogalev.app.api.dto.CoinListResponse
+import com.vlatkogalev.app.api.dto.CoinDetailResponse
 import com.vlatkogalev.app.api.dto.CollectionHighlightsResponse
 import com.vlatkogalev.app.api.dto.CollectionStatsResponse
+import com.vlatkogalev.app.api.dto.CoinSummaryResponse
 import com.vlatkogalev.app.api.dto.RecognitionResultDto
 import com.vlatkogalev.app.api.dto.SaveCoinRequest
 import com.vlatkogalev.app.api.dto.UpdateCoinNotesRequest
@@ -72,7 +74,7 @@ class CoinController(
                     notes = payload.notes,
                 )
             ) {
-                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toResponse()))
+                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toDetailResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
@@ -92,25 +94,48 @@ class CoinController(
             val maxValue = call.request.queryParameters["maxValue"]?.toDoubleOrNull()
             val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
             val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
+            val setId = call.request.queryParameters["setId"]?.let {
+                runCatching { UUID.fromString(it) }.getOrNull()
+            }
             val sortBy = call.request.queryParameters["sortBy"]
                 ?.let { runCatching { CoinSortField.valueOf(it.uppercase()) }.getOrNull() }
                 ?: CoinSortField.DATE_ADDED_NEW_TO_OLD
 
-            when (
-                val result = coinService.listCoins(
-                    userId = userId,
-                    country = call.request.queryParameters["country"],
-                    year = year,
-                    minValueUsd = minValue,
-                    maxValueUsd = maxValue,
-                    sortBy = sortBy,
-                    limit = limit,
-                    offset = offset,
-                )
-            ) {
-                is Result.Success -> call.respond(success(result.value.map { it.toResponse() }))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+            val coinsResult = coinService.listCoins(
+                userId = userId,
+                country = call.request.queryParameters["country"],
+                year = year,
+                minValue = minValue,
+                maxValue = maxValue,
+                setId = setId,
+                sortBy = sortBy,
+                limit = limit,
+                offset = offset,
+            )
+            if (coinsResult is Result.Failure) {
+                call.respond(HttpStatusCode.BadRequest, error(coinsResult.reason))
+                return@get
             }
+            val coins = (coinsResult as Result.Success).value
+
+            val statsResult = coinService.getCollectionStats(userId)
+            if (statsResult is Result.Failure) {
+                call.respond(HttpStatusCode.BadRequest, error(statsResult.reason))
+                return@get
+            }
+            val stats = (statsResult as Result.Success).value
+
+            call.respond(
+                success(
+                    CoinListResponse(
+                        coins = coins.map { it.toLeanResponse() },
+                        totalCoins = stats.totalCoins,
+                        totalIssuers = stats.totalIssuers,
+                        estimatedMeanValue = stats.estimatedTotalValueMean,
+                        highlights = stats.toHighlightsResponse(),
+                    ),
+                ),
+            )
         }.describe {
             tag(ApiTags.COINS)
             summary = "List coins in the authenticated user's collection"
@@ -129,7 +154,7 @@ class CoinController(
             }
 
             when (val result = coinService.getCoin(coinId, userId)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
+                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
@@ -172,7 +197,7 @@ class CoinController(
 
             val payload = call.receive<UpdateCoinNotesRequest>()
             when (val result = coinService.updateNotes(coinId, userId, payload.notes)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
+                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
@@ -221,7 +246,7 @@ class CoinController(
             }
 
             when (val result = coinService.getCollectionStats(userId)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
+                is Result.Success -> call.respond(success(result.value.toStatsResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
@@ -229,6 +254,8 @@ class CoinController(
             summary = "Get collection statistics"
         }
     }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun ApplicationCall.userUuidOrNull(): UUID? =
         principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
@@ -249,8 +276,8 @@ class CoinController(
             estimatedGrade = estimatedGrade,
             estimatedGradeValue = estimatedGradeValue,
             rarityQualitative = rarityQualitative,
-            valueLowUsd = valueLowUsd,
-            valueHighUsd = valueHighUsd,
+            valueLow = valueLow,
+            valueHigh = valueHigh,
             mintage = mintage,
             obverseDescription = obverseDescription,
             reverseDescription = reverseDescription,
@@ -271,20 +298,39 @@ class CoinController(
     private fun String.toConfidenceOrNull(): Confidence? =
         runCatching { Confidence.valueOf(uppercase()) }.getOrNull()
 
-    private fun Coin.toResponse(): CoinResponse =
-        CoinResponse(
+    /** Lean projection used in list responses. */
+    private fun Coin.toLeanResponse(): CoinSummaryResponse {
+        val low = recognitionResult.valueLow
+        val high = recognitionResult.valueHigh
+        val meanValue = if (low != null && high != null) (low + high) / 2.0 else null
+        return CoinSummaryResponse(
             id = id.toString(),
-            userId = userId.toString(),
             obverseKey = obverseKey,
             reverseKey = reverseKey,
-            recognitionResult = recognitionResult.toResponse(),
-            catalogueNumbers = catalogueNumbers.map { it.toResponse() },
+            denomination = recognitionResult.denomination,
+            countryOrIssuer = recognitionResult.countryOrIssuer,
+            year = recognitionResult.year,
+            estimatedGrade = recognitionResult.estimatedGrade,
+            estimatedValueMean = meanValue,
+            setId = setId?.toString(),
+            createdAt = createdAt.toString(),
+        )
+    }
+
+    /** Full detail response — no userId. */
+    private fun Coin.toDetailResponse(): CoinDetailResponse =
+        CoinDetailResponse(
+            id = id.toString(),
+            obverseKey = obverseKey,
+            reverseKey = reverseKey,
+            recognitionResult = recognitionResult.toDto(),
+            catalogueNumbers = catalogueNumbers.map { it.toDto() },
             setId = setId?.toString(),
             notes = notes,
             createdAt = createdAt.toString(),
         )
 
-    private fun RecognitionResult.toResponse(): RecognitionResultDto =
+    private fun RecognitionResult.toDto(): RecognitionResultDto =
         RecognitionResultDto(
             overallConfidence = overallConfidence.name,
             countryOrIssuer = countryOrIssuer,
@@ -296,8 +342,8 @@ class CoinController(
             estimatedGrade = estimatedGrade,
             estimatedGradeValue = estimatedGradeValue,
             rarityQualitative = rarityQualitative,
-            valueLowUsd = valueLowUsd,
-            valueHighUsd = valueHighUsd,
+            valueLow = valueLow,
+            valueHigh = valueHigh,
             mintage = mintage,
             obverseDescription = obverseDescription,
             reverseDescription = reverseDescription,
@@ -305,23 +351,26 @@ class CoinController(
             rawJson = rawJson,
         )
 
-    private fun CatalogueNumber.toResponse(): CatalogueNumberDto =
+    private fun CatalogueNumber.toDto(): CatalogueNumberDto =
         CatalogueNumberDto(
             catalogueName = catalogueName,
             number = number,
             confidence = confidence.name,
         )
 
-    private fun CoinCollectionStats.toResponse(): CollectionStatsResponse =
+    private fun CoinCollectionStats.toHighlightsResponse(): CollectionHighlightsResponse =
+        CollectionHighlightsResponse(
+            mostValuable = highlights.mostValuable?.toLeanResponse(),
+            mostAncient = highlights.mostAncient?.toLeanResponse(),
+            rarest = highlights.rarest?.toLeanResponse(),
+        )
+
+    private fun CoinCollectionStats.toStatsResponse(): CollectionStatsResponse =
         CollectionStatsResponse(
             totalCoins = totalCoins,
             totalIssuers = totalIssuers,
-            estimatedTotalValueMeanUsd = estimatedTotalValueMeanUsd,
-            highlights = CollectionHighlightsResponse(
-                mostValuable = highlights.mostValuable?.toResponse(),
-                mostAncient = highlights.mostAncient?.toResponse(),
-                rarest = highlights.rarest?.toResponse(),
-            ),
+            estimatedTotalValueMean = estimatedTotalValueMean,
+            highlights = toHighlightsResponse(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =
