@@ -110,17 +110,28 @@ class CoinController(
                 limit = limit,
                 offset = offset,
             )
+
             if (coinsResult is Result.Failure) {
                 call.respond(HttpStatusCode.BadRequest, error(coinsResult.reason))
                 return@get
             }
+
             val coins = (coinsResult as Result.Success).value
 
-            val statsResult = coinService.getCollectionStats(userId)
+            val statsResult = coinService.getCollectionStats(
+                userId = userId,
+                country = call.request.queryParameters["country"],
+                year = year,
+                minValue = minValue,
+                maxValue = maxValue,
+                setId = setId,
+            )
+
             if (statsResult is Result.Failure) {
                 call.respond(HttpStatusCode.BadRequest, error(statsResult.reason))
                 return@get
             }
+
             val stats = (statsResult as Result.Success).value
 
             call.respond(

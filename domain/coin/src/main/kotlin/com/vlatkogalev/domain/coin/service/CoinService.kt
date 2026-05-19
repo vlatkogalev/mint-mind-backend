@@ -36,5 +36,12 @@ interface CoinService {
 
     fun updateNotes(coinId: UUID, userId: UUID, notes: String?): Result<Coin>
 
-    fun getCollectionStats(userId: UUID): Result<CoinCollectionStats>
+    fun getCollectionStats(
+        userId: UUID,
+        country: String? = null,
+        year: Int? = null,
+        minValue: Double? = null,
+        maxValue: Double? = null,
+        setId: UUID? = null,
+    ): Result<CoinCollectionStats>
 }

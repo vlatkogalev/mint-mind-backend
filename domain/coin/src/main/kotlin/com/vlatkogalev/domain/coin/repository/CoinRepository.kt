@@ -20,7 +20,14 @@ interface CoinRepository {
         limit: Int = 20,
         offset: Int = 0,
     ): List<Coin>
-    fun getCollectionStats(userId: UUID): CoinCollectionStats
+    fun getCollectionStats(
+        userId: UUID,
+        country: String? = null,
+        year: Int? = null,
+        minValue: Double? = null,
+        maxValue: Double? = null,
+        setId: UUID? = null,
+    ): CoinCollectionStats
     fun countByUserId(userId: UUID): Int
     fun deleteById(id: UUID, userId: UUID): Boolean
 }

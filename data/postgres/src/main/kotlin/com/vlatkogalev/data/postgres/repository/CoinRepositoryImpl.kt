@@ -76,17 +76,70 @@ class CoinRepositoryImpl(
         }
     }
 
-    override fun getCollectionStats(userId: UUID): CoinCollectionStats =
-        CoinCollectionStats(
-            totalCoins = queries.countByUserId(userId),
-            totalIssuers = queries.countDistinctIssuers(userId),
-            estimatedTotalValueMean = queries.getMeanValue(userId),
-            highlights = CollectionHighlights(
-                mostValuable = queries.findMostValuable(userId)?.toDomainWithCatalogueNumbers(),
-                mostAncient = queries.findMostAncient(userId)?.toDomainWithCatalogueNumbers(),
-                rarest = queries.findRarest(userId)?.toDomainWithCatalogueNumbers(),
-            ),
-        )
+    override fun getCollectionStats(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): CoinCollectionStats = CoinCollectionStats(
+        totalCoins = queries.countCoins(
+            userId = userId,
+            country = country,
+            year = year,
+            minValue = minValue,
+            maxValue = maxValue,
+            setId = setId,
+        ),
+
+        totalIssuers = queries.countDistinctIssuers(
+            userId = userId,
+            country = country,
+            year = year,
+            minValue = minValue,
+            maxValue = maxValue,
+            setId = setId,
+        ),
+
+        estimatedTotalValueMean = queries.getMeanValue(
+            userId = userId,
+            country = country,
+            year = year,
+            minValue = minValue,
+            maxValue = maxValue,
+            setId = setId,
+        ),
+
+        highlights = CollectionHighlights(
+            mostValuable = queries.findMostValuable(
+                userId = userId,
+                country = country,
+                year = year,
+                minValue = minValue,
+                maxValue = maxValue,
+                setId = setId,
+            )?.toDomainWithCatalogueNumbers(),
+
+            mostAncient = queries.findMostAncient(
+                userId = userId,
+                country = country,
+                year = year,
+                minValue = minValue,
+                maxValue = maxValue,
+                setId = setId,
+            )?.toDomainWithCatalogueNumbers(),
+
+            rarest = queries.findRarest(
+                userId = userId,
+                country = country,
+                year = year,
+                minValue = minValue,
+                maxValue = maxValue,
+                setId = setId,
+            )?.toDomainWithCatalogueNumbers(),
+        ),
+    )
 
     override fun countByUserId(userId: UUID): Int = queries.countByUserId(userId)
 

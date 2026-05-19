@@ -1,6 +1,7 @@
 package com.vlatkogalev.domain.coin.service
 
 import com.vlatkogalev.domain.coin.model.CoinSet
+import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.repository.CoinSetRepository
 import java.util.UUID
 
@@ -54,15 +55,38 @@ class FakeCoinSetRepository(
     override fun deleteById(id: UUID, userId: UUID): Boolean {
         val set = sets[id] ?: return false
         if (set.userId != userId) return false
-        coinRepository.findByUserId(userId = userId).filter { it.setId == id }.forEach { coin ->
+
+        coinRepository.findByUserId(
+            userId = userId,
+            country = null,
+            year = null,
+            minValue = null,
+            maxValue = null,
+            setId = null,
+            sortBy = CoinSortField.DATE_ADDED_NEW_TO_OLD,
+            limit = Int.MAX_VALUE,
+            offset = 0,
+        ).filter { it.setId == id }.forEach { coin ->
             coinRepository.save(coin.copy(setId = null))
         }
+
         sets.remove(id)
         return true
     }
 
     private fun CoinSet.withCurrentCoinData(): CoinSet {
-        val coinsInSet = coinRepository.findByUserId(userId = userId).filter { it.setId == id }
+        val coinsInSet = coinRepository.findByUserId(
+            userId = userId,
+            country = null,
+            year = null,
+            minValue = null,
+            maxValue = null,
+            setId = null,
+            sortBy = CoinSortField.DATE_ADDED_NEW_TO_OLD,
+            limit = Int.MAX_VALUE,
+            offset = 0,
+        ).filter { it.setId == id }
+
         return copy(
             coinIds = coinsInSet.map { it.id },
             previewObverseKeys = coinsInSet.take(5).map { it.obverseKey },

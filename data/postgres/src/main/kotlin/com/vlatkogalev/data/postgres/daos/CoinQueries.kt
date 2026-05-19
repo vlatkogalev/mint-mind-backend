@@ -288,79 +288,232 @@ class CoinQueries(
             statement.executeUpdate() > 0
         }
 
-    fun countDistinctIssuers(userId: UUID): Int =
+    fun countCoins(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): Int =
         dataSource.connection.use { connection ->
+
+            val filters = buildFilters(
+                userId,
+                country,
+                year,
+                minValue,
+                maxValue,
+                setId,
+            )
+
             connection.prepareStatement(
                 """
-                SELECT COUNT(DISTINCT country_or_issuer) AS total_issuers
-                FROM coins
-                WHERE user_id = ? AND country_or_issuer IS NOT NULL
-                """.trimIndent(),
+            SELECT COUNT(*) AS total
+            FROM coins
+            WHERE ${filters.whereClause}
+            """.trimIndent(),
             ).use { statement ->
-                statement.setObject(1, userId)
-                statement.executeQuery().use { rs -> if (rs.next()) rs.getInt("total_issuers") else 0 }
+
+                filters.params.forEachIndexed { index, param ->
+                    statement.setObject(index + 1, param)
+                }
+
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) rs.getInt("total") else 0
+                }
             }
         }
 
-    fun getMeanValue(userId: UUID): Double =
+    fun countDistinctIssuers(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): Int =
         dataSource.connection.use { connection ->
+
+            val filters = buildFilters(
+                userId,
+                country,
+                year,
+                minValue,
+                maxValue,
+                setId,
+            )
+
             connection.prepareStatement(
                 """
-                SELECT AVG((value_low + value_high) / 2.0) AS mean_value
-                FROM coins
-                WHERE user_id = ? AND value_low IS NOT NULL AND value_high IS NOT NULL
-                """.trimIndent(),
+            SELECT COUNT(DISTINCT country_or_issuer) AS total
+            FROM coins
+            WHERE ${filters.whereClause}
+            """.trimIndent(),
             ).use { statement ->
-                statement.setObject(1, userId)
-                statement.executeQuery().use { rs -> if (rs.next()) rs.getBigDecimal("mean_value")?.toDouble() ?: 0.0 else 0.0 }
+
+                filters.params.forEachIndexed { index, param ->
+                    statement.setObject(index + 1, param)
+                }
+
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) rs.getInt("total") else 0
+                }
             }
         }
 
-    fun findMostValuable(userId: UUID): CoinRecord? =
+    fun getMeanValue(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): Double =
         dataSource.connection.use { connection ->
+
+            val filters = buildFilters(
+                userId,
+                country,
+                year,
+                minValue,
+                maxValue,
+                setId,
+            )
+
             connection.prepareStatement(
                 """
-                SELECT ${coinColumns()}
-                FROM coins
-                WHERE user_id = ?
-                ORDER BY ((value_low + value_high) / 2.0) DESC NULLS LAST
-                LIMIT 1
-                """.trimIndent(),
+            SELECT COALESCE(AVG((value_low + value_high) / 2.0), 0)
+            AS mean_value
+            FROM coins
+            WHERE ${filters.whereClause}
+            """.trimIndent(),
             ).use { statement ->
-                statement.setObject(1, userId)
-                statement.executeQuery().use { rs -> if (rs.next()) rs.toCoinRecord() else null }
+
+                filters.params.forEachIndexed { index, param ->
+                    statement.setObject(index + 1, param)
+                }
+
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) rs.getDouble("mean_value") else 0.0
+                }
             }
         }
 
-    fun findMostAncient(userId: UUID): CoinRecord? =
+    fun findMostValuable(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): CoinRecord? =
         dataSource.connection.use { connection ->
+
+            val filters = buildFilters(
+                userId,
+                country,
+                year,
+                minValue,
+                maxValue,
+                setId,
+            )
+
             connection.prepareStatement(
                 """
-                SELECT ${coinColumns()}
-                FROM coins
-                WHERE user_id = ?
-                ORDER BY year ASC NULLS LAST
-                LIMIT 1
-                """.trimIndent(),
+            SELECT ${coinColumns()}
+            FROM coins
+            WHERE ${filters.whereClause}
+            ORDER BY ((value_low + value_high) / 2.0) DESC NULLS LAST
+            LIMIT 1
+            """.trimIndent(),
             ).use { statement ->
-                statement.setObject(1, userId)
-                statement.executeQuery().use { rs -> if (rs.next()) rs.toCoinRecord() else null }
+
+                filters.params.forEachIndexed { index, param ->
+                    statement.setObject(index + 1, param)
+                }
+
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) rs.toCoinRecord() else null
+                }
             }
         }
 
-    fun findRarest(userId: UUID): CoinRecord? =
+    fun findMostAncient(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): CoinRecord? =
         dataSource.connection.use { connection ->
+
+            val filters = buildFilters(
+                userId,
+                country,
+                year,
+                minValue,
+                maxValue,
+                setId,
+            )
+
             connection.prepareStatement(
                 """
-                SELECT ${coinColumns()}
-                FROM coins
-                WHERE user_id = ? AND mintage IS NOT NULL
-                ORDER BY mintage ASC
-                LIMIT 1
-                """.trimIndent(),
+            SELECT ${coinColumns()}
+            FROM coins
+            WHERE ${filters.whereClause}
+            ORDER BY year ASC NULLS LAST
+            LIMIT 1
+            """.trimIndent(),
             ).use { statement ->
-                statement.setObject(1, userId)
-                statement.executeQuery().use { rs -> if (rs.next()) rs.toCoinRecord() else null }
+
+                filters.params.forEachIndexed { index, param ->
+                    statement.setObject(index + 1, param)
+                }
+
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) rs.toCoinRecord() else null
+                }
+            }
+        }
+
+    fun findRarest(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): CoinRecord? =
+        dataSource.connection.use { connection ->
+
+            val filters = buildFilters(
+                userId,
+                country,
+                year,
+                minValue,
+                maxValue,
+                setId,
+            )
+
+            connection.prepareStatement(
+                """
+            SELECT ${coinColumns()}
+            FROM coins
+            WHERE ${filters.whereClause}
+            ORDER BY rarity_score DESC NULLS LAST
+            LIMIT 1
+            """.trimIndent(),
+            ).use { statement ->
+
+                filters.params.forEachIndexed { index, param ->
+                    statement.setObject(index + 1, param)
+                }
+
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) rs.toCoinRecord() else null
+                }
             }
         }
 
@@ -445,4 +598,52 @@ class CoinQueries(
             CoinSortField.DATE_ADDED_OLD_TO_NEW -> "ORDER BY created_at ASC"
             CoinSortField.DATE_ADDED_NEW_TO_OLD -> "ORDER BY created_at DESC"
         }
+
+    private data class QueryFilters(
+        val whereClause: String,
+        val params: List<Any>,
+    )
+
+    private fun buildFilters(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): QueryFilters {
+
+        val conditions = mutableListOf("user_id = ?")
+        val params = mutableListOf<Any>(userId)
+
+        if (!country.isNullOrBlank()) {
+            conditions += "country_or_issuer = ?"
+            params += country
+        }
+
+        if (year != null) {
+            conditions += "year = ?"
+            params += year
+        }
+
+        if (minValue != null) {
+            conditions += "value_low >= ?"
+            params += minValue
+        }
+
+        if (maxValue != null) {
+            conditions += "value_high <= ?"
+            params += maxValue
+        }
+
+        if (setId != null) {
+            conditions += "set_id = ?"
+            params += setId
+        }
+
+        return QueryFilters(
+            whereClause = conditions.joinToString(" AND "),
+            params = params,
+        )
+    }
 }

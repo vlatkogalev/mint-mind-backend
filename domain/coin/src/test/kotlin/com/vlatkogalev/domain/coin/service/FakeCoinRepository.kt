@@ -85,17 +85,51 @@ class FakeCoinRepository : CoinRepository {
             .toList()
     }
 
-    override fun getCollectionStats(userId: UUID): CoinCollectionStats {
+    override fun getCollectionStats(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): CoinCollectionStats {
         if (throwOnGetCollectionStats) error("getCollectionStats failed")
-        val userCoins = coins.values.filter { it.userId == userId }
+
+        val userCoins = coins.values
+            .asSequence()
+            .filter { it.userId == userId }
+            .filter { country == null || it.recognitionResult.countryOrIssuer == country }
+            .filter { year == null || it.recognitionResult.year == year }
+            .filter { minValue == null || (it.recognitionResult.valueLow ?: 0.0) >= minValue }
+            .filter { maxValue == null || (it.recognitionResult.valueHigh ?: 0.0) <= maxValue }
+            .filter { setId == null || it.setId == setId }
+            .toList()
+
         return CoinCollectionStats(
             totalCoins = userCoins.size,
-            totalIssuers = userCoins.mapNotNull { it.recognitionResult.countryOrIssuer }.distinct().size,
-            estimatedTotalValueMean = userCoins.mapNotNull { it.meanValue() }.average().takeUnless { it.isNaN() } ?: 0.0,
+
+            totalIssuers = userCoins
+                .mapNotNull { it.recognitionResult.countryOrIssuer }
+                .distinct()
+                .size,
+
+            estimatedTotalValueMean = userCoins
+                .mapNotNull { it.meanValue() }
+                .average()
+                .takeUnless { it.isNaN() }
+                ?: 0.0,
+
             highlights = CollectionHighlights(
-                mostValuable = userCoins.maxByOrNull { it.meanValue() ?: Double.NEGATIVE_INFINITY },
-                mostAncient = userCoins.filter { it.recognitionResult.year != null }.minByOrNull { it.recognitionResult.year!! },
-                rarest = userCoins.filter { it.recognitionResult.mintage != null }.minByOrNull { it.recognitionResult.mintage!! },
+                mostValuable = userCoins
+                    .maxByOrNull { it.meanValue() ?: Double.NEGATIVE_INFINITY },
+
+                mostAncient = userCoins
+                    .filter { it.recognitionResult.year != null }
+                    .minByOrNull { it.recognitionResult.year!! },
+
+                rarest = userCoins
+                    .filter { it.recognitionResult.mintage != null }
+                    .minByOrNull { it.recognitionResult.mintage!! },
             ),
         )
     }

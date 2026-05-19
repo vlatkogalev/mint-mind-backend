@@ -91,8 +91,24 @@ class CoinServiceImpl(
         Result.Failure(ex.message ?: "Failed to update notes", ex)
     }
 
-    override fun getCollectionStats(userId: UUID): Result<CoinCollectionStats> = try {
-        Result.Success(coinRepository.getCollectionStats(userId))
+    override fun getCollectionStats(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): Result<CoinCollectionStats> = try {
+        Result.Success(
+            coinRepository.getCollectionStats(
+                userId = userId,
+                country = country,
+                year = year,
+                minValue = minValue,
+                maxValue = maxValue,
+                setId = setId,
+            ),
+        )
     } catch (ex: Exception) {
         Result.Failure(ex.message ?: "Failed to get collection stats", ex)
     }
