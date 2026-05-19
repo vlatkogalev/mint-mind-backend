@@ -23,7 +23,6 @@ import io.ktor.utils.io.ExperimentalKtorApi
 import org.koin.ktor.ext.inject
 
 object ApiTags {
-    const val HEALTH = "Health"
     const val AUTH = "Auth"
     const val STORAGE = "Storage"
     const val WEBHOOKS = "Webhooks"
@@ -39,10 +38,8 @@ fun Application.configureRoutes() {
     val coinSetController by inject<CoinSetController>()
     val newsController by inject<NewsController>()
     val revenueCatWebhookController by inject<RevenueCatWebhookController>()
-    val timeProvider by inject<TimeProvider>()
 
     routing {
-        healthRoutes(timeProvider)
         authRoutes(userAuthController)
         storageRoutes(storageController)
         coinRoutes(coinController)
@@ -50,21 +47,6 @@ fun Application.configureRoutes() {
         newsRoutes(newsController)
         webhookRoutes(revenueCatWebhookController)
         docsRoutes()
-    }
-}
-
-fun Routing.healthRoutes(timeProvider: TimeProvider = TimeProvider.System) {
-    get("/health") {
-        call.respond(
-            ApiResponse(
-                success = true,
-                data = mapOf("status" to "ok"),
-                timestampMillis = timeProvider.nowMillis(),
-            ),
-        )
-    }.describe {
-        tag(ApiTags.HEALTH)
-        summary = "Service health check"
     }
 }
 

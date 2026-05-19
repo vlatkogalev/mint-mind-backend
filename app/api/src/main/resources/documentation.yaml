@@ -3,7 +3,6 @@ info:
   title: "Mint Mind Documentation"
   version: "1.0.0"
 tags:
-  - name: "Health"
   - name: "Auth"
   - name: "Storage"
   - name: "Webhooks"
@@ -11,18 +10,6 @@ tags:
   - name: "Sets"
   - name: "News"
 paths:
-  /health:
-    get:
-      tags: [ "Health" ]
-      summary: "Service health check"
-      responses:
-        "200":
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
-
   /auth/register:
     post:
       tags: [ "Auth" ]
@@ -988,22 +975,6 @@ components:
           type: integer
           format: int64
 
-    HealthData:
-      type: object
-      required: [ status ]
-      properties:
-        status:
-          type: string
-          example: "ok"
-
-    AuthHealthData:
-      type: object
-      required: [ auth ]
-      properties:
-        auth:
-          type: string
-          example: "ready"
-
     MessageData:
       type: object
       required: [ message ]
@@ -1584,14 +1555,6 @@ components:
         offset:
           type: integer
           format: int32
-
-    HealthResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/HealthData"
 
     AuthHealthResponse:
       allOf:
