@@ -1556,14 +1556,6 @@ components:
           type: integer
           format: int32
 
-    AuthHealthResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/AuthHealthData"
-
     MessageResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponseBase"
