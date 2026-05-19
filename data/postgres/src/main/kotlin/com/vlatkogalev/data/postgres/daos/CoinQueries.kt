@@ -502,7 +502,7 @@ class CoinQueries(
             SELECT ${coinColumns()}
             FROM coins
             WHERE ${filters.whereClause}
-            ORDER BY rarity_score DESC NULLS LAST
+            ORDER BY mintage ASC NULLS LAST
             LIMIT 1
             """.trimIndent(),
             ).use { statement ->
