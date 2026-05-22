@@ -10,17 +10,19 @@ $$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY,
-    email VARCHAR(320) NOT NULL UNIQUE,
-    password_hash VARCHAR(512) NOT NULL,
+    email VARCHAR(320),
+    password_hash VARCHAR(512),
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     verification_token VARCHAR(128),
     verification_email_sent_at TIMESTAMP WITH TIME ZONE,
     refresh_token_hash VARCHAR(512),
+    is_anonymous BOOLEAN NOT NULL DEFAULT TRUE,
+    upgraded_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email
+CREATE INDEX IF NOT EXISTS idx_users_email
     ON users(email);
 
 DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
@@ -56,6 +58,32 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at
     ON password_reset_tokens(expires_at);
+
+CREATE TABLE IF NOT EXISTS user_auth_identities (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    auth_type VARCHAR(32) NOT NULL,
+    email VARCHAR(320),
+    password_hash VARCHAR(512),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_user_auth_identities_email
+    ON user_auth_identities(email)
+    WHERE email IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_user_auth_identities_user_id
+    ON user_auth_identities(user_id);
+
+CREATE TABLE IF NOT EXISTS anonymous_installations (
+    installation_id VARCHAR(255) PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_anonymous_installations_user_id
+    ON anonymous_installations(user_id);
 
 CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY,

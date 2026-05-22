@@ -2,6 +2,8 @@ package com.vlatkogalev.domain.user.service
 
 import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
+import com.vlatkogalev.domain.user.model.AuthType
+import com.vlatkogalev.domain.user.model.UserAuthIdentity
 import com.vlatkogalev.domain.user.model.UserAccount
 import com.vlatkogalev.domain.user.model.UserProfile
 import com.vlatkogalev.domain.user.repository.UserRepository
@@ -16,6 +18,8 @@ import kotlin.test.assertIs
 class FakeUserRepository : UserRepository {
     private val users = mutableMapOf<UUID, UserAccount>()
     private val resetTokens = mutableMapOf<String, PasswordResetToken>()
+    private val authIdentities = mutableMapOf<UUID, UserAuthIdentity>()
+    private val installationToUserId = mutableMapOf<String, UUID>()
 
     var throwOnFindById = false
     var throwOnFindByEmail = false
@@ -32,6 +36,8 @@ class FakeUserRepository : UserRepository {
     fun reset() {
         users.clear()
         resetTokens.clear()
+        authIdentities.clear()
+        installationToUserId.clear()
         throwOnFindById = false
         throwOnFindByEmail = false
         throwOnCreate = false
@@ -47,6 +53,18 @@ class FakeUserRepository : UserRepository {
 
     fun insert(user: UserAccount): UserAccount {
         users[user.id] = user
+        if (!user.email.isNullOrBlank() && authIdentities.values.none { it.userId == user.id && it.authType == AuthType.EMAIL }) {
+            createAuthIdentity(
+                UserAuthIdentity(
+                    id = UUID.randomUUID(),
+                    userId = user.id,
+                    authType = AuthType.EMAIL,
+                    email = user.email,
+                    passwordHash = user.passwordHash,
+                    createdAt = Instant.now(),
+                ),
+            )
+        }
         return user
     }
 
@@ -58,13 +76,11 @@ class FakeUserRepository : UserRepository {
         return users[userId]
     }
 
-    override fun findByEmail(email: String): UserAccount? {
-        if (throwOnFindByEmail) error("findByEmail failed")
-        return users.values.firstOrNull { it.email == email }
-    }
-
     override fun findByVerificationToken(token: String): UserAccount? =
         users.values.firstOrNull { it.verificationToken == token }
+
+    override fun findUserByInstallationId(installationId: String): UserAccount? =
+        installationToUserId[installationId]?.let { users[it] }
 
     override fun create(
         email: String,
@@ -91,6 +107,7 @@ class FakeUserRepository : UserRepository {
                     lastName = lastName,
                     avatarUrl = null,
                 ),
+                isAnonymous = false,
             ),
         )
     }
@@ -107,6 +124,92 @@ class FakeUserRepository : UserRepository {
         )
         users[userId] = updated
         return updated
+    }
+
+    override fun createAnonymousInstallation(installationId: String, userId: UUID) {
+        installationToUserId[installationId] = userId
+    }
+
+    override fun updateLastSeen(installationId: String) = Unit
+
+    override fun createAuthIdentity(identity: UserAuthIdentity) {
+        authIdentities[identity.id] = identity
+    }
+
+    override fun findAuthIdentityByEmail(email: String): UserAuthIdentity? =
+        run {
+            if (throwOnFindByEmail) error("findByEmail failed")
+            authIdentities.values.firstOrNull { it.authType == AuthType.EMAIL && it.email.equals(email, ignoreCase = true) }
+        }
+
+    override fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity> =
+        authIdentities.values.filter { it.userId == userId }
+
+    override fun createAnonymousUser(installationId: String): UserAccount {
+        val userId = UUID.randomUUID()
+        val user = insert(
+            UserAccount(
+                id = userId,
+                email = null,
+                passwordHash = null,
+                emailVerified = false,
+                verificationToken = null,
+                verificationEmailSentAt = null,
+                refreshTokenHash = null,
+                profile = UserProfile(
+                    id = UUID.randomUUID(),
+                    userId = userId,
+                    firstName = "Anonymous",
+                    lastName = "User",
+                    avatarUrl = null,
+                ),
+                isAnonymous = true,
+            ),
+        )
+        createAuthIdentity(
+            UserAuthIdentity(
+                id = UUID.randomUUID(),
+                userId = userId,
+                authType = AuthType.ANONYMOUS,
+                email = null,
+                passwordHash = null,
+                createdAt = Instant.now(),
+            ),
+        )
+        createAnonymousInstallation(installationId, userId)
+        return user
+    }
+
+    override fun upgradeAnonymousUser(
+        userId: UUID,
+        email: String,
+        passwordHash: String,
+        verificationToken: String,
+        markVerified: Boolean,
+    ): UserAccount? {
+        val user = users[userId] ?: return null
+        if (!user.isAnonymous) return null
+        val upgraded = user.copy(
+            email = email,
+            passwordHash = passwordHash,
+            emailVerified = markVerified,
+            verificationToken = if (markVerified) null else verificationToken,
+            verificationEmailSentAt = if (markVerified) user.verificationEmailSentAt else Instant.now(),
+            isAnonymous = false,
+            upgradedAt = Instant.now(),
+        )
+        users[userId] = upgraded
+        createAuthIdentity(
+            UserAuthIdentity(
+                id = UUID.randomUUID(),
+                userId = userId,
+                authType = AuthType.EMAIL,
+                email = email,
+                passwordHash = passwordHash,
+                createdAt = Instant.now(),
+            ),
+        )
+        return upgraded
     }
 
     override fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
@@ -158,6 +261,11 @@ class FakeUserRepository : UserRepository {
     override fun updatePassword(userId: UUID, newPasswordHash: String) {
         val user = users[userId] ?: return
         users[userId] = user.copy(passwordHash = newPasswordHash)
+        authIdentities.entries
+            .filter { it.value.userId == userId && it.value.authType == AuthType.EMAIL }
+            .forEach { (id, identity) ->
+                authIdentities[id] = identity.copy(passwordHash = newPasswordHash)
+            }
     }
 
     override fun confirmPasswordReset(token: String, newPasswordHash: String): PasswordResetConfirmationResult {
@@ -188,7 +296,7 @@ class FakePasswordHasher : UserPasswordHasher {
 class FakeTokenProvider : UserTokenProvider {
     private val refreshCounts = mutableMapOf<UUID, Int>()
 
-    override fun createAccessToken(userId: UUID, email: String): String = "access:$userId"
+    override fun createAccessToken(userId: UUID, isAnonymous: Boolean): String = "access:$userId"
 
     override fun generateRefreshToken(userId: UUID): String {
         val nextCount = (refreshCounts[userId] ?: 0) + 1

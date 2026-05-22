@@ -2,6 +2,7 @@ package com.vlatkogalev.domain.user.repository
 
 import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
+import com.vlatkogalev.domain.user.model.UserAuthIdentity
 import com.vlatkogalev.domain.user.model.UserAccount
 import java.time.Instant
 import java.util.*
@@ -9,9 +10,9 @@ import java.util.*
 interface UserRepository {
     fun findById(userId: UUID): UserAccount?
 
-    fun findByEmail(email: String): UserAccount?
-
     fun findByVerificationToken(token: String): UserAccount?
+
+    fun findUserByInstallationId(installationId: String): UserAccount?
 
     fun create(
         email: String,
@@ -22,6 +23,26 @@ interface UserRepository {
     ): UserAccount
 
     fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount?
+
+    fun createAnonymousInstallation(installationId: String, userId: UUID)
+
+    fun updateLastSeen(installationId: String)
+
+    fun createAuthIdentity(identity: UserAuthIdentity)
+
+    fun findAuthIdentityByEmail(email: String): UserAuthIdentity?
+
+    fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity>
+
+    fun createAnonymousUser(installationId: String): UserAccount
+
+    fun upgradeAnonymousUser(
+        userId: UUID,
+        email: String,
+        passwordHash: String,
+        verificationToken: String,
+        markVerified: Boolean,
+    ): UserAccount?
 
     fun saveRefreshTokenHash(userId: UUID, tokenHash: String)
 

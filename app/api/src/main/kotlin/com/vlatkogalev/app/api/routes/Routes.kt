@@ -56,6 +56,12 @@ fun Routing.authRoutes(controller: UserAuthController) {
             registerPublicRoutes()
         }
 
+        authenticate("jwt-auth", optional = true) {
+            controller.run {
+                registerOptionalAuthRoutes()
+            }
+        }
+
         authenticate("jwt-auth") {
             controller.run {
                 registerProtectedRoutes()

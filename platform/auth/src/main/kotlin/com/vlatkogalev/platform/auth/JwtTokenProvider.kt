@@ -13,7 +13,7 @@ class JwtTokenProvider(
 ) : UserTokenProvider {
     private val algorithm = Algorithm.HMAC256(config.secret)
 
-    override fun createAccessToken(userId: UUID, email: String): String {
+    override fun createAccessToken(userId: UUID, isAnonymous: Boolean): String {
         val nowMillis = System.currentTimeMillis()
         val expiryMillis = nowMillis + config.accessTokenTtlSeconds * 1000
 
@@ -21,7 +21,7 @@ class JwtTokenProvider(
             .withIssuer(config.issuer)
             .withAudience(config.audience)
             .withSubject(userId.toString())
-            .withClaim("email", email)
+            .withClaim("anonymous", isAnonymous)
             .withClaim("type", "access")
             .withIssuedAt(Date(nowMillis))
             .withExpiresAt(Date(expiryMillis))

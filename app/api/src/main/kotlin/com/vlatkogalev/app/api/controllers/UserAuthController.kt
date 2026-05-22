@@ -5,6 +5,7 @@ package com.vlatkogalev.app.api.controllers
 import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.app.api.util.HtmlTemplates
+import com.vlatkogalev.domain.user.model.AuthSession
 import com.vlatkogalev.domain.user.model.LoginSession
 import com.vlatkogalev.domain.user.model.User
 import com.vlatkogalev.domain.user.service.UserAuthService
@@ -26,6 +27,21 @@ class UserAuthController(
     private val timeProvider: TimeProvider,
 ) {
     fun Route.registerPublicRoutes() {
+        post("/anonymous") {
+            val payload = call.receive<AnonymousAuthRequest>()
+            payload.validate()?.let {
+                call.respond(HttpStatusCode.BadRequest, error(it))
+                return@post
+            }
+            when (val result = userAuthService.authenticateAnonymous(payload.installationId)) {
+                is Result.Success -> call.respond(success(result.value.toResponse()))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.AUTH)
+            summary = "Authenticate or create an anonymous user session"
+        }
+
         post("/register") {
             val payload = call.receive<RegisterRequest>()
             when (val result =
@@ -123,6 +139,28 @@ class UserAuthController(
         }
     }
 
+    fun Route.registerOptionalAuthRoutes() {
+        post("/upgrade-account") {
+            val currentUserId = call.userUuidOrNull()
+            if (currentUserId == null) {
+                call.respond(HttpStatusCode.Unauthorized, error("Anonymous authentication is required"))
+                return@post
+            }
+            val payload = call.receive<SignupRequest>()
+            payload.validate()?.let {
+                call.respond(HttpStatusCode.BadRequest, error(it))
+                return@post
+            }
+            when (val result = userAuthService.signup(payload.email, payload.password, currentUserId)) {
+                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toResponse()))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.AUTH)
+            summary = "Create an account or upgrade an anonymous account"
+        }
+    }
+
     fun Route.registerProtectedRoutes() {
         get("/me") {
             val userId = call.userUuidOrNull()
@@ -175,6 +213,15 @@ class UserAuthController(
     private fun io.ktor.server.application.ApplicationCall.userUuidOrNull(): UUID? =
         principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
+    private fun AuthSession.toResponse(): AuthSessionResponse =
+        AuthSessionResponse(
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            accessTokenExpiresInSeconds = accessTokenExpiresInSeconds,
+            refreshTokenExpiresInSeconds = refreshTokenExpiresInSeconds,
+            user = user.toResponse(),
+        )
+
     private fun LoginSession.toResponse(): LoginSessionResponse =
         LoginSessionResponse(
             accessToken = accessToken,
@@ -191,6 +238,8 @@ class UserAuthController(
             lastName = lastName,
             avatarUrl = avatarUrl,
             emailVerified = emailVerified,
+            isAnonymous = isAnonymous,
+            upgradedAt = upgradedAt?.toString(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

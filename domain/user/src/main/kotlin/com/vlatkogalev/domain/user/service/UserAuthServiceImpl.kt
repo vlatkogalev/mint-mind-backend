@@ -19,6 +19,25 @@ class UserAuthServiceImpl(
     private val emailVerificationSender: EmailVerificationSender,
 ) : UserAuthService {
 
+    override fun authenticateAnonymous(installationId: String): Result<AuthSession> {
+        val normalizedInstallationId = installationId.trim()
+        if (normalizedInstallationId.isBlank()) return Result.Failure("installationId is required")
+        return try {
+            val existing = userRepository.findUserByInstallationId(normalizedInstallationId)
+            val user = if (existing != null) {
+                userRepository.updateLastSeen(normalizedInstallationId)
+                existing
+            } else {
+                userRepository.createAnonymousUser(normalizedInstallationId)
+            }
+            val refreshToken = jwtTokenProvider.generateRefreshToken(user.id)
+            userRepository.saveRefreshTokenHash(user.id, hashToken(refreshToken))
+            Result.Success(user.toAuthSession(refreshToken))
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to authenticate anonymous user", ex)
+        }
+    }
+
     override fun register(email: String, password: String, firstName: String, lastName: String): Result<User> {
         val normalizedEmail = email.trim().lowercase()
         if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
@@ -30,16 +49,27 @@ class UserAuthServiceImpl(
         validatePassword(password)?.let { return it }
 
         return try {
-            if (userRepository.findByEmail(normalizedEmail) != null) {
+            if (userRepository.findAuthIdentityByEmail(normalizedEmail) != null) {
                 Result.Failure("Email already registered")
             } else {
                 val verificationToken = UUID.randomUUID().toString()
+                val passwordHash = passwordHasher.hash(password)
                 val user = userRepository.create(
                     email = normalizedEmail,
                     firstName = firstName.trim(),
                     lastName = lastName.trim(),
-                    passwordHash = passwordHasher.hash(password),
+                    passwordHash = passwordHash,
                     verificationToken = verificationToken,
+                )
+                userRepository.createAuthIdentity(
+                    UserAuthIdentity(
+                        id = UUID.randomUUID(),
+                        userId = user.id,
+                        authType = AuthType.EMAIL,
+                        email = normalizedEmail,
+                        passwordHash = passwordHash,
+                        createdAt = Instant.now(),
+                    ),
                 )
 
                 if (skipEmailVerification) {
@@ -55,15 +85,59 @@ class UserAuthServiceImpl(
         }
     }
 
+    override fun signup(email: String, password: String, currentUserId: UUID): Result<AuthSession> {
+        val normalizedEmail = email.trim().lowercase()
+        if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
+        validatePassword(password)?.let { return it }
+        return try {
+            if (userRepository.findAuthIdentityByEmail(normalizedEmail) != null) {
+                return Result.Failure("Email already registered")
+            }
+
+            val passwordHash = passwordHasher.hash(password)
+            val verificationToken = UUID.randomUUID().toString()
+            val current = userRepository.findById(currentUserId)
+                ?: return Result.Failure("User not found")
+            if (!current.isAnonymous) {
+                return Result.Failure("Signup upgrade requires anonymous account")
+            }
+            val user = userRepository.upgradeAnonymousUser(
+                userId = currentUserId,
+                email = normalizedEmail,
+                passwordHash = passwordHash,
+                verificationToken = verificationToken,
+                markVerified = skipEmailVerification,
+            ) ?: return Result.Failure("User not found")
+
+            if (skipEmailVerification) {
+                userRepository.verifyEmail(verificationToken)
+            } else {
+                emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
+            }
+
+            val refreshedUser = userRepository.findById(user.id) ?: user
+            val refreshToken = jwtTokenProvider.generateRefreshToken(refreshedUser.id)
+            userRepository.saveRefreshTokenHash(refreshedUser.id, hashToken(refreshToken))
+            Result.Success(refreshedUser.toAuthSession(refreshToken))
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to signup", ex)
+        }
+    }
+
     override fun login(email: String, password: String): Result<LoginSession> {
         val normalizedEmail = email.trim().lowercase()
         return try {
-            val user = userRepository.findByEmail(normalizedEmail)
+            val identity = userRepository.findAuthIdentityByEmail(normalizedEmail)
                 ?: return Result.Failure("Invalid email or password")
-
-            if (!passwordHasher.verify(password, user.passwordHash)) {
-                Result.Failure("Invalid email or password")
-            } else if (!user.emailVerified) {
+            if (identity.authType != AuthType.EMAIL || identity.passwordHash.isNullOrBlank()) {
+                return Result.Failure("Invalid email or password")
+            }
+            if (!passwordHasher.verify(password, identity.passwordHash)) {
+                return Result.Failure("Invalid email or password")
+            }
+            val user = userRepository.findById(identity.userId)
+                ?: return Result.Failure("Invalid email or password")
+            if (!user.emailVerified) {
                 Result.Failure("Email verification required")
             } else {
                 val refreshToken = jwtTokenProvider.generateRefreshToken(user.id)
@@ -109,7 +183,8 @@ class UserAuthServiceImpl(
     override fun resendVerification(email: String): Result<Unit> {
         val normalizedEmail = email.trim().lowercase()
         return try {
-            val user = userRepository.findByEmail(normalizedEmail)
+            val identity = userRepository.findAuthIdentityByEmail(normalizedEmail)
+            val user = identity?.let { userRepository.findById(it.userId) }
 
             if (user == null || user.emailVerified) {
                 return Result.Success(Unit)
@@ -159,7 +234,7 @@ class UserAuthServiceImpl(
     override fun requestPasswordReset(email: String): Result<Unit> {
         val normalizedEmail = email.trim().lowercase()
         return try {
-            val user = userRepository.findByEmail(normalizedEmail)
+            val user = userRepository.findAuthIdentityByEmail(normalizedEmail)?.let { userRepository.findById(it.userId) }
             if (user != null) {
                 val token = UUID.randomUUID().toString()
                 userRepository.upsertPasswordResetToken(
@@ -205,15 +280,26 @@ class UserAuthServiceImpl(
             lastName = profile.lastName,
             avatarUrl = profile.avatarUrl,
             emailVerified = emailVerified,
+            isAnonymous = isAnonymous,
+            upgradedAt = upgradedAt,
         )
     }
 
     private fun UserAccount.toLoginSession(refreshToken: String): LoginSession =
         LoginSession(
-            accessToken = jwtTokenProvider.createAccessToken(id, email),
+            accessToken = jwtTokenProvider.createAccessToken(id, isAnonymous),
             refreshToken = refreshToken,
             accessTokenExpiresInSeconds = jwtTokenProvider.accessTokenExpiresInSeconds(),
             refreshTokenExpiresInSeconds = jwtTokenProvider.refreshTokenExpiresInSeconds(),
+        )
+
+    private fun UserAccount.toAuthSession(refreshToken: String): AuthSession =
+        AuthSession(
+            accessToken = jwtTokenProvider.createAccessToken(id, isAnonymous),
+            refreshToken = refreshToken,
+            accessTokenExpiresInSeconds = jwtTokenProvider.accessTokenExpiresInSeconds(),
+            refreshTokenExpiresInSeconds = jwtTokenProvider.refreshTokenExpiresInSeconds(),
+            user = toUser(),
         )
 
     private fun hashToken(token: String): String {

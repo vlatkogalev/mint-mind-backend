@@ -5,8 +5,8 @@ import java.time.Instant
 
 data class UserRecord(
     val id: UUID,
-    val email: String,
-    val passwordHash: String,
+    val email: String?,
+    val passwordHash: String?,
     val emailVerified: Boolean,
     val verificationToken: String?,
     val verificationEmailSentAt: Instant?,
@@ -15,4 +15,6 @@ data class UserRecord(
     val firstName: String?,
     val lastName: String?,
     val avatarUrl: String?,
+    val isAnonymous: Boolean,
+    val upgradedAt: Instant?,
 )

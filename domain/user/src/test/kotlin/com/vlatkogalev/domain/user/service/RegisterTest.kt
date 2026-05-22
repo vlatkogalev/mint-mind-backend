@@ -141,7 +141,7 @@ class RegisterTest : UserAuthServiceTestBase() {
         service.register(TestFixtures.VALID_EMAIL, TestFixtures.VALID_PASSWORD, TestFixtures.VALID_FIRST, TestFixtures.VALID_LAST)
 
         val stored = assertNotNull(repo.findByEmail(TestFixtures.VALID_EMAIL))
-        assertTrue(stored.passwordHash.startsWith("hashed:"))
+        assertTrue(assertNotNull(stored.passwordHash).startsWith("hashed:"))
         assertEquals("hashed:${TestFixtures.VALID_PASSWORD}", stored.passwordHash)
     }
 

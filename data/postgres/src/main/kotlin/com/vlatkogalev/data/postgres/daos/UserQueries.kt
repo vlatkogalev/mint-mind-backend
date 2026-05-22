@@ -1,6 +1,7 @@
 package com.vlatkogalev.data.postgres.daos
 
 import com.vlatkogalev.data.postgres.entities.PasswordResetTokenRecord
+import com.vlatkogalev.data.postgres.entities.UserAuthIdentityRecord
 import com.vlatkogalev.data.postgres.entities.UserRecord
 import java.sql.Connection
 import java.sql.ResultSet
@@ -18,21 +19,6 @@ class UserQueries(
             findById(connection, userId)
         }
 
-    fun findByEmail(email: String): UserRecord? =
-        dataSource.connection.use { connection ->
-            connection.prepareStatement(
-                """
-                SELECT ${userColumns()}
-                FROM users u
-                LEFT JOIN profiles p ON p.user_id = u.id
-                WHERE lower(u.email) = lower(?)
-                """.trimIndent(),
-            ).use { statement ->
-                statement.setObject(1, email)
-                statement.executeQuery().use { rs -> if (rs.next()) rs.toUserRecord() else null }
-            }
-        }
-
     fun findByVerificationToken(token: String): UserRecord? =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
@@ -44,6 +30,22 @@ class UserQueries(
                 """.trimIndent(),
             ).use { statement ->
                 statement.setString(1, token)
+                statement.executeQuery().use { rs -> if (rs.next()) rs.toUserRecord() else null }
+            }
+        }
+
+    fun findByInstallationId(installationId: String): UserRecord? =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                SELECT ${userColumns()}
+                FROM anonymous_installations ai
+                JOIN users u ON u.id = ai.user_id
+                LEFT JOIN profiles p ON p.user_id = u.id
+                WHERE ai.installation_id = ?
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, installationId)
                 statement.executeQuery().use { rs -> if (rs.next()) rs.toUserRecord() else null }
             }
         }
@@ -62,8 +64,8 @@ class UserQueries(
     ): UserRecord {
         connection.prepareStatement(
             """
-            INSERT INTO users(id, email, password_hash, verification_token)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO users(id, email, password_hash, verification_token, is_anonymous)
+            VALUES (?, ?, ?, ?, FALSE)
             """.trimIndent(),
         ).use { statement ->
             statement.setObject(1, userId)
@@ -100,6 +102,153 @@ class UserQueries(
 
         return findById(connection, userId) ?: error("Created user could not be loaded")
     }
+
+    fun createAnonymousUser(
+        connection: Connection,
+        userId: UUID,
+        profileId: UUID,
+        subscriptionId: UUID,
+        rcCustomerId: String,
+    ): UserRecord {
+        connection.prepareStatement(
+            """
+            INSERT INTO users(id, is_anonymous)
+            VALUES (?, TRUE)
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, userId)
+            statement.executeUpdate()
+        }
+
+        connection.prepareStatement(
+            """
+            INSERT INTO profiles(id, user_id, first_name, last_name)
+            VALUES (?, ?, 'Anonymous', 'User')
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, profileId)
+            statement.setObject(2, userId)
+            statement.executeUpdate()
+        }
+
+        connection.prepareStatement(
+            """
+            INSERT INTO subscriptions(id, user_id, rc_customer_id, plan, status)
+            VALUES (?, ?, ?, 'free', 'active')
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, subscriptionId)
+            statement.setObject(2, userId)
+            statement.setString(3, rcCustomerId)
+            statement.executeUpdate()
+        }
+
+        return findById(connection, userId) ?: error("Created anonymous user could not be loaded")
+    }
+
+    fun createAnonymousInstallation(installationId: String, userId: UUID) {
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO anonymous_installations(installation_id, user_id)
+                VALUES (?, ?)
+                ON CONFLICT (installation_id)
+                DO UPDATE SET user_id = EXCLUDED.user_id, last_seen_at = NOW()
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, installationId)
+                statement.setObject(2, userId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun updateLastSeen(installationId: String) {
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                UPDATE anonymous_installations
+                SET last_seen_at = NOW()
+                WHERE installation_id = ?
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, installationId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun createAuthIdentity(
+        id: UUID,
+        userId: UUID,
+        authType: String,
+        email: String?,
+        passwordHash: String?,
+    ) {
+        dataSource.connection.use { connection ->
+            createAuthIdentity(connection, id, userId, authType, email, passwordHash)
+        }
+    }
+
+    fun createAuthIdentity(
+        connection: Connection,
+        id: UUID,
+        userId: UUID,
+        authType: String,
+        email: String?,
+        passwordHash: String?,
+    ) {
+        connection.prepareStatement(
+            """
+            INSERT INTO user_auth_identities(id, user_id, auth_type, email, password_hash)
+            VALUES (?, ?, ?, ?, ?)
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, id)
+            statement.setObject(2, userId)
+            statement.setString(3, authType)
+            statement.setString(4, email)
+            statement.setString(5, passwordHash)
+            statement.executeUpdate()
+        }
+    }
+
+    fun findAuthIdentityByEmail(email: String): UserAuthIdentityRecord? =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                SELECT id, user_id, auth_type, email, password_hash, created_at
+                FROM user_auth_identities
+                WHERE lower(email) = lower(?)
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, email)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) rs.toUserAuthIdentityRecord() else null
+                }
+            }
+        }
+
+    fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentityRecord> =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                SELECT id, user_id, auth_type, email, password_hash, created_at
+                FROM user_auth_identities
+                WHERE user_id = ?
+                ORDER BY created_at ASC
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, userId)
+                statement.executeQuery().use { rs ->
+                    buildList {
+                        while (rs.next()) {
+                            add(rs.toUserAuthIdentityRecord())
+                        }
+                    }
+                }
+            }
+        }
 
     fun updateProfile(userId: UUID, firstName: String, lastName: String): UserRecord? =
         dataSource.connection.use { connection ->
@@ -157,6 +306,39 @@ class UserQueries(
                 statement.setObject(2, userId)
                 statement.executeUpdate()
             }
+        }
+    }
+
+    fun upgradeAnonymousUser(
+        connection: Connection,
+        userId: UUID,
+        email: String,
+        passwordHash: String,
+        verificationToken: String,
+        markVerified: Boolean,
+    ): Boolean {
+        connection.prepareStatement(
+            """
+            UPDATE users
+            SET
+                email = ?,
+                password_hash = ?,
+                email_verified = ?,
+                verification_token = CASE WHEN ? THEN NULL ELSE ? END,
+                verification_email_sent_at = CASE WHEN ? THEN verification_email_sent_at ELSE NOW() END,
+                is_anonymous = FALSE,
+                upgraded_at = COALESCE(upgraded_at, NOW())
+            WHERE id = ? AND is_anonymous = TRUE
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, email)
+            statement.setString(2, passwordHash)
+            statement.setBoolean(3, markVerified)
+            statement.setBoolean(4, markVerified)
+            statement.setString(5, verificationToken)
+            statement.setBoolean(6, markVerified)
+            statement.setObject(7, userId)
+            return statement.executeUpdate() > 0
         }
     }
 
@@ -287,6 +469,18 @@ class UserQueries(
             firstName = getString("first_name"),
             lastName = getString("last_name"),
             avatarUrl = getString("avatar_url"),
+            isAnonymous = getBoolean("is_anonymous"),
+            upgradedAt = getTimestamp("upgraded_at")?.toInstant(),
+        )
+
+    private fun ResultSet.toUserAuthIdentityRecord(): UserAuthIdentityRecord =
+        UserAuthIdentityRecord(
+            id = getObject("id", UUID::class.java),
+            userId = getObject("user_id", UUID::class.java),
+            authType = getString("auth_type"),
+            email = getString("email"),
+            passwordHash = getString("password_hash"),
+            createdAt = getObject("created_at", OffsetDateTime::class.java).toInstant(),
         )
 
     private fun userColumns(): String =
@@ -298,6 +492,8 @@ class UserQueries(
         u.verification_token,
         u.verification_email_sent_at,
         u.refresh_token_hash,
+        u.is_anonymous,
+        u.upgraded_at,
         p.id AS profile_id,
         p.first_name,
         p.last_name,

@@ -11,6 +11,28 @@ data class RegisterRequest(
 )
 
 @Serializable
+data class AnonymousAuthRequest(
+    val installationId: String,
+) {
+    fun validate(): String? {
+        if (installationId.isBlank()) return "installationId is required"
+        return null
+    }
+}
+
+@Serializable
+data class SignupRequest(
+    val email: String,
+    val password: String,
+) {
+    fun validate(): String? {
+        if (email.isBlank()) return "email is required"
+        if (password.isBlank()) return "password is required"
+        return null
+    }
+}
+
+@Serializable
 data class LoginRequest(
     val email: String,
     val password: String,
@@ -69,13 +91,24 @@ data class LoginSessionResponse(
 )
 
 @Serializable
+data class AuthSessionResponse(
+    val accessToken: String,
+    val refreshToken: String,
+    val accessTokenExpiresInSeconds: Long,
+    val refreshTokenExpiresInSeconds: Long,
+    val user: UserResponse,
+)
+
+@Serializable
 data class UserResponse(
     val id: String,
-    val email: String,
+    val email: String?,
     val firstName: String,
     val lastName: String,
     val avatarUrl: String?,
     val emailVerified: Boolean,
+    val isAnonymous: Boolean,
+    val upgradedAt: String?,
 )
 
 @Serializable

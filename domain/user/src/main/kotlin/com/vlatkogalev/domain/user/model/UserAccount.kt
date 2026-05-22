@@ -5,11 +5,13 @@ import java.time.Instant
 
 data class UserAccount(
     val id: UUID,
-    val email: String,
-    val passwordHash: String,
+    val email: String?,
+    val passwordHash: String?,
     val emailVerified: Boolean,
     val verificationToken: String?,
     val verificationEmailSentAt: Instant?,
     val refreshTokenHash: String?,
     val profile: UserProfile?,
+    val isAnonymous: Boolean = false,
+    val upgradedAt: Instant? = null,
 )

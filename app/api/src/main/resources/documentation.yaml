@@ -35,6 +35,64 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/anonymous:
+    post:
+      tags: [ "Auth" ]
+      summary: "Authenticate or create an anonymous user session"
+      description: "Bootstraps an anonymous account using an installation ID. If the installation already exists, returns a new token pair for the same user."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnonymousAuthRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/upgrade-account:
+    post:
+      tags: [ "Auth" ]
+      summary: "Upgrade an anonymous account"
+      description: "Requires an anonymous JWT and upgrades that same user to email/password without migrating data."
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/login:
     post:
       tags: [ "Auth" ]
@@ -1006,6 +1064,25 @@ components:
           maxLength: 50
           example: "Lovelace"
 
+    AnonymousAuthRequest:
+      type: object
+      required: [ installationId ]
+      properties:
+        installationId:
+          type: string
+          description: "Client-generated stable installation identifier."
+
+    SignupRequest:
+      type: object
+      required: [ email, password ]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
     LoginRequest:
       type: object
       required: [ email, password ]
@@ -1087,9 +1164,30 @@ components:
           format: int64
           example: 2592000
 
+    AuthSessionResponse:
+      type: object
+      required: [ accessToken, refreshToken, accessTokenExpiresInSeconds, refreshTokenExpiresInSeconds, user ]
+      properties:
+        accessToken:
+          type: string
+          description: "JWT access token. Default TTL is 900 seconds."
+        refreshToken:
+          type: string
+          description: "Long-lived refresh token. Store securely on the client."
+        accessTokenExpiresInSeconds:
+          type: integer
+          format: int64
+          example: 900
+        refreshTokenExpiresInSeconds:
+          type: integer
+          format: int64
+          example: 2592000
+        user:
+          $ref: "#/components/schemas/UserResponse"
+
     UserResponse:
       type: object
-      required: [ id, email, firstName, lastName, emailVerified ]
+      required: [ id, firstName, lastName, emailVerified, isAnonymous ]
       properties:
         id:
           type: string
@@ -1097,6 +1195,7 @@ components:
         email:
           type: string
           format: email
+          nullable: true
         firstName:
           type: string
         lastName:
@@ -1107,6 +1206,12 @@ components:
           nullable: true
         emailVerified:
           type: boolean
+        isAnonymous:
+          type: boolean
+        upgradedAt:
+          type: string
+          format: date-time
+          nullable: true
 
     PasswordResetRequestResponse:
       type: object
@@ -1571,6 +1676,14 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/LoginSessionResponse"
+
+    AuthSessionApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AuthSessionResponse"
 
     UserApiResponse:
       allOf:

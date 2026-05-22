@@ -30,6 +30,7 @@ class GetUserProfileTest : UserAuthServiceTestBase() {
         assertEquals(TestFixtures.VALID_LAST, profile.lastName)
         assertEquals("https://example.com/avatar.png", profile.avatarUrl)
         assertEquals(user.emailVerified, profile.emailVerified)
+        assertEquals(user.isAnonymous, profile.isAnonymous)
     }
 
     @Test
