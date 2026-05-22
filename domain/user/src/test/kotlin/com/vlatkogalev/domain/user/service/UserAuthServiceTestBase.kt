@@ -6,6 +6,7 @@ import com.vlatkogalev.domain.user.model.AuthType
 import com.vlatkogalev.domain.user.model.UserAuthIdentity
 import com.vlatkogalev.domain.user.model.UserAccount
 import com.vlatkogalev.domain.user.model.UserProfile
+import com.vlatkogalev.domain.user.model.UpgradeAnonymousResult
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
 import java.security.MessageDigest
@@ -31,7 +32,9 @@ class FakeUserRepository : UserRepository {
     var throwOnUpsertPasswordResetToken = false
     var throwOnConfirmPasswordReset = false
     var throwOnDeleteById = false
+    var throwOnFindPasswordResetToken = false
     var confirmPasswordResetCalls = 0
+    var updateLastSeenCalls = 0
 
     fun reset() {
         users.clear()
@@ -48,7 +51,9 @@ class FakeUserRepository : UserRepository {
         throwOnUpsertPasswordResetToken = false
         throwOnConfirmPasswordReset = false
         throwOnDeleteById = false
+        throwOnFindPasswordResetToken = false
         confirmPasswordResetCalls = 0
+        updateLastSeenCalls = 0
     }
 
     fun insert(user: UserAccount): UserAccount {
@@ -130,7 +135,9 @@ class FakeUserRepository : UserRepository {
         installationToUserId[installationId] = userId
     }
 
-    override fun updateLastSeen(installationId: String) = Unit
+    override fun updateLastSeen(installationId: String) {
+        updateLastSeenCalls++
+    }
 
     override fun createAuthIdentity(identity: UserAuthIdentity) {
         authIdentities[identity.id] = identity
@@ -146,6 +153,7 @@ class FakeUserRepository : UserRepository {
         authIdentities.values.filter { it.userId == userId }
 
     override fun createAnonymousUser(installationId: String): UserAccount {
+        if (throwOnCreate) error("create failed")
         val userId = UUID.randomUUID()
         val user = insert(
             UserAccount(
@@ -186,9 +194,9 @@ class FakeUserRepository : UserRepository {
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,
-    ): UserAccount? {
-        val user = users[userId] ?: return null
-        if (!user.isAnonymous) return null
+    ): UpgradeAnonymousResult {
+        val user = users[userId] ?: return UpgradeAnonymousResult.NotFound
+        if (!user.isAnonymous) return UpgradeAnonymousResult.NotAnonymous
         val upgraded = user.copy(
             email = email,
             passwordHash = passwordHash,
@@ -209,7 +217,7 @@ class FakeUserRepository : UserRepository {
                 createdAt = Instant.now(),
             ),
         )
-        return upgraded
+        return UpgradeAnonymousResult.Success(upgraded)
     }
 
     override fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
@@ -252,7 +260,10 @@ class FakeUserRepository : UserRepository {
         )
     }
 
-    override fun findPasswordResetToken(token: String): PasswordResetToken? = resetTokens[token]
+    override fun findPasswordResetToken(token: String): PasswordResetToken? {
+        if (throwOnFindPasswordResetToken) error("findPasswordResetToken failed")
+        return resetTokens[token]
+    }
 
     override fun consumePasswordResetToken(token: String) {
         resetTokens.remove(token)
@@ -276,7 +287,6 @@ class FakeUserRepository : UserRepository {
             resetTokens.remove(token)
             return PasswordResetConfirmationResult.EXPIRED_TOKEN
         }
-
         updatePassword(resetToken.userId, newPasswordHash)
         consumePasswordResetToken(token)
         return PasswordResetConfirmationResult.SUCCESS
@@ -313,6 +323,16 @@ class RecordingEmailSender : EmailVerificationSender {
 
     override fun sendVerificationEmail(email: String, verificationToken: String) {
         sentEmails += email to verificationToken
+    }
+
+    fun reset() = sentEmails.clear()
+}
+
+class RecordingPasswordResetEmailSender : PasswordResetEmailSender {
+    val sentEmails = mutableListOf<Pair<String, String>>()
+
+    override fun sendPasswordResetEmail(email: String, resetToken: String) {
+        sentEmails += email to resetToken
     }
 
     fun reset() = sentEmails.clear()
@@ -356,6 +376,7 @@ abstract class UserAuthServiceTestBase {
     protected val hasher = FakePasswordHasher()
     protected val tokenProvider = FakeTokenProvider()
     protected val emailSender = RecordingEmailSender()
+    protected val passwordResetEmailSender = RecordingPasswordResetEmailSender()
     protected val skipVerificationDefault = false
 
     protected lateinit var service: UserAuthServiceImpl
@@ -364,7 +385,15 @@ abstract class UserAuthServiceTestBase {
     fun setup() {
         repo.reset()
         emailSender.reset()
-        service = UserAuthServiceImpl(repo, hasher, tokenProvider, skipVerificationDefault, emailSender)
+        passwordResetEmailSender.reset()
+        service = UserAuthServiceImpl(
+            userRepository = repo,
+            passwordHasher = hasher,
+            jwtTokenProvider = tokenProvider,
+            skipEmailVerification = skipVerificationDefault,
+            emailVerificationSender = emailSender,
+            passwordResetEmailSender = passwordResetEmailSender,
+        )
     }
 
     protected fun verifiedUser(email: String = TestFixtures.VALID_EMAIL): UserAccount = repo.insert(
@@ -376,11 +405,12 @@ abstract class UserAuthServiceTestBase {
     )
 
     protected fun skipVerificationService(): UserAuthServiceImpl = UserAuthServiceImpl(
-        repo,
-        hasher,
-        tokenProvider,
-        true,
-        emailSender,
+        userRepository = repo,
+        passwordHasher = hasher,
+        jwtTokenProvider = tokenProvider,
+        skipEmailVerification = true,
+        emailVerificationSender = emailSender,
+        passwordResetEmailSender = passwordResetEmailSender,
     )
 
     protected fun hashToken(token: String): String {

@@ -109,4 +109,14 @@ class ResendVerificationTest : UserAuthServiceTestBase() {
 
         assertEquals("findByEmail failed", assertFailure(result).reason)
     }
+
+    @Test
+    fun resendVerification_atExactCooldownExpiry_sendsEmail() {
+        repo.insert(TestFixtures.makeAccount(verificationEmailSentAt = Instant.now().minus(10, ChronoUnit.MINUTES)))
+
+        val result = service.resendVerification(TestFixtures.VALID_EMAIL)
+
+        assertSuccess(result)
+        assertEquals(1, emailSender.sentEmails.size)
+    }
 }

@@ -7,6 +7,7 @@ import com.vlatkogalev.data.postgres.entities.UserRecord
 import com.vlatkogalev.domain.user.model.AuthType
 import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
+import com.vlatkogalev.domain.user.model.UpgradeAnonymousResult
 import com.vlatkogalev.domain.user.model.UserAuthIdentity
 import com.vlatkogalev.domain.user.model.UserAccount
 import com.vlatkogalev.domain.user.model.UserProfile
@@ -22,7 +23,8 @@ class UserRepositoryImpl(
 ) : UserRepository {
     override fun findById(userId: UUID): UserAccount? = queries.findById(userId)?.toUserAccount()
 
-    override fun findByVerificationToken(token: String): UserAccount? = queries.findByVerificationToken(token)?.toUserAccount()
+    override fun findByVerificationToken(token: String): UserAccount? =
+        queries.findByVerificationToken(token)?.toUserAccount()
 
     override fun findUserByInstallationId(installationId: String): UserAccount? =
         queries.findByInstallationId(installationId)?.toUserAccount()
@@ -105,8 +107,15 @@ class UserRepositoryImpl(
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,
-    ): UserAccount? =
+    ): UpgradeAnonymousResult =
         dataSource.withTransaction { connection ->
+            val current = queries.findById(connection, userId)
+                ?: return@withTransaction UpgradeAnonymousResult.NotFound
+
+            if (!current.isAnonymous) {
+                return@withTransaction UpgradeAnonymousResult.NotAnonymous
+            }
+
             val upgraded = queries.upgradeAnonymousUser(
                 connection = connection,
                 userId = userId,
@@ -115,9 +124,8 @@ class UserRepositoryImpl(
                 verificationToken = verificationToken,
                 markVerified = markVerified,
             )
-            if (!upgraded) {
-                return@withTransaction null
-            }
+            if (!upgraded) return@withTransaction UpgradeAnonymousResult.NotFound
+
             queries.createAuthIdentity(
                 connection = connection,
                 id = UUID.randomUUID(),
@@ -126,7 +134,10 @@ class UserRepositoryImpl(
                 email = email,
                 passwordHash = passwordHash,
             )
-            queries.findById(connection, userId)?.toUserAccount()
+            UpgradeAnonymousResult.Success(
+                queries.findById(connection, userId)?.toUserAccount()
+                    ?: return@withTransaction UpgradeAnonymousResult.NotFound
+            )
         }
 
     override fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {

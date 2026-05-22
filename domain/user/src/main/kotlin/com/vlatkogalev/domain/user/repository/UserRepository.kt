@@ -2,6 +2,7 @@ package com.vlatkogalev.domain.user.repository
 
 import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
+import com.vlatkogalev.domain.user.model.UpgradeAnonymousResult
 import com.vlatkogalev.domain.user.model.UserAuthIdentity
 import com.vlatkogalev.domain.user.model.UserAccount
 import java.time.Instant
@@ -42,7 +43,7 @@ interface UserRepository {
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,
-    ): UserAccount?
+    ): UpgradeAnonymousResult
 
     fun saveRefreshTokenHash(userId: UUID, tokenHash: String)
 

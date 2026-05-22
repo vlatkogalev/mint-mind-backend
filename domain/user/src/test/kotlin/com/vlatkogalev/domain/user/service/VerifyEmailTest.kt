@@ -2,8 +2,8 @@ package com.vlatkogalev.domain.user.service
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class VerifyEmailTest : UserAuthServiceTestBase() {
     @Test
@@ -42,7 +42,8 @@ class VerifyEmailTest : UserAuthServiceTestBase() {
 
         service.verifyEmail(user.verificationToken!!)
 
-        assertTrue(repo.findByEmail(TestFixtures.VALID_EMAIL)?.emailVerified == true)
+        val identity = assertNotNull(repo.findAuthIdentityByEmail(TestFixtures.VALID_EMAIL))
+        assertEquals(true, repo.findById(identity.userId)?.emailVerified)
     }
 
     @Test
@@ -51,7 +52,8 @@ class VerifyEmailTest : UserAuthServiceTestBase() {
 
         service.verifyEmail(user.verificationToken!!)
 
-        assertNull(repo.findByEmail(TestFixtures.VALID_EMAIL)?.verificationToken)
+        val identity2 = assertNotNull(repo.findAuthIdentityByEmail(TestFixtures.VALID_EMAIL))
+        assertNull(repo.findById(identity2.userId)?.verificationToken)
     }
 
     @Test

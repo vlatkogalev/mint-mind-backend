@@ -17,11 +17,14 @@ class UserAuthServiceImpl(
     private val jwtTokenProvider: UserTokenProvider,
     private val skipEmailVerification: Boolean,
     private val emailVerificationSender: EmailVerificationSender,
+    private val passwordResetEmailSender: PasswordResetEmailSender,
 ) : UserAuthService {
 
     override fun authenticateAnonymous(installationId: String): Result<AuthSession> {
         val normalizedInstallationId = installationId.trim()
         if (normalizedInstallationId.isBlank()) return Result.Failure("installationId is required")
+        if (normalizedInstallationId.length > 255) return Result.Failure("installationId must be 255 characters or fewer")
+
         return try {
             val existing = userRepository.findUserByInstallationId(normalizedInstallationId)
             val user = if (existing != null) {
@@ -30,6 +33,10 @@ class UserAuthServiceImpl(
             } else {
                 userRepository.createAnonymousUser(normalizedInstallationId)
             }
+
+            // Intentional: always rotate the refresh token on anonymous auth.
+            // This means calling this while an existing session is active will
+            // invalidate it. Clients should only call this when no valid session exists.
             val refreshToken = jwtTokenProvider.generateRefreshToken(user.id)
             userRepository.saveRefreshTokenHash(user.id, hashToken(refreshToken))
             Result.Success(user.toAuthSession(refreshToken))
@@ -50,36 +57,38 @@ class UserAuthServiceImpl(
 
         return try {
             if (userRepository.findAuthIdentityByEmail(normalizedEmail) != null) {
-                Result.Failure("Email already registered")
-            } else {
-                val verificationToken = UUID.randomUUID().toString()
-                val passwordHash = passwordHasher.hash(password)
-                val user = userRepository.create(
-                    email = normalizedEmail,
-                    firstName = firstName.trim(),
-                    lastName = lastName.trim(),
-                    passwordHash = passwordHash,
-                    verificationToken = verificationToken,
-                )
-                userRepository.createAuthIdentity(
-                    UserAuthIdentity(
-                        id = UUID.randomUUID(),
-                        userId = user.id,
-                        authType = AuthType.EMAIL,
-                        email = normalizedEmail,
-                        passwordHash = passwordHash,
-                        createdAt = Instant.now(),
-                    ),
-                )
-
-                if (skipEmailVerification) {
-                    userRepository.verifyEmail(verificationToken)
-                } else {
-                    emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
-                }
-
-                Result.Success(user.toUser())
+                return Result.Failure("Email already registered")
             }
+
+            val verificationToken = UUID.randomUUID().toString()
+            val passwordHash = passwordHasher.hash(password)
+
+            val user = userRepository.create(
+                email = normalizedEmail,
+                firstName = firstName.trim(),
+                lastName = lastName.trim(),
+                passwordHash = passwordHash,
+                verificationToken = verificationToken,
+            )
+
+            userRepository.createAuthIdentity(
+                UserAuthIdentity(
+                    id = UUID.randomUUID(),
+                    userId = user.id,
+                    authType = AuthType.EMAIL,
+                    email = normalizedEmail,
+                    passwordHash = passwordHash,
+                    createdAt = Instant.now(),
+                ),
+            )
+
+            if (skipEmailVerification) {
+                userRepository.verifyEmail(verificationToken)
+            } else {
+                emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
+            }
+
+            Result.Success(user.toUser())
         } catch (ex: Exception) {
             Result.Failure(ex.message ?: "Failed to register", ex)
         }
@@ -89,6 +98,7 @@ class UserAuthServiceImpl(
         val normalizedEmail = email.trim().lowercase()
         if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
         validatePassword(password)?.let { return it }
+
         return try {
             if (userRepository.findAuthIdentityByEmail(normalizedEmail) != null) {
                 return Result.Failure("Email already registered")
@@ -96,18 +106,18 @@ class UserAuthServiceImpl(
 
             val passwordHash = passwordHasher.hash(password)
             val verificationToken = UUID.randomUUID().toString()
-            val current = userRepository.findById(currentUserId)
-                ?: return Result.Failure("User not found")
-            if (!current.isAnonymous) {
-                return Result.Failure("Signup upgrade requires anonymous account")
-            }
-            val user = userRepository.upgradeAnonymousUser(
+
+            val user = when (val result = userRepository.upgradeAnonymousUser(
                 userId = currentUserId,
                 email = normalizedEmail,
                 passwordHash = passwordHash,
                 verificationToken = verificationToken,
                 markVerified = skipEmailVerification,
-            ) ?: return Result.Failure("User not found")
+            )) {
+                is UpgradeAnonymousResult.NotFound -> return Result.Failure("User not found")
+                is UpgradeAnonymousResult.NotAnonymous -> return Result.Failure("Signup upgrade requires anonymous account")
+                is UpgradeAnonymousResult.Success -> result.user
+            }
 
             if (skipEmailVerification) {
                 userRepository.verifyEmail(verificationToken)
@@ -234,7 +244,9 @@ class UserAuthServiceImpl(
     override fun requestPasswordReset(email: String): Result<Unit> {
         val normalizedEmail = email.trim().lowercase()
         return try {
-            val user = userRepository.findAuthIdentityByEmail(normalizedEmail)?.let { userRepository.findById(it.userId) }
+            val user = userRepository.findAuthIdentityByEmail(normalizedEmail)
+                ?.let { userRepository.findById(it.userId) }
+
             if (user != null) {
                 val token = UUID.randomUUID().toString()
                 userRepository.upsertPasswordResetToken(
@@ -242,8 +254,9 @@ class UserAuthServiceImpl(
                     token = token,
                     expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES),
                 )
-                // TODO: send password reset email.
+                passwordResetEmailSender.sendPasswordResetEmail(normalizedEmail, token)
             }
+
             Result.Success(Unit)
         } catch (ex: Exception) {
             Result.Failure(ex.message ?: "Failed to request password reset", ex)
@@ -251,9 +264,16 @@ class UserAuthServiceImpl(
     }
 
     override fun confirmPasswordReset(token: String, newPassword: String): Result<Unit> {
-        validatePassword(newPassword)?.let { return it }
-
         return try {
+            val resetToken = userRepository.findPasswordResetToken(token)
+                ?: return Result.Failure("Invalid reset token")
+
+            if (resetToken.expiresAt.isBefore(Instant.now())) {
+                return Result.Failure("Reset token expired")
+            }
+
+            validatePassword(newPassword)?.let { return it }
+
             when (userRepository.confirmPasswordReset(token, passwordHasher.hash(newPassword))) {
                 PasswordResetConfirmationResult.SUCCESS -> Result.Success(Unit)
                 PasswordResetConfirmationResult.INVALID_TOKEN -> Result.Failure("Invalid reset token")

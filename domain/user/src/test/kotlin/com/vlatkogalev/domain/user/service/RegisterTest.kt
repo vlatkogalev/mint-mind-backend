@@ -28,7 +28,7 @@ class RegisterTest : UserAuthServiceTestBase() {
         val result = service.register("  TEST@Example.COM  ", TestFixtures.VALID_PASSWORD, TestFixtures.VALID_FIRST, TestFixtures.VALID_LAST)
 
         assertSuccess(result)
-        assertNotNull(repo.findByEmail("test@example.com"))
+        assertNotNull(repo.findById(repo.findAuthIdentityByEmail("test@example.com")!!.userId))
     }
 
     @Test
@@ -140,7 +140,8 @@ class RegisterTest : UserAuthServiceTestBase() {
     fun register_success_storesHashedPassword() {
         service.register(TestFixtures.VALID_EMAIL, TestFixtures.VALID_PASSWORD, TestFixtures.VALID_FIRST, TestFixtures.VALID_LAST)
 
-        val stored = assertNotNull(repo.findByEmail(TestFixtures.VALID_EMAIL))
+        val identity = assertNotNull(repo.findAuthIdentityByEmail(TestFixtures.VALID_EMAIL))
+        val stored = assertNotNull(repo.findById(identity.userId))
         assertTrue(assertNotNull(stored.passwordHash).startsWith("hashed:"))
         assertEquals("hashed:${TestFixtures.VALID_PASSWORD}", stored.passwordHash)
     }
@@ -149,7 +150,8 @@ class RegisterTest : UserAuthServiceTestBase() {
     fun register_success_setsEmailVerifiedFalse() {
         service.register(TestFixtures.VALID_EMAIL, TestFixtures.VALID_PASSWORD, TestFixtures.VALID_FIRST, TestFixtures.VALID_LAST)
 
-        assertFalse(assertNotNull(repo.findByEmail(TestFixtures.VALID_EMAIL)).emailVerified)
+        val identity2 = assertNotNull(repo.findAuthIdentityByEmail(TestFixtures.VALID_EMAIL))
+        assertFalse(assertNotNull(repo.findById(identity2.userId)).emailVerified)
     }
 
     @Test
@@ -166,7 +168,9 @@ class RegisterTest : UserAuthServiceTestBase() {
         val result = skipVerificationService().register(TestFixtures.VALID_EMAIL, TestFixtures.VALID_PASSWORD, TestFixtures.VALID_FIRST, TestFixtures.VALID_LAST)
 
         assertFalse(assertSuccess(result).value.emailVerified)
-        assertTrue(assertNotNull(repo.findByEmail(TestFixtures.VALID_EMAIL)).emailVerified)
+
+        val identity3 = assertNotNull(repo.findAuthIdentityByEmail(TestFixtures.VALID_EMAIL))
+        assertTrue(assertNotNull(repo.findById(identity3.userId)).emailVerified)
     }
 
     @Test
