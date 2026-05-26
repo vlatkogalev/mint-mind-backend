@@ -36,9 +36,10 @@ jobs:
           docker-compose-path: docker-compose.yml
           environment-variables: |
             HOSTINGER_PROJECT_NAME=${{ vars.HOSTINGER_PROJECT_NAME || secrets.HOSTINGER_PROJECT_NAME || github.event.repository.name }}
-            APP_IMAGE=${{ steps.image.outputs.repo }}
             IMAGE_TAG=${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+            APP_IMAGE=${{ steps.image.outputs.repo }}
             APP_PORT=${{ vars.APP_PORT || 8081 }}
+            APP_BASE_URL=${{ vars.APP_BASE_URL || secrets.APP_BASE_URL }}
             DB_URL=${{ secrets.DB_URL }}
             DB_USER=${{ secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -59,5 +60,6 @@ jobs:
             AWS_DOWNLOAD_URL_TTL_SECONDS=${{ vars.AWS_DOWNLOAD_URL_TTL_SECONDS || secrets.AWS_DOWNLOAD_URL_TTL_SECONDS }}
             RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
             EMAIL_FROM=${{ vars.EMAIL_FROM || secrets.EMAIL_FROM }}
-            APP_BASE_URL=${{ vars.APP_BASE_URL || secrets.APP_BASE_URL }}
+            EBAY_APP_ID=${{ secrets.EBAY_APP_ID }}
+            EBAY_ENVIRONMENT=${{ vars.EBAY_ENVIRONMENT }}
             KTOR_ENV=docker

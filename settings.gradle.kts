@@ -30,9 +30,14 @@ include(
     ":domain:coin",
     ":domain:billing",
     ":domain:news",
+    ":domain:pricing",
     ":data:postgres",
     ":data:s3",
     ":data:email",
+    ":data:ebay",
     ":app:api",
     ":app:jobs",
 )
+
+include("data:ebay")
+include("domain:pricing")

@@ -35,10 +35,12 @@ dependencies {
     implementation(project(":domain:news"))
     implementation(project(":domain:coin"))
     implementation(project(":domain:billing"))
+    implementation(project(":domain:pricing"))
     implementation(project(":app:jobs"))
     implementation(project(":data:postgres"))
     implementation(project(":data:s3"))
     implementation(project(":data:email"))
+    implementation(project(":data:ebay"))
 
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.netty)

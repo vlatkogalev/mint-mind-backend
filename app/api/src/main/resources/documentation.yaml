@@ -672,6 +672,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /coins/{id}/pricing:
+    get:
+      tags: [ "Coins" ]
+      summary: "Get recent eBay sold listings and price estimate for a coin"
+      description: |
+        Queries eBay's Finding API for recently sold listings that match this coin.
+        Uses a two-pass strategy: first with grade (narrow), then without grade (broad)
+        if fewer than 3 results are returned. The coin must belong to the authenticated user.
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinPricingApiResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Coin not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: "eBay API unavailable"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sets:
     post:
       tags: [ "Sets" ]
@@ -1758,6 +1801,86 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CoinImagesResponse"
+
+    SoldListingResponse:
+      type: object
+      required: [ title, soldPrice, currency, soldAt, listingUrl ]
+      properties:
+        title:
+          type: string
+        soldPrice:
+          type: number
+          format: double
+        currency:
+          type: string
+          example: "USD"
+        soldAt:
+          type: string
+          format: date-time
+        condition:
+          type: string
+          nullable: true
+          example: "Very Good (VG)"
+        listingUrl:
+          type: string
+          format: uri
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    PriceRangeResponse:
+      type: object
+      required: [ low, high, median, mean, sampleSize ]
+      properties:
+        low:
+          type: number
+          format: double
+        high:
+          type: number
+          format: double
+        median:
+          type: number
+          format: double
+        mean:
+          type: number
+          format: double
+        sampleSize:
+          type: integer
+          format: int32
+          description: "Number of sold listings used to compute this range."
+
+    CoinPricingResponse:
+      type: object
+      required: [ query, recentSales, source, fetchedAt ]
+      properties:
+        query:
+          type: string
+          description: "The search query sent to eBay."
+          example: "KM# 110 United States 1921 1 Dollar Morgan Dollar VF-30"
+        recentSales:
+          type: array
+          items:
+            $ref: "#/components/schemas/SoldListingResponse"
+        priceRange:
+          nullable: true
+          description: "Null when no sold listings were found."
+          allOf:
+            - $ref: "#/components/schemas/PriceRangeResponse"
+        source:
+          type: string
+          example: "eBay"
+        fetchedAt:
+          type: string
+          format: date-time
+
+    CoinPricingApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CoinPricingResponse"
 
     NewsArticleApiResponse:
       allOf:

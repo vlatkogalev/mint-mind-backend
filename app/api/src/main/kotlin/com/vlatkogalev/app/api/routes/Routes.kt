@@ -26,11 +26,12 @@ fun Application.configureRoutes() {
     val coinSetController by inject<CoinSetController>()
     val newsController by inject<NewsController>()
     val revenueCatWebhookController by inject<RevenueCatWebhookController>()
+    val coinPricingController by inject<CoinPricingController>()
 
     routing {
         authRoutes(userAuthController)
         storageRoutes(storageController)
-        coinRoutes(coinController)
+        coinRoutes(coinController, coinPricingController)
         coinSetRoutes(coinSetController)
         newsRoutes(newsController)
         webhookRoutes(revenueCatWebhookController)
@@ -68,10 +69,14 @@ fun Routing.storageRoutes(controller: StorageController) {
     }
 }
 
-fun Routing.coinRoutes(controller: CoinController) {
+fun Routing.coinRoutes(controller: CoinController, coinPricingController: CoinPricingController) {
     route("/coins") {
         authenticate("jwt-auth") {
             controller.run {
+                registerProtectedRoutes()
+            }
+
+            coinPricingController.run {
                 registerProtectedRoutes()
             }
         }
