@@ -29,14 +29,12 @@ class EbayCoinPricingService(
 
     override fun getPricing(coin: Coin, minResults: Int): Result<CoinPricingResult> =
         try {
-            // Pass 1: narrow query including grade
             val narrowQuery = buildQuery(coin, includeGrade = true)
             val narrowResults = fetchSoldListings(narrowQuery)
 
             val (query, listings) = if (narrowResults.size >= minResults) {
                 narrowQuery to narrowResults
             } else {
-                // Pass 2: broad query without grade
                 val broadQuery = buildQuery(coin, includeGrade = false)
                 log.debug(
                     "EbayCoinPricingService: narrow query '{}' returned {} results, retrying broad",
@@ -59,12 +57,9 @@ class EbayCoinPricingService(
             Result.Failure(ex.message ?: "Failed to fetch eBay pricing", ex)
         }
 
-    // ── Query building ────────────────────────────────────────────────────────
-
     internal fun buildQuery(coin: Coin, includeGrade: Boolean): String {
         val r = coin.recognitionResult
 
-        // Krause number (e.g. "KM# 110") is the most precise coin identifier on eBay
         val krause = coin.catalogueNumbers
             .firstOrNull { it.catalogueName.contains("krause", ignoreCase = true) }
             ?.number
@@ -80,14 +75,11 @@ class EbayCoinPricingService(
             r.seriesName?.let { append("$it ") }
 
             if (includeGrade) {
-                // Prefer the short grade value like "VF-30" over the long form
                 val grade = r.estimatedGradeValue ?: r.estimatedGrade
                 grade?.let { append("$it ") }
             }
         }.trim()
     }
-
-    // ── eBay Finding API call ─────────────────────────────────────────────────
 
     private fun fetchSoldListings(query: String): List<SoldListing> {
         if (config.appId.isBlank()) {
@@ -108,6 +100,12 @@ class EbayCoinPricingService(
 
         val response = http.send(request, HttpResponse.BodyHandlers.ofString())
 
+        log.debug(
+            "EbayCoinPricingService: response status={} body={}",
+            response.statusCode(),
+            response.body().take(500)
+        )
+
         check(response.statusCode() in 200..299) {
             "eBay API returned HTTP ${response.statusCode()}"
         }
@@ -115,23 +113,20 @@ class EbayCoinPricingService(
         return parseListings(response.body())
     }
 
-    private fun buildUrl(encodedQuery: String): String =
-        buildString {
-            append(config.environment.findingApiBaseUrl)
-            append("?OPERATION-NAME=findCompletedItems")
-            append("&SERVICE-VERSION=1.13.0")
-            append("&SECURITY-APPNAME=${config.appId}")
-            append("&RESPONSE-DATA-FORMAT=XML")
-            append("&keywords=$encodedQuery")
-            // Only sold (not just ended) listings
-            append("&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true")
-            // Coins category on eBay = 11116
-            append("&categoryId=11116")
-            append("&paginationInput.entriesPerPage=${config.maxResultsPerQuery}")
-            append("&sortOrder=EndTimeSoonest")
-        }
-
-    // ── XML parsing ──────────────────────────────────────────────────────────
+    private fun buildUrl(encodedQuery: String): String {
+        val base = config.environment.findingApiBaseUrl
+        return base +
+                "?OPERATION-NAME=findCompletedItems" +
+                "&SERVICE-VERSION=1.13.0" +
+                "&SECURITY-APPNAME=${config.appId}" +
+                "&RESPONSE-DATA-FORMAT=XML" +
+                "&keywords=$encodedQuery" +
+                "&itemFilter(0).name=SoldItemsOnly" +
+                "&itemFilter(0).value=true" +
+                "&categoryId=11116" +
+                "&paginationInput.entriesPerPage=${config.maxResultsPerQuery}" +
+                "&sortOrder=EndTimeSoonest"
+    }
 
     private fun parseListings(xml: String): List<SoldListing> {
         val doc = docFactory.newDocumentBuilder()
