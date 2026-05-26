@@ -71,7 +71,18 @@ val appModule = module {
             appBaseUrl = config.appBaseUrl,
         )
     }
+    single<PasswordResetEmailSender> {
+        val config = get<EmailConfig>()
+        ResendPasswordResetEmailSender(
+            apiKey = config.resendApiKey,
+            fromAddress = config.fromAddress,
+            appBaseUrl = config.appBaseUrl,
+        )
+    }
+    single<EbayConfig> { loadEbayConfig() }
     single<TimeProvider> { TimeProvider.System }
+    single { RssFeedFetcher(get()) }
+    single { NewsJobScheduler(get()) }
 
     single { UserQueries(get()) }
     single { SubscriptionQueries(get()) }
@@ -83,18 +94,11 @@ val appModule = module {
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get()) }
     single<CoinRepository> { CoinRepositoryImpl(get()) }
     single<CoinSetRepository> { CoinSetRepositoryImpl(get()) }
+    single<NewsRepository> { NewsRepositoryImpl(get()) }
+
     single { SubscriptionService(get()) }
     single<CoinService> { CoinServiceImpl(get()) }
     single<CoinSetService> { CoinSetServiceImpl(get(), get()) }
-    single<NewsRepository> { NewsRepositoryImpl(get()) }
-    single<PasswordResetEmailSender> {
-        val config = get<EmailConfig>()
-        ResendPasswordResetEmailSender(
-            apiKey = config.resendApiKey,
-            fromAddress = config.fromAddress,
-            appBaseUrl = config.appBaseUrl,
-        )
-    }
     single<UserAuthService> {
         UserAuthServiceImpl(
             userRepository = get<UserRepository>(),
@@ -105,13 +109,7 @@ val appModule = module {
             passwordResetEmailSender = get<PasswordResetEmailSender>(),
         )
     }
-
     single<FileStorageService> { S3FileStorageService() }
-
-    single { RssFeedFetcher(get()) }
-    single { NewsJobScheduler(get()) }
-
-    single<EbayConfig> { loadEbayConfig() }
     single<CoinPricingService> { EbayCoinPricingService(get()) }
 
     single { UserAuthController(get(), get()) }
