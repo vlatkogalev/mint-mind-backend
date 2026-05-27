@@ -31,6 +31,8 @@ class EbayCoinPricingService(
 
     private val cachedToken = AtomicReference<CachedToken?>(null)
 
+    private val excludedTerms = "-lot -set -roll -collection -pair -group -album -box -boxes -coincard -collectible -note -banknote -bill -currency"
+
     override fun getPricing(coin: Coin, minResults: Int): Result<CoinPricingResult> =
         try {
             if (config.clientId.isBlank() || config.clientSecret.isBlank()) {
@@ -127,7 +129,9 @@ class EbayCoinPricingService(
     private fun fetchListings(query: String, token: String): List<ActiveListing> {
         if (query.isBlank()) return emptyList()
 
-        val encodedQuery = URLEncoder.encode(query, Charsets.UTF_8)
+        val fullQuery = "$query $excludedTerms"
+        val encodedQuery = URLEncoder.encode(fullQuery, Charsets.UTF_8)
+
         val url = "${config.environment.browseApiBaseUrl}/item_summary/search" +
                 "?q=$encodedQuery" +
                 "&category_ids=11116" +
