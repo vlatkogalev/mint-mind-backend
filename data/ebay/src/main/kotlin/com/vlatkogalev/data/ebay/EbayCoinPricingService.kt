@@ -131,7 +131,7 @@ class EbayCoinPricingService(
         val url = "${config.environment.browseApiBaseUrl}/item_summary/search" +
                 "?q=$encodedQuery" +
                 "&category_ids=11116" +
-                "&filter=buyingOptions:{FIXED_PRICE|AUCTION}" +
+                "&filter=buyingOptions:%7BFIXED_PRICE%7CAUCTION%7D" +
                 "&limit=${config.maxResultsPerQuery}" +
                 "&sort=newlyListed"
 
