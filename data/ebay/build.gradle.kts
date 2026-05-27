@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -11,5 +12,6 @@ dependencies {
     implementation(project(":domain:coin"))
     implementation(project(":domain:pricing"))
     implementation(libs.slf4j.api)
+    implementation(ktorLibs.serialization.kotlinx.json)
     testImplementation(kotlin("test"))
 }

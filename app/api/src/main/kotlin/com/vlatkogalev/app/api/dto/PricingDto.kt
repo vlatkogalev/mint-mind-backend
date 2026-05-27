@@ -3,14 +3,15 @@ package com.vlatkogalev.app.api.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class SoldListingResponse(
+data class ActiveListingResponse(
     val title: String,
-    val soldPrice: Double,
+    val currentPrice: Double,
     val currency: String,
-    val soldAt: String,
     val condition: String?,
     val listingUrl: String,
     val imageUrl: String?,
+    val listingEndDate: String?,
+    val buyingOptions: List<String>,
 )
 
 @Serializable
@@ -25,7 +26,7 @@ data class PriceRangeResponse(
 @Serializable
 data class CoinPricingResponse(
     val query: String,
-    val recentSales: List<SoldListingResponse>,
+    val listings: List<ActiveListingResponse>,
     val priceRange: PriceRangeResponse?,
     val source: String,
     val fetchedAt: String,

@@ -2,12 +2,13 @@ package com.vlatkogalev.domain.pricing.model
 
 import java.time.Instant
 
-data class SoldListing(
+data class ActiveListing(
     val title: String,
-    val soldPrice: Double,
+    val currentPrice: Double,
     val currency: String,
-    val soldAt: Instant,
     val condition: String?,
     val listingUrl: String,
     val imageUrl: String?,
+    val listingEndDate: Instant?,
+    val buyingOptions: List<String>,
 )

@@ -60,6 +60,8 @@ jobs:
             AWS_DOWNLOAD_URL_TTL_SECONDS=${{ vars.AWS_DOWNLOAD_URL_TTL_SECONDS || secrets.AWS_DOWNLOAD_URL_TTL_SECONDS }}
             RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
             EMAIL_FROM=${{ vars.EMAIL_FROM || secrets.EMAIL_FROM }}
-            EBAY_APP_ID=${{ secrets.EBAY_APP_ID }}
+            EBAY_CLIENT_ID=${{ secrets.EBAY_CLIENT_ID }}
+            EBAY_CLIENT_SECRET=${{ secrets.EBAY_CLIENT_SECRET }}
+            EBAY_MARKETPLACE_ID=${{ vars.EBAY_MARKETPLACE_ID }}
             EBAY_ENVIRONMENT=${{ vars.EBAY_ENVIRONMENT }}
             KTOR_ENV=docker

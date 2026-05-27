@@ -1,6 +1,7 @@
 package com.vlatkogalev.data.ebay
 
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
+import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.platform.core.config.EbayConfig
@@ -16,10 +17,11 @@ class EbayCoinPricingServiceQueryTest {
 
     private val service = EbayCoinPricingService(
         config = EbayConfig(
-            appId = "test",
+            clientId = "test-client-id",
+            clientSecret = "test-client-secret",
+            marketplaceId = "EBAY_US",
             environment = EbayEnvironment.SANDBOX,
             maxResultsPerQuery = 10,
-            soldDaysLookback = 90,
         ),
     )
 
@@ -76,7 +78,7 @@ class EbayCoinPricingServiceQueryTest {
     }
 
     @Test
-    fun buildQuery_withNullOptionalFields_doesNotThrow() {
+    fun buildQuery_withNullOptionalFields_returnsBlank() {
         val coin = makeCoin(
             krauseNumbers = emptyList(),
             country = null,
@@ -89,7 +91,6 @@ class EbayCoinPricingServiceQueryTest {
 
         val query = service.buildQuery(coin, includeGrade = true)
 
-        // Should return empty or blank — callers should handle this gracefully
         assertTrue(query.isBlank())
     }
 
@@ -101,7 +102,7 @@ class EbayCoinPricingServiceQueryTest {
         seriesName: String? = "Morgan Dollar",
         grade: String? = "Very Fine (VF)",
         gradeValue: String? = "VF-30",
-    ) = com.vlatkogalev.domain.coin.model.Coin(
+    ) = Coin(
         id = UUID.randomUUID(),
         userId = UUID.randomUUID(),
         obverseKey = "obverse.jpg",
@@ -126,11 +127,7 @@ class EbayCoinPricingServiceQueryTest {
             rawJson = "{}",
         ),
         catalogueNumbers = krauseNumbers.map {
-            CatalogueNumber(
-                catalogueName = "Krause",
-                number = it,
-                confidence = Confidence.HIGH,
-            )
+            CatalogueNumber(catalogueName = "Krause", number = it, confidence = Confidence.HIGH)
         },
         setId = null,
         notes = null,

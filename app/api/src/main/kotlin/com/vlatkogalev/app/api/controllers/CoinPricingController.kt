@@ -1,15 +1,13 @@
-@file:OptIn(io.ktor.utils.io.ExperimentalKtorApi::class)
-
 package com.vlatkogalev.app.api.controllers
 
+import com.vlatkogalev.app.api.dto.ActiveListingResponse
 import com.vlatkogalev.app.api.dto.CoinPricingResponse
 import com.vlatkogalev.app.api.dto.PriceRangeResponse
-import com.vlatkogalev.app.api.dto.SoldListingResponse
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.coin.service.CoinService
+import com.vlatkogalev.domain.pricing.model.ActiveListing
 import com.vlatkogalev.domain.pricing.model.CoinPricingResult
 import com.vlatkogalev.domain.pricing.model.PriceRange
-import com.vlatkogalev.domain.pricing.model.SoldListing
 import com.vlatkogalev.domain.pricing.service.CoinPricingService
 import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
@@ -25,6 +23,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.openapi.describe
 import java.util.UUID
 
+@OptIn(io.ktor.utils.io.ExperimentalKtorApi::class)
 class CoinPricingController(
     private val coinService: CoinService,
     private val coinPricingService: CoinPricingService,
@@ -44,7 +43,6 @@ class CoinPricingController(
                 return@get
             }
 
-            // First verify the coin belongs to this user
             val coinResult = coinService.getCoin(coinId, userId)
             if (coinResult is Result.Failure) {
                 call.respond(HttpStatusCode.NotFound, error(coinResult.reason))
@@ -61,7 +59,7 @@ class CoinPricingController(
             }
         }.describe {
             tag(ApiTags.COINS)
-            summary = "Get recent eBay sold listings and price estimate for a coin"
+            summary = "Get active eBay listings and price estimate for a coin"
         }
     }
 
@@ -71,46 +69,36 @@ class CoinPricingController(
     private fun ApplicationCall.coinIdOrNull(): UUID? =
         parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
-    private fun CoinPricingResult.toResponse(): CoinPricingResponse =
-        CoinPricingResponse(
-            query = query,
-            recentSales = recentSales.map { it.toResponse() },
-            priceRange = priceRange?.toResponse(),
-            source = source,
-            fetchedAt = fetchedAt.toString(),
-        )
+    private fun CoinPricingResult.toResponse() = CoinPricingResponse(
+        query = query,
+        listings = listings.map { it.toResponse() },
+        priceRange = priceRange?.toResponse(),
+        source = source,
+        fetchedAt = fetchedAt.toString(),
+    )
 
-    private fun SoldListing.toResponse(): SoldListingResponse =
-        SoldListingResponse(
-            title = title,
-            soldPrice = soldPrice,
-            currency = currency,
-            soldAt = soldAt.toString(),
-            condition = condition,
-            listingUrl = listingUrl,
-            imageUrl = imageUrl,
-        )
+    private fun ActiveListing.toResponse() = ActiveListingResponse(
+        title = title,
+        currentPrice = currentPrice,
+        currency = currency,
+        condition = condition,
+        listingUrl = listingUrl,
+        imageUrl = imageUrl,
+        listingEndDate = listingEndDate?.toString(),
+        buyingOptions = buyingOptions,
+    )
 
-    private fun PriceRange.toResponse(): PriceRangeResponse =
-        PriceRangeResponse(
-            low = low,
-            high = high,
-            median = median,
-            mean = mean,
-            sampleSize = sampleSize,
-        )
+    private fun PriceRange.toResponse() = PriceRangeResponse(
+        low = low,
+        high = high,
+        median = median,
+        mean = mean,
+        sampleSize = sampleSize,
+    )
 
     private fun <T> success(data: T): ApiResponse<T> =
-        ApiResponse(
-            success = true,
-            data = data,
-            timestampMillis = timeProvider.nowMillis(),
-        )
+        ApiResponse(success = true, data = data, timestampMillis = timeProvider.nowMillis())
 
     private fun error(message: String): ApiResponse<Unit> =
-        ApiResponse(
-            success = false,
-            error = message,
-            timestampMillis = timeProvider.nowMillis(),
-        )
+        ApiResponse(success = false, error = message, timestampMillis = timeProvider.nowMillis())
 }
