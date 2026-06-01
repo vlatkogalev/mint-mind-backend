@@ -41,7 +41,7 @@ fun loadEbayConfig(env: Map<String, String> = System.getenv()): EbayConfig =
         EbayConfig(
             oauthEndpoint = env["EBAY_OAUTH_ENDPOINT"] ?: environment.oauthTokenUrl,
             oauthScope = env["EBAY_OAUTH_SCOPE"]
-                ?: "https://api.ebay.com/oauth/api_scope/buy.marketplace.search",
+                ?: "https://api.ebay.com/oauth/api_scope",
             clientId = env["EBAY_CLIENT_ID"] ?: error("EBAY_CLIENT_ID env var is required"),
             clientSecret = env["EBAY_CLIENT_SECRET"] ?: error("EBAY_CLIENT_SECRET env var is required"),
             marketplaceId = env["EBAY_MARKETPLACE_ID"] ?: "EBAY_US",

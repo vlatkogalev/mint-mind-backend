@@ -28,7 +28,7 @@ services:
       - EBAY_CLIENT_ID=${EBAY_CLIENT_ID}
       - EBAY_CLIENT_SECRET=${EBAY_CLIENT_SECRET}
       - EBAY_OAUTH_ENDPOINT=${EBAY_OAUTH_ENDPOINT:-https://api.ebay.com/identity/v1/oauth2/token}
-      - EBAY_OAUTH_SCOPE=${EBAY_OAUTH_SCOPE:-https://api.ebay.com/oauth/api_scope/buy.marketplace.search}
+      - EBAY_OAUTH_SCOPE=${EBAY_OAUTH_SCOPE:-https://api.ebay.com/oauth/api_scope}
       - EBAY_MARKETPLACE_ID=${EBAY_MARKETPLACE_ID:-EBAY_US}
       - EBAY_ENVIRONMENT=${EBAY_ENVIRONMENT:-PRODUCTION}
       - EBAY_MAX_RESULTS=${EBAY_MAX_RESULTS:-10}

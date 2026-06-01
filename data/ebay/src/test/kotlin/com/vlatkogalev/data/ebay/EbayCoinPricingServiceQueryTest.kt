@@ -18,7 +18,7 @@ class EbayCoinPricingServiceQueryTest {
     private val service = EbayCoinPricingService(
         config = EbayConfig(
             oauthEndpoint = "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
-            oauthScope = "https://api.ebay.com/oauth/api_scope/buy.marketplace.search",
+            oauthScope = "https://api.ebay.com/oauth/api_scope",
             clientId = "test-client-id",
             clientSecret = "test-client-secret",
             marketplaceId = "EBAY_US",
@@ -30,7 +30,7 @@ class EbayCoinPricingServiceQueryTest {
         tokenProvider = EbayTokenProvider(
             config = EbayConfig(
                 oauthEndpoint = "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
-                oauthScope = "https://api.ebay.com/oauth/api_scope/buy.marketplace.search",
+                oauthScope = "https://api.ebay.com/oauth/api_scope",
                 clientId = "test-client-id",
                 clientSecret = "test-client-secret",
                 marketplaceId = "EBAY_US",
