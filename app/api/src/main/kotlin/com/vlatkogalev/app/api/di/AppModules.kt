@@ -7,6 +7,7 @@ import com.vlatkogalev.app.api.controllers.NewsController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
 import com.vlatkogalev.app.api.controllers.UserAuthController
+import com.vlatkogalev.app.api.service.SessionMergeService
 import com.vlatkogalev.app.jobs.NewsJobScheduler
 import com.vlatkogalev.app.jobs.RssFeedFetcher
 import com.vlatkogalev.data.ebay.EbayCoinPricingService
@@ -109,10 +110,11 @@ val appModule = module {
             passwordResetEmailSender = get<PasswordResetEmailSender>(),
         )
     }
+    single { SessionMergeService(get(), get()) }
     single<FileStorageService> { S3FileStorageService() }
     single<CoinPricingService> { EbayCoinPricingService(get()) }
 
-    single { UserAuthController(get(), get()) }
+    single { UserAuthController(get(), get(), get()) }
     single { RevenueCatWebhookController(get(), get()) }
     single { StorageController(get(), get()) }
     single { CoinController(get(), get(), get()) }

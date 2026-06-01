@@ -46,6 +46,17 @@ class UserAuthRequestValidationTest {
     }
 
     @Test
+    fun loginRequest_withInstallationId_valid_returnsNull() {
+        assertNull(
+            LoginRequest(
+                email = "user@example.com",
+                password = "password",
+                installationId = "installation-123",
+            ).validate(),
+        )
+    }
+
+    @Test
     fun refreshTokenRequest_blankToken_returnsError() {
         assertEquals("refreshToken is required", RefreshTokenRequest(refreshToken = " ").validate())
     }

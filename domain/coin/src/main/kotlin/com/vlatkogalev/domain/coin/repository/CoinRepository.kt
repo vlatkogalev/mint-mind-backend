@@ -28,6 +28,7 @@ interface CoinRepository {
         maxValue: Double? = null,
         setId: UUID? = null,
     ): CoinCollectionStats
+    fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int
     fun countByUserId(userId: UUID): Int
     fun deleteById(id: UUID, userId: UUID): Boolean
 }

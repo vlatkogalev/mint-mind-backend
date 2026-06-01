@@ -4,6 +4,7 @@ package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
+import com.vlatkogalev.app.api.service.SessionMergeService
 import com.vlatkogalev.app.api.util.HtmlTemplates
 import com.vlatkogalev.domain.user.model.AuthSession
 import com.vlatkogalev.domain.user.model.LoginSession
@@ -24,6 +25,7 @@ import java.util.*
 
 class UserAuthController(
     private val userAuthService: UserAuthService,
+    private val sessionMergeService: SessionMergeService,
     private val timeProvider: TimeProvider,
 ) {
     fun Route.registerPublicRoutes() {
@@ -61,7 +63,13 @@ class UserAuthController(
                 return@post
             }
             when (val result = userAuthService.login(payload.email, payload.password)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
+                is Result.Success -> {
+                    val installationId = payload.installationId?.trim().orEmpty()
+                    if (installationId.isNotEmpty()) {
+                        sessionMergeService.mergeIfNeeded(installationId, payload.email)
+                    }
+                    call.respond(success(result.value.toResponse()))
+                }
                 is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, error(result.reason))
             }
         }.describe {

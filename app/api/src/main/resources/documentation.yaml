@@ -1137,6 +1137,10 @@ components:
         password:
           type: string
           format: password
+        installationId:
+          type: string
+          nullable: true
+          description: "If provided and an anonymous session exists for this installation, its coins are migrated to the authenticated account."
 
     RefreshTokenRequest:
       type: object

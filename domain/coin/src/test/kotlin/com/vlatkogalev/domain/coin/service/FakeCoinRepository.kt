@@ -23,6 +23,7 @@ class FakeCoinRepository : CoinRepository {
     var throwOnUpdateNotes = false
     var throwOnDeleteById = false
     var throwOnGetCollectionStats = false
+    var throwOnReassignFromUser = false
 
     fun reset() {
         coins.clear()
@@ -32,6 +33,7 @@ class FakeCoinRepository : CoinRepository {
         throwOnUpdateNotes = false
         throwOnDeleteById = false
         throwOnGetCollectionStats = false
+        throwOnReassignFromUser = false
     }
 
     fun insert(coin: Coin): Coin {
@@ -135,6 +137,18 @@ class FakeCoinRepository : CoinRepository {
     }
 
     override fun countByUserId(userId: UUID): Int = coins.values.count { it.userId == userId }
+
+    override fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int {
+        if (throwOnReassignFromUser) error("reassignFromUser failed")
+        var count = 0
+        coins.entries
+            .filter { it.value.userId == fromUserId }
+            .forEach { (id, coin) ->
+                coins[id] = coin.copy(userId = toUserId)
+                count++
+            }
+        return count
+    }
 
     override fun deleteById(id: UUID, userId: UUID): Boolean {
         if (throwOnDeleteById) error("deleteById failed")

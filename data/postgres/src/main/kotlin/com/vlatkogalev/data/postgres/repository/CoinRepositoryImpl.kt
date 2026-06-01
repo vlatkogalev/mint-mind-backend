@@ -141,6 +141,9 @@ class CoinRepositoryImpl(
         ),
     )
 
+    override fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int =
+        queries.reassignFromUser(fromUserId, toUserId)
+
     override fun countByUserId(userId: UUID): Int = queries.countByUserId(userId)
 
     override fun deleteById(id: UUID, userId: UUID): Boolean = queries.deleteById(id, userId)

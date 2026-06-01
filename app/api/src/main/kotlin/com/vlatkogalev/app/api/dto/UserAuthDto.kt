@@ -36,6 +36,7 @@ data class SignupRequest(
 data class LoginRequest(
     val email: String,
     val password: String,
+    val installationId: String? = null,
 ) {
     fun validate(): String? {
         if (email.isBlank()) return "email is required"

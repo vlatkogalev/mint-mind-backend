@@ -217,6 +217,24 @@ class CoinQueries(
             }
         }
 
+    fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int =
+        dataSource.connection.use { connection ->
+            reassignFromUser(connection, fromUserId, toUserId)
+        }
+
+    fun reassignFromUser(connection: Connection, fromUserId: UUID, toUserId: UUID): Int =
+        connection.prepareStatement(
+            """
+            UPDATE coins
+            SET user_id = ?
+            WHERE user_id = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, toUserId)
+            statement.setObject(2, fromUserId)
+            statement.executeUpdate()
+        }
+
     fun update(coin: Coin) {
         dataSource.connection.use { connection ->
             update(connection, coin)
