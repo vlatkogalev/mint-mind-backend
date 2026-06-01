@@ -17,11 +17,28 @@ class EbayCoinPricingServiceQueryTest {
 
     private val service = EbayCoinPricingService(
         config = EbayConfig(
+            oauthEndpoint = "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
+            oauthScope = "https://api.ebay.com/oauth/api_scope/buy.marketplace.search",
             clientId = "test-client-id",
             clientSecret = "test-client-secret",
             marketplaceId = "EBAY_US",
             environment = EbayEnvironment.SANDBOX,
             maxResultsPerQuery = 10,
+            feedPagesToFetch = 5,
+            feedRefreshIntervalSeconds = 600,
+        ),
+        tokenProvider = EbayTokenProvider(
+            config = EbayConfig(
+                oauthEndpoint = "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
+                oauthScope = "https://api.ebay.com/oauth/api_scope/buy.marketplace.search",
+                clientId = "test-client-id",
+                clientSecret = "test-client-secret",
+                marketplaceId = "EBAY_US",
+                environment = EbayEnvironment.SANDBOX,
+                maxResultsPerQuery = 10,
+                feedPagesToFetch = 5,
+                feedRefreshIntervalSeconds = 600,
+            ),
         ),
     )
 

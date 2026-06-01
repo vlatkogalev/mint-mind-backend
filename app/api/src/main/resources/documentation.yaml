@@ -9,6 +9,7 @@ tags:
   - name: "Coins"
   - name: "Sets"
   - name: "News"
+  - name: "Marketplace"
 paths:
   /auth/register:
     post:
@@ -1024,6 +1025,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /marketplace/listings:
+    get:
+      tags: [ "Marketplace" ]
+      summary: "List live eBay coin listings"
+      description: "Paginated feed of live eBay coin listings, refreshed every 10 minutes."
+      parameters:
+        - name: "limit"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Page size"
+        - name: "cursor"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: "Cursor for pagination (the `timestamp` of the last item from the previous page)"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceListingsApiResponse"
+        "500":
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /webhooks/revenuecat:
     post:
       tags: [ "Webhooks" ]
@@ -1708,6 +1746,64 @@ components:
           type: integer
           format: int32
 
+    MarketplaceListingResponse:
+      type: object
+      required: [ id, title, price, currency, itemWebUrl, timestamp ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          description: "Listing title from eBay"
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: "First image from the listing, if available"
+        price:
+          type: string
+          description: "Price as returned by eBay (display only)"
+        currency:
+          type: string
+          example: "USD"
+        itemWebUrl:
+          type: string
+          format: uri
+          description: "Direct link to the listing on eBay"
+        condition:
+          type: string
+          nullable: true
+          example: "New"
+        buyingOptions:
+          type: array
+          items:
+            type: string
+          example: [ "BUY_IT_NOW", "AUCTION" ]
+        expiresAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: "Auction end time (epoch milliseconds). Null for fixed-price listings."
+        timestamp:
+          type: integer
+          format: int64
+          description: "When this listing was last seen by our crawler (epoch milliseconds). Use as cursor for pagination."
+
+    MarketplaceListingsResponse:
+      type: object
+      required: [ listings, nextCursor ]
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketplaceListingResponse"
+        nextCursor:
+          type: integer
+          format: int64
+          nullable: true
+          description: "Cursor for the next page. Pass this as the `cursor` query parameter in your next request. Null when there are no more pages."
+
     MessageResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponseBase"
@@ -1901,6 +1997,14 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NewsListResponse"
+
+    MarketplaceListingsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MarketplaceListingsResponse"
 
     ErrorResponse:
       allOf:

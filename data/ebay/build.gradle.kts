@@ -10,6 +10,7 @@ kotlin {
 dependencies {
     implementation(project(":platform:core"))
     implementation(project(":domain:coin"))
+    implementation(project(":domain:marketplace"))
     implementation(project(":domain:pricing"))
     implementation(libs.slf4j.api)
     implementation(ktorLibs.serialization.kotlinx.json)

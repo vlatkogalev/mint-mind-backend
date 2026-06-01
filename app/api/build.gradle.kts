@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":domain:coin"))
     implementation(project(":domain:billing"))
     implementation(project(":domain:pricing"))
+    implementation(project(":domain:marketplace"))
     implementation(project(":app:jobs"))
     implementation(project(":data:postgres"))
     implementation(project(":data:s3"))

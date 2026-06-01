@@ -2,6 +2,7 @@ package com.vlatkogalev.app.api
 
 import com.vlatkogalev.app.api.di.appModule
 import com.vlatkogalev.app.api.routes.configureRoutes
+import com.vlatkogalev.app.jobs.MarketplaceJobScheduler
 import com.vlatkogalev.app.jobs.NewsJobScheduler
 import com.vlatkogalev.platform.auth.configureAuth
 import com.vlatkogalev.platform.core.error.configureCore
@@ -47,4 +48,8 @@ fun Application.module() {
     val newsJobScheduler by inject<NewsJobScheduler>()
     monitor.subscribe(ApplicationStarted) { newsJobScheduler.start() }
     monitor.subscribe(ApplicationStopped) { newsJobScheduler.stop() }
+
+    val marketplaceJobScheduler by inject<MarketplaceJobScheduler>()
+    monitor.subscribe(ApplicationStarted) { marketplaceJobScheduler.start() }
+    monitor.subscribe(ApplicationStopped) { marketplaceJobScheduler.stop() }
 }

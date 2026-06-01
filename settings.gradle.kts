@@ -30,6 +30,7 @@ include(
     ":domain:coin",
     ":domain:billing",
     ":domain:news",
+    ":domain:marketplace",
     ":domain:pricing",
     ":data:postgres",
     ":data:s3",

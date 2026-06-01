@@ -11,5 +11,6 @@ dependencies {
     implementation(project(":domain:billing"))
     implementation(project(":domain:coin"))
     implementation(project(":domain:news"))
+    implementation(project(":domain:marketplace"))
     implementation(project(":platform:database"))
 }

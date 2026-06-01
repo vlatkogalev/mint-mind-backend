@@ -7,8 +7,6 @@ import com.vlatkogalev.domain.pricing.model.PriceRange
 import com.vlatkogalev.domain.pricing.service.CoinPricingService
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.EbayConfig
-import com.vlatkogalev.platform.core.config.loadEbayConfig
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -18,29 +16,21 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Instant
-import java.util.Base64
-import java.util.concurrent.atomic.AtomicReference
 
 class EbayCoinPricingService(
-    private val config: EbayConfig = loadEbayConfig(),
+    private val config: EbayConfig,
+    private val tokenProvider: EbayTokenProvider,
 ) : CoinPricingService {
 
     private val log = LoggerFactory.getLogger(EbayCoinPricingService::class.java)
     private val http = HttpClient.newHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val cachedToken = AtomicReference<CachedToken?>(null)
-
     private val excludedTerms = "-lot -set -roll -collection -pair -group -album -box -boxes -coincard -collectible -note -banknote -bill -currency"
 
     override fun getPricing(coin: Coin, minResults: Int): Result<CoinPricingResult> =
         try {
-            if (config.clientId.isBlank() || config.clientSecret.isBlank()) {
-                log.warn("EbayCoinPricingService: EBAY_CLIENT_ID or EBAY_CLIENT_SECRET not configured")
-                return Result.Success(emptyResult(buildQuery(coin, includeGrade = false)))
-            }
-
-            val token = getAccessToken()
+            val token = tokenProvider.getAccessToken()
 
             val narrowQuery = buildQuery(coin, includeGrade = true)
             val narrowListings = fetchListings(narrowQuery, token)
@@ -87,43 +77,6 @@ class EbayCoinPricingService(
                 grade?.let { append("$it ") }
             }
         }.trim()
-    }
-
-    private fun getAccessToken(): String {
-        val existing = cachedToken.get()
-        if (existing != null && !existing.isExpired()) return existing.token
-
-        val fresh = fetchNewToken()
-        cachedToken.set(fresh)
-        return fresh.token
-    }
-
-    private fun fetchNewToken(): CachedToken {
-        val credentials = Base64.getEncoder()
-            .encodeToString("${config.clientId}:${config.clientSecret}".toByteArray())
-
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(config.environment.oauthTokenUrl))
-            .header("Authorization", "Basic $credentials")
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .POST(
-                HttpRequest.BodyPublishers.ofString(
-                    "grant_type=client_credentials" +
-                            "&scope=${URLEncoder.encode("https://api.ebay.com/oauth/api_scope", Charsets.UTF_8)}",
-                ),
-            )
-            .build()
-
-        val response = http.send(request, HttpResponse.BodyHandlers.ofString())
-        check(response.statusCode() in 200..299) {
-            "eBay OAuth token request failed with HTTP ${response.statusCode()}: ${response.body()}"
-        }
-
-        val tokenResponse = json.decodeFromString<EbayTokenResponse>(response.body())
-        val expiresAt = Instant.now().plusSeconds(tokenResponse.expiresIn - 60)
-
-        log.debug("EbayCoinPricingService: fetched new OAuth token, expires at {}", expiresAt)
-        return CachedToken(token = tokenResponse.accessToken, expiresAt = expiresAt)
     }
 
     private fun fetchListings(query: String, token: String): List<ActiveListing> {
@@ -174,24 +127,6 @@ class EbayCoinPricingService(
             sampleSize = prices.size,
         )
     }
-
-    private fun emptyResult(query: String) = CoinPricingResult(
-        query = query,
-        listings = emptyList(),
-        priceRange = null,
-        source = "eBay",
-        fetchedAt = Instant.now(),
-    )
-
-    private data class CachedToken(val token: String, val expiresAt: Instant) {
-        fun isExpired(): Boolean = Instant.now().isAfter(expiresAt)
-    }
-
-    @Serializable
-    private data class EbayTokenResponse(
-        @SerialName("access_token") val accessToken: String,
-        @SerialName("expires_in") val expiresIn: Long,
-    )
 
     @Serializable
     private data class EbaySearchResponse(

@@ -17,6 +17,7 @@ object ApiTags {
     const val COINS = "Coins"
     const val SETS = "Sets"
     const val NEWS = "News"
+    const val MARKETPLACE = "Marketplace"
 }
 
 fun Application.configureRoutes() {
@@ -27,6 +28,7 @@ fun Application.configureRoutes() {
     val newsController by inject<NewsController>()
     val revenueCatWebhookController by inject<RevenueCatWebhookController>()
     val coinPricingController by inject<CoinPricingController>()
+    val marketplaceController by inject<MarketplaceController>()
 
     routing {
         authRoutes(userAuthController)
@@ -35,6 +37,7 @@ fun Application.configureRoutes() {
         coinSetRoutes(coinSetController)
         newsRoutes(newsController)
         webhookRoutes(revenueCatWebhookController)
+        marketplaceRoutes(marketplaceController)
         docsRoutes()
     }
 }
@@ -103,6 +106,14 @@ fun Routing.webhookRoutes(controller: RevenueCatWebhookController) {
     route("/webhooks") {
         controller.run {
             registerRoutes()
+        }
+    }
+}
+
+fun Routing.marketplaceRoutes(controller: MarketplaceController) {
+    route("/marketplace") {
+        route("/listings") {
+            controller.run { registerPublicRoutes() }
         }
     }
 }
