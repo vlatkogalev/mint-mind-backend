@@ -8,7 +8,7 @@ data class DatabaseConfig(
 
 fun loadDatabaseConfig(env: Map<String, String> = System.getenv()): DatabaseConfig =
     DatabaseConfig(
-        url = env["DB_URL"] ?: error("DB_URL environment variable is required"),
-        user = env["DB_USER"] ?: error("DB_USER environment variable is required"),
-        password = env["DB_PASSWORD"] ?: error("DB_PASSWORD environment variable is required"),
+        url = requiredEnv(env, "DB_URL"),
+        user = requiredEnv(env, "DB_USER"),
+        password = requiredEnv(env, "DB_PASSWORD"),
     )

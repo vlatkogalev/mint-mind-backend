@@ -14,6 +14,3 @@ fun loadNumistaConfig(env: Map<String, String> = System.getenv()): NumistaConfig
         enabled = apiKey.isNotBlank(),
     )
 }
-
-private fun envValue(env: Map<String, String>, key: String): String? =
-    env[key] ?: System.getProperty(key)

@@ -11,10 +11,10 @@ data class AuthConfig(
 
 fun loadAuthConfig(env: Map<String, String> = System.getenv()): AuthConfig =
     AuthConfig(
-        issuer = env["AUTH_ISSUER"] ?: "mintmind-service",
-        audience = env["AUTH_AUDIENCE"] ?: "mintmind-users",
-        realm = env["AUTH_REALM"] ?: "mintmind-api",
-        secret = env["AUTH_SECRET"] ?: "mintmind-auth_secret",
-        accessTokenTtlSeconds = env["AUTH_ACCESS_TOKEN_TTL_SECONDS"]?.toLongOrNull() ?: 900,
-        refreshTokenTtlSeconds = env["AUTH_REFRESH_TOKEN_TTL_SECONDS"]?.toLongOrNull() ?: 2_592_000,
+        issuer = envValue(env, "AUTH_ISSUER") ?: "mintmind-service",
+        audience = envValue(env, "AUTH_AUDIENCE") ?: "mintmind-users",
+        realm = envValue(env, "AUTH_REALM") ?: "mintmind-api",
+        secret = envValue(env, "AUTH_SECRET") ?: "mintmind-auth_secret",
+        accessTokenTtlSeconds = envValue(env, "AUTH_ACCESS_TOKEN_TTL_SECONDS")?.toLongOrNull() ?: 900,
+        refreshTokenTtlSeconds = envValue(env, "AUTH_REFRESH_TOKEN_TTL_SECONDS")?.toLongOrNull() ?: 2_592_000,
     )

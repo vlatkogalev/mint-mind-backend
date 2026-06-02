@@ -35,19 +35,19 @@ enum class EbayEnvironment {
 
 fun loadEbayConfig(env: Map<String, String> = System.getenv()): EbayConfig =
     run {
-        val environment = if (env["EBAY_ENVIRONMENT"]?.uppercase() == "PRODUCTION")
+        val environment = if (envValue(env, "EBAY_ENVIRONMENT")?.uppercase() == "PRODUCTION")
             EbayEnvironment.PRODUCTION else EbayEnvironment.SANDBOX
 
         EbayConfig(
-            oauthEndpoint = env["EBAY_OAUTH_ENDPOINT"] ?: environment.oauthTokenUrl,
-            oauthScope = env["EBAY_OAUTH_SCOPE"]
+            oauthEndpoint = envValue(env, "EBAY_OAUTH_ENDPOINT") ?: environment.oauthTokenUrl,
+            oauthScope = envValue(env, "EBAY_OAUTH_SCOPE")
                 ?: "https://api.ebay.com/oauth/api_scope",
-            clientId = env["EBAY_CLIENT_ID"] ?: error("EBAY_CLIENT_ID env var is required"),
-            clientSecret = env["EBAY_CLIENT_SECRET"] ?: error("EBAY_CLIENT_SECRET env var is required"),
-            marketplaceId = env["EBAY_MARKETPLACE_ID"] ?: "EBAY_US",
+            clientId = requiredEnv(env, "EBAY_CLIENT_ID"),
+            clientSecret = requiredEnv(env, "EBAY_CLIENT_SECRET"),
+            marketplaceId = envValue(env, "EBAY_MARKETPLACE_ID") ?: "EBAY_US",
             environment = environment,
-            maxResultsPerQuery = env["EBAY_MAX_RESULTS"]?.toIntOrNull() ?: 10,
-            feedPagesToFetch = env["EBAY_FEED_PAGES"]?.toIntOrNull() ?: 5,
-            feedRefreshIntervalSeconds = env["EBAY_FEED_REFRESH_INTERVAL_SECONDS"]?.toLongOrNull() ?: 600,
+            maxResultsPerQuery = envValue(env, "EBAY_MAX_RESULTS")?.toIntOrNull() ?: 10,
+            feedPagesToFetch = envValue(env, "EBAY_FEED_PAGES")?.toIntOrNull() ?: 5,
+            feedRefreshIntervalSeconds = envValue(env, "EBAY_FEED_REFRESH_INTERVAL_SECONDS")?.toLongOrNull() ?: 600,
         )
     }

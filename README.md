@@ -32,7 +32,7 @@ Modular Ktor backend template (Kotlin/JVM) with clean separation between app lay
 This template includes:
 - `.github/workflows/deploy-hostinger-vps.yml`
 - `docker-compose.yml`
-- `.env.hostinger.example`
+- `.env.example`
 
 ### 1) One-time setup in each new repository
 In GitHub repository settings (`Settings -> Secrets and variables -> Actions`), add:
@@ -59,6 +59,6 @@ Push to `main` (or run the workflow manually). The workflow uses:
 - `docker-compose.yml`
 
 ### 4) Minimal changes you usually need for a new project
-- Optionally adjust `APP_PORT` in `.env.hostinger.example`
+- Optionally adjust `APP_PORT` in `docker-compose.yml`
 - Confirm DB values/secrets for target environment
 - If needed, adapt service/container names in `docker-compose.yml`

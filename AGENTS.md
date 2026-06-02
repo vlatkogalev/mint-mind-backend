@@ -41,7 +41,7 @@
 ## Config & env
 
 - All config is loaded from `System.getenv()` via `loadXxxConfig()` functions in `platform:core/config`.
-- `.env` files are gitignored. `.env.hostinger.example` is the deployment reference.
+- `.env` files are gitignored. `.env.example` documents all configurable variables. `docker-compose.yml` shows the deployment env-vars.
 - `app:api/Main.kt` reads `PORT` env var (default `8080`) for the Netty port.
 
 ## Key dependencies & version catalogs
