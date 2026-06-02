@@ -4,9 +4,9 @@ import com.vlatkogalev.domain.coin.model.CoinSet
 import com.vlatkogalev.domain.coin.repository.CoinSetRepository
 import com.vlatkogalev.platform.database.tables.CoinSetsTable
 import com.vlatkogalev.platform.database.tables.CoinsTable
-import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
@@ -34,10 +34,40 @@ class CoinSetRepositoryImpl : CoinSetRepository {
 
     override suspend fun findByUserId(userId: UUID): List<CoinSet> =
         newSuspendedTransaction {
-            CoinSetsTable.selectAll()
+            val setRows = CoinSetsTable.selectAll()
                 .where { CoinSetsTable.userId eq userId }
                 .orderBy(CoinSetsTable.createdAt to SortOrder.DESC)
-                .map { it.toCoinSet() }
+                .toList()
+
+            if (setRows.isEmpty()) return@newSuspendedTransaction emptyList()
+
+            val setIds = setRows.map { it[CoinSetsTable.id] }
+
+            val coinIdsBySetId = CoinsTable
+                .select(CoinsTable.id, CoinsTable.setId)
+                .where { CoinsTable.setId inList setIds }
+                .groupBy { it[CoinsTable.setId]!! }
+                .mapValues { (_, rows) -> rows.map { it[CoinsTable.id] } }
+
+            val previewKeysBySetId = CoinsTable
+                .select(CoinsTable.setId, CoinsTable.obverseKey, CoinsTable.createdAt)
+                .where { CoinsTable.setId inList setIds }
+                .orderBy(CoinsTable.createdAt to SortOrder.DESC)
+                .groupBy { it[CoinsTable.setId]!! }
+                .mapValues { (_, rows) -> rows.take(5).map { it[CoinsTable.obverseKey] } }
+
+            setRows.map { row ->
+                val setId = row[CoinSetsTable.id]
+                CoinSet(
+                    id = setId,
+                    userId = row[CoinSetsTable.userId],
+                    name = row[CoinSetsTable.name],
+                    description = row[CoinSetsTable.description],
+                    coinIds = coinIdsBySetId[setId].orEmpty(),
+                    previewObverseKeys = previewKeysBySetId[setId].orEmpty(),
+                    createdAt = row[CoinSetsTable.createdAt].toInstant(),
+                )
+            }
         }
 
     override suspend fun addCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet? =
@@ -88,29 +118,32 @@ class CoinSetRepositoryImpl : CoinSetRepository {
             CoinSetsTable.deleteWhere { (CoinSetsTable.id eq id) and (CoinSetsTable.userId eq userId) } > 0
         }
 
-    private fun findCoinSetById(id: UUID): CoinSet? =
-        CoinSetsTable.selectAll().where { CoinSetsTable.id eq id }.singleOrNull()?.toCoinSet()
+    private fun findCoinSetById(id: UUID): CoinSet? {
+        val row = CoinSetsTable.selectAll()
+            .where { CoinSetsTable.id eq id }
+            .singleOrNull() ?: return null
 
-    private fun ResultRow.toCoinSet(): CoinSet {
-        val setId = this[CoinSetsTable.id]
-        val coinIds = CoinsTable.select(CoinsTable.id)
-            .where { CoinsTable.setId eq setId }
+        val coinIds = CoinsTable
+            .select(CoinsTable.id)
+            .where { CoinsTable.setId eq id }
             .orderBy(CoinsTable.createdAt to SortOrder.DESC)
             .map { it[CoinsTable.id] }
-        val previewObverseKeys = CoinsTable.select(CoinsTable.obverseKey)
-            .where { CoinsTable.setId eq setId }
+
+        val previewObverseKeys = CoinsTable
+            .select(CoinsTable.obverseKey)
+            .where { CoinsTable.setId eq id }
             .orderBy(CoinsTable.createdAt to SortOrder.DESC)
             .limit(5)
             .map { it[CoinsTable.obverseKey] }
 
         return CoinSet(
-            id = setId,
-            userId = this[CoinSetsTable.userId],
-            name = this[CoinSetsTable.name],
-            description = this[CoinSetsTable.description],
+            id = id,
+            userId = row[CoinSetsTable.userId],
+            name = row[CoinSetsTable.name],
+            description = row[CoinSetsTable.description],
             coinIds = coinIds,
             previewObverseKeys = previewObverseKeys,
-            createdAt = this[CoinSetsTable.createdAt].toInstant(),
+            createdAt = row[CoinSetsTable.createdAt].toInstant(),
         )
     }
 }

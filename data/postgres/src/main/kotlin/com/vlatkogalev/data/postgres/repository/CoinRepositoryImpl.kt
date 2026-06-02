@@ -7,6 +7,7 @@ import com.vlatkogalev.platform.database.tables.CoinsTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import kotlinx.coroutines.async
@@ -94,22 +95,13 @@ class CoinRepositoryImpl : CoinRepository {
             }
         }
         val meanValueDeferred = async {
-            newSuspendedTransaction {
-                val rows = CoinsTable.select(CoinsTable.valueLow, CoinsTable.valueHigh).where { filter }.toList()
-                val values = rows.mapNotNull { row ->
-                    val low = row[CoinsTable.valueLow]?.toDouble()
-                    val high = row[CoinsTable.valueHigh]?.toDouble()
-                    if (low != null && high != null) (low + high) / 2.0 else null
-                }
-                values.takeIf { it.isNotEmpty() }?.average() ?: 0.0
-            }
+            newSuspendedTransaction { computeMeanValue(filter) }
         }
         val mostValuableDeferred = async {
             newSuspendedTransaction {
                 CoinsTable.selectAll().where { filter }
                     .orderBy(CoinsTable.valueHigh to SortOrder.DESC_NULLS_LAST)
                     .limit(1).singleOrNull()
-                    ?.toCoinWithCatalogueNumbers()
             }
         }
         val mostAncientDeferred = async {
@@ -117,7 +109,6 @@ class CoinRepositoryImpl : CoinRepository {
                 CoinsTable.selectAll().where { filter }
                     .orderBy(CoinsTable.year to SortOrder.ASC_NULLS_LAST)
                     .limit(1).singleOrNull()
-                    ?.toCoinWithCatalogueNumbers()
             }
         }
         val rarestDeferred = async {
@@ -125,18 +116,36 @@ class CoinRepositoryImpl : CoinRepository {
                 CoinsTable.selectAll().where { filter }
                     .orderBy(CoinsTable.mintage to SortOrder.ASC_NULLS_LAST)
                     .limit(1).singleOrNull()
-                    ?.toCoinWithCatalogueNumbers()
             }
         }
+
+        val mostValuableRow = mostValuableDeferred.await()
+        val mostAncientRow = mostAncientDeferred.await()
+        val rarestRow = rarestDeferred.await()
+
+        val highlightIds = listOfNotNull(
+            mostValuableRow?.get(CoinsTable.id),
+            mostAncientRow?.get(CoinsTable.id),
+            rarestRow?.get(CoinsTable.id),
+        ).distinct()
+
+        val cataloguesByHighlightId = if (highlightIds.isNotEmpty()) {
+            newSuspendedTransaction {
+                CoinCatalogueNumbersTable.selectAll()
+                    .where { CoinCatalogueNumbersTable.coinId inList highlightIds }
+                    .groupBy { it[CoinCatalogueNumbersTable.coinId] }
+                    .mapValues { (_, rows) -> rows.map { it.toCatalogueNumber() } }
+            }
+        } else emptyMap()
 
         CoinCollectionStats(
             totalCoins = totalCoinsDeferred.await(),
             totalIssuers = totalIssuersDeferred.await(),
             estimatedTotalValueMean = meanValueDeferred.await(),
             highlights = CollectionHighlights(
-                mostValuable = mostValuableDeferred.await(),
-                mostAncient = mostAncientDeferred.await(),
-                rarest = rarestDeferred.await(),
+                mostValuable = mostValuableRow?.toCoin(cataloguesByHighlightId[mostValuableRow[CoinsTable.id]].orEmpty()),
+                mostAncient = mostAncientRow?.toCoin(cataloguesByHighlightId[mostAncientRow[CoinsTable.id]].orEmpty()),
+                rarest = rarestRow?.toCoin(cataloguesByHighlightId[rarestRow[CoinsTable.id]].orEmpty()),
             ),
         )
     }
@@ -243,12 +252,14 @@ class CoinRepositoryImpl : CoinRepository {
             .mapValues { (_, rows) -> rows.map { it.toCatalogueNumber() } }
     }
 
-    private fun ResultRow.toCoinWithCatalogueNumbers(): Coin {
-        val coinId = this[CoinsTable.id]
-        val numberRows = CoinCatalogueNumbersTable.selectAll()
-            .where { CoinCatalogueNumbersTable.coinId eq coinId }
-            .map { it.toCatalogueNumber() }
-        return toCoin(numberRows)
+    private fun computeMeanValue(filter: Op<Boolean>): Double {
+        val rows = CoinsTable.select(CoinsTable.valueLow, CoinsTable.valueHigh).where { filter }.toList()
+        val values = rows.mapNotNull { row ->
+            val low = row[CoinsTable.valueLow]?.toDouble()
+            val high = row[CoinsTable.valueHigh]?.toDouble()
+            if (low != null && high != null) (low + high) / 2.0 else null
+        }
+        return values.takeIf { it.isNotEmpty() }?.average() ?: 0.0
     }
 
     private fun ResultRow.toCoin(catalogueNumbers: List<CatalogueNumber>): Coin =
