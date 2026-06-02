@@ -5,6 +5,7 @@ import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinCollectionStats
 import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.RecognitionResult
+import com.vlatkogalev.domain.coin.model.toFingerprint
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.platform.core.Result
 import java.time.Instant
@@ -12,6 +13,7 @@ import java.util.UUID
 
 class CoinServiceImpl(
     private val coinRepository: CoinRepository,
+    private val enrichmentService: CoinEnrichmentService,
 ) : CoinService {
 
     override fun saveCoin(
@@ -22,6 +24,9 @@ class CoinServiceImpl(
         catalogueNumbers: List<CatalogueNumber>,
         notes: String?,
     ): Result<Coin> = try {
+        val fingerprint = recognitionResult.toFingerprint(title = recognitionResult.seriesName)
+        val catalogCoin = enrichmentService.getOrEnrich(fingerprint)
+
         val coin = Coin(
             id = UUID.randomUUID(),
             userId = userId,
@@ -30,6 +35,7 @@ class CoinServiceImpl(
             recognitionResult = recognitionResult,
             catalogueNumbers = catalogueNumbers,
             setId = null,
+            catalogCoinId = catalogCoin?.id,
             notes = notes,
             createdAt = Instant.now(),
         )

@@ -11,6 +11,7 @@ data class Coin(
     val recognitionResult: RecognitionResult,
     val catalogueNumbers: List<CatalogueNumber>,
     val setId: UUID?,
+    val catalogCoinId: UUID? = null,
     val notes: String?,
     val createdAt: Instant,
 )

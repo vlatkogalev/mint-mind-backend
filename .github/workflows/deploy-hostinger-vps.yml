@@ -68,4 +68,5 @@ jobs:
             EBAY_ENVIRONMENT=${{ vars.EBAY_ENVIRONMENT }}
             EBAY_FEED_PAGES=${{ vars.EBAY_FEED_PAGES || '5' }}
             EBAY_FEED_REFRESH_INTERVAL_SECONDS=${{ vars.EBAY_FEED_REFRESH_INTERVAL_SECONDS || '600' }}
+            NUMISTA_API_KEY=${{ secrets.NUMISTA_API_KEY }}
             KTOR_ENV=docker

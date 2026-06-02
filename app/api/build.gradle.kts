@@ -42,6 +42,7 @@ dependencies {
     implementation(project(":data:s3"))
     implementation(project(":data:email"))
     implementation(project(":data:ebay"))
+    implementation(project(":data:numista"))
 
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.netty)

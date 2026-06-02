@@ -673,6 +673,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /coins/{id}/enrich:
+    post:
+      tags: [ "Coins" ]
+      summary: "Manually trigger catalog enrichment for a coin"
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinEnrichmentApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: "Provider unavailable or no viable match"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /coins/{id}/pricing:
     get:
       tags: [ "Coins" ]
@@ -1670,6 +1715,27 @@ components:
           type: string
           format: uri
 
+    CoinEnrichmentResponse:
+      type: object
+      required: [ message, catalogCoinId ]
+      properties:
+        message:
+          type: string
+        catalogCoinId:
+          type: string
+          format: uuid
+        enrichedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastEnrichmentFailedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastEnrichmentError:
+          type: string
+          nullable: true
+
     NewsArticleResponse:
       type: object
       required: [ id, title, link, description, content, publishedAt ]
@@ -1901,6 +1967,14 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CoinImagesResponse"
+
+    CoinEnrichmentApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CoinEnrichmentResponse"
 
     SoldListingResponse:
       type: object

@@ -34,6 +34,7 @@ services:
       - EBAY_MAX_RESULTS=${EBAY_MAX_RESULTS:-10}
       - EBAY_FEED_PAGES=${EBAY_FEED_PAGES:-5}
       - EBAY_FEED_REFRESH_INTERVAL_SECONDS=${EBAY_FEED_REFRESH_INTERVAL_SECONDS:-600}
+      - NUMISTA_API_KEY=${NUMISTA_API_KEY}
     depends_on:
       db:
         condition: service_healthy

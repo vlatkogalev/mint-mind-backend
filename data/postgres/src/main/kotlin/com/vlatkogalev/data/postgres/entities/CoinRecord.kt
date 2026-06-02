@@ -28,6 +28,7 @@ data class CoinRecord(
     val historicalContext: String?,
     val rawJson: String,
     val setId: UUID?,
+    val catalogCoinId: UUID?,
 )
 
 data class CatalogueNumberRecord(

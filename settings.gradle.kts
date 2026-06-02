@@ -36,6 +36,7 @@ include(
     ":data:s3",
     ":data:email",
     ":data:ebay",
+    ":data:numista",
     ":app:api",
     ":app:jobs",
 )

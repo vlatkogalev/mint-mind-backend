@@ -7,6 +7,7 @@ import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.CollectionHighlights
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
+import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.platform.core.Result
 import java.time.Instant
@@ -225,6 +226,7 @@ object TestFixtures {
         recognitionResult: RecognitionResult = makeRecognitionResult(),
         catalogueNumbers: List<CatalogueNumber> = listOf(makeCatalogueNumber()),
         setId: UUID? = null,
+        catalogCoinId: UUID? = null,
         notes: String? = null,
         createdAt: Instant = Instant.now(),
     ) = Coin(
@@ -235,6 +237,7 @@ object TestFixtures {
         recognitionResult = recognitionResult,
         catalogueNumbers = catalogueNumbers,
         setId = setId,
+        catalogCoinId = catalogCoinId,
         notes = notes,
         createdAt = createdAt,
     )
@@ -242,14 +245,83 @@ object TestFixtures {
 
 abstract class CoinServiceTestBase {
     protected val repo = FakeCoinRepository()
+    private val enrichmentRepository = FakeCatalogCoinRepository()
+    private val enrichmentService = CoinEnrichmentServiceImpl(
+        catalogCoinRepository = enrichmentRepository,
+        providers = emptyList(),
+    )
     protected lateinit var service: CoinServiceImpl
 
     @BeforeTest
     fun setup() {
         repo.reset()
-        service = CoinServiceImpl(repo)
+        enrichmentRepository.reset()
+        service = CoinServiceImpl(repo, enrichmentService)
     }
 
     protected fun <T> assertSuccess(result: Result<T>): Result.Success<T> = assertIs<Result.Success<T>>(result)
     protected fun assertFailure(result: Result<*>): Result.Failure = assertIs<Result.Failure>(result)
+}
+
+private class FakeCatalogCoinRepository : CatalogCoinRepository {
+    private val byId = mutableMapOf<UUID, com.vlatkogalev.domain.coin.model.CatalogCoin>()
+    private val references = mutableMapOf<Pair<UUID, String>, com.vlatkogalev.domain.coin.model.ExternalCoinReference>()
+
+    fun reset() {
+        byId.clear()
+        references.clear()
+    }
+
+    override fun findByFingerprint(fingerprint: com.vlatkogalev.domain.coin.model.CoinFingerprint): com.vlatkogalev.domain.coin.model.CatalogCoin? =
+        byId.values.firstOrNull {
+            it.fingerprint.countryOrIssuer == fingerprint.countryOrIssuer &&
+                it.fingerprint.denomination == fingerprint.denomination &&
+                it.fingerprint.title == fingerprint.title &&
+                it.fingerprint.year == fingerprint.year
+        }
+
+    override fun findById(id: UUID): com.vlatkogalev.domain.coin.model.CatalogCoin? = byId[id]
+
+    override fun findByProviderExternalId(provider: String, externalId: String): com.vlatkogalev.domain.coin.model.CatalogCoin? {
+        val reference = references.values.firstOrNull { it.provider == provider && it.externalId == externalId } ?: return null
+        return byId[reference.catalogCoinId]
+    }
+
+    override fun save(catalogCoin: com.vlatkogalev.domain.coin.model.CatalogCoin): com.vlatkogalev.domain.coin.model.CatalogCoin {
+        byId[catalogCoin.id] = catalogCoin
+        return catalogCoin
+    }
+
+    override fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): com.vlatkogalev.domain.coin.model.CatalogCoin? {
+        val coin = byId[catalogCoinId] ?: return null
+        val updated = coin.copy(
+            enrichedAt = now,
+            lastEnrichmentAttemptAt = now,
+            lastEnrichmentFailedAt = null,
+            lastEnrichmentError = null,
+            updatedAt = now,
+        )
+        byId[catalogCoinId] = updated
+        return updated
+    }
+
+    override fun markEnrichmentFailed(catalogCoinId: UUID, now: Instant, error: String?): com.vlatkogalev.domain.coin.model.CatalogCoin? {
+        val coin = byId[catalogCoinId] ?: return null
+        val updated = coin.copy(
+            lastEnrichmentAttemptAt = now,
+            lastEnrichmentFailedAt = now,
+            lastEnrichmentError = error,
+            updatedAt = now,
+        )
+        byId[catalogCoinId] = updated
+        return updated
+    }
+
+    override fun saveExternalReference(reference: com.vlatkogalev.domain.coin.model.ExternalCoinReference): com.vlatkogalev.domain.coin.model.ExternalCoinReference {
+        references[reference.catalogCoinId to reference.provider] = reference
+        return reference
+    }
+
+    override fun findExternalReference(catalogCoinId: UUID, provider: String): com.vlatkogalev.domain.coin.model.ExternalCoinReference? =
+        references[catalogCoinId to provider]
 }

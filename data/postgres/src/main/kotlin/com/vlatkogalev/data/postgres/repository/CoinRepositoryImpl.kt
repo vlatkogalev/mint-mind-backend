@@ -178,6 +178,7 @@ class CoinRepositoryImpl(
             ),
             catalogueNumbers = catalogueNumbers.map { it.toDomain() },
             setId = setId,
+            catalogCoinId = catalogCoinId,
             notes = notes,
             createdAt = createdAt,
         )

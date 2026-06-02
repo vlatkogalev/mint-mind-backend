@@ -26,9 +26,9 @@ class CoinQueries(
                 overall_confidence, country_or_issuer, denomination, series_name, year, mint_mark,
                 metal_composition, estimated_grade, estimated_grade_value, rarity_qualitative,
                 value_low, value_high, mintage, obverse_description, reverse_description,
-                historical_context, raw_json, set_id
+                historical_context, raw_json, set_id, catalog_coin_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
         ).use { statement ->
             statement.setObject(1, coin.id)
@@ -55,6 +55,7 @@ class CoinQueries(
             statement.setString(22, coin.recognitionResult.historicalContext)
             statement.setString(23, coin.recognitionResult.rawJson)
             statement.setObject(24, coin.setId)
+            statement.setObject(25, coin.catalogCoinId)
             statement.executeUpdate()
         }
     }
@@ -263,7 +264,8 @@ class CoinQueries(
                 reverse_description = ?,
                 historical_context = ?,
                 raw_json = ?,
-                set_id = ?
+                set_id = ?,
+                catalog_coin_id = ?
             WHERE id = ? AND user_id = ?
             """.trimIndent(),
         ).use { statement ->
@@ -286,8 +288,9 @@ class CoinQueries(
             statement.setString(17, coin.recognitionResult.historicalContext)
             statement.setString(18, coin.recognitionResult.rawJson)
             statement.setObject(19, coin.setId)
-            statement.setObject(20, coin.id)
-            statement.setObject(21, coin.userId)
+            statement.setObject(20, coin.catalogCoinId)
+            statement.setObject(21, coin.id)
+            statement.setObject(22, coin.userId)
             statement.executeUpdate()
         }
     }
@@ -569,6 +572,7 @@ class CoinQueries(
             historicalContext = getString("historical_context"),
             rawJson = getString("raw_json"),
             setId = getObject("set_id", UUID::class.java),
+            catalogCoinId = getObject("catalog_coin_id", UUID::class.java),
         )
 
     private fun ResultSet.toCatalogueNumberRecord(): CatalogueNumberRecord =
@@ -604,7 +608,8 @@ class CoinQueries(
         reverse_description,
         historical_context,
         raw_json,
-        set_id
+        set_id,
+        catalog_coin_id
         """.trimIndent()
 
     private fun orderByClause(sortBy: CoinSortField): String =

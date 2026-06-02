@@ -17,6 +17,7 @@ import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
+import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
 import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
@@ -39,6 +40,7 @@ import java.util.UUID
 
 class CoinController(
     private val coinService: CoinService,
+    private val enrichmentService: CoinEnrichmentService,
     private val fileStorageService: FileStorageService,
     private val timeProvider: TimeProvider,
 ) {
@@ -243,6 +245,55 @@ class CoinController(
         }.describe {
             tag(ApiTags.COINS)
             summary = "Create presigned download URLs for a coin's images"
+        }
+
+        post("/{id}/enrich") {
+            val userId = call.userUuidOrNull()
+            val coinId = call.coinIdOrNull()
+            if (userId == null) {
+                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                return@post
+            }
+            if (coinId == null) {
+                call.respond(HttpStatusCode.BadRequest, error("Invalid coin id"))
+                return@post
+            }
+
+            val coinResult = coinService.getCoin(coinId, userId)
+            if (coinResult is Result.Failure) {
+                call.respond(HttpStatusCode.NotFound, error(coinResult.reason))
+                return@post
+            }
+            val coin = (coinResult as Result.Success).value
+            val catalogCoinId = coin.catalogCoinId
+            if (catalogCoinId == null) {
+                call.respond(HttpStatusCode.BadRequest, error("Coin has no catalog coin id"))
+                return@post
+            }
+
+            when (val result = enrichmentService.enrichById(catalogCoinId)) {
+                is Result.Success -> call.respond(
+                    success(
+                        mapOf(
+                            "message" to "Coin enrichment completed",
+                            "catalogCoinId" to result.value.id.toString(),
+                            "enrichedAt" to result.value.enrichedAt?.toString(),
+                            "lastEnrichmentFailedAt" to result.value.lastEnrichmentFailedAt?.toString(),
+                            "lastEnrichmentError" to result.value.lastEnrichmentError,
+                        ),
+                    ),
+                )
+
+                is Result.Failure -> {
+                    val status =
+                        if (result.reason == "Catalog coin not found") HttpStatusCode.NotFound
+                        else HttpStatusCode.ServiceUnavailable
+                    call.respond(status, error(result.reason))
+                }
+            }
+        }.describe {
+            tag(ApiTags.COINS)
+            summary = "Manually trigger catalog enrichment for a coin"
         }
     }
 
