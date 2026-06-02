@@ -305,23 +305,6 @@ class CoinRepositoryImpl : CoinRepository {
                 (if (maxValue != null) CoinsTable.valueHigh lessEq BigDecimal.valueOf(maxValue) else Op.TRUE) and
                 (if (setId != null) CoinsTable.setId eq setId else Op.TRUE)
 
-    private fun orderByClauses(sortBy: CoinSortField): List<Pair<Expression<*>, SortOrder>> =
-        when (sortBy) {
-            CoinSortField.DATE_ADDED_OLD_TO_NEW ->
-                listOf(CoinsTable.createdAt to SortOrder.ASC)
-
-            CoinSortField.DATE_ADDED_NEW_TO_OLD ->
-                listOf(CoinsTable.createdAt to SortOrder.DESC)
-
-            CoinSortField.RELEASE_YEAR_OLD_TO_NEW ->
-                listOf(CoinsTable.year to SortOrder.ASC_NULLS_LAST)
-
-            CoinSortField.RELEASE_YEAR_NEW_TO_OLD ->
-                listOf(CoinsTable.year to SortOrder.DESC_NULLS_LAST)
-
-            else -> listOf(CoinsTable.createdAt to SortOrder.DESC)
-        }
-
     private fun sortCoins(coins: List<Coin>, sortBy: CoinSortField): List<Coin> =
         when (sortBy) {
             CoinSortField.VALUE_HIGH_TO_LOW -> coins.sortedByDescending { coin ->
