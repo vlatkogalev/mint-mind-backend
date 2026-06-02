@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    `java-test-fixtures`
 }
 
 kotlin {
@@ -12,6 +13,10 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     implementation(libs.hikari.cp)
-    implementation(libs.h2database.h2)
     implementation(libs.postgresql)
+
+    testFixturesImplementation(project(":platform:core"))
+    testFixturesImplementation(libs.testcontainers.core)
+    testFixturesImplementation(libs.testcontainers.postgresql)
+    testFixturesImplementation(kotlin("test"))
 }

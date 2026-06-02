@@ -1,13 +1,13 @@
 [versions]
 aws = "2.32.15"
 bcrypt = "0.10.2"
-h2 = "2.4.240"
 flyway = "10.20.1"
 hikari = "6.3.0"
 koin = "4.2.1"
 kotlin = "2.3.20"
 logback = "1.5.21"
 postgres = "42.7.10"
+testcontainers = "1.20.4"
 slf4j = "2.0.17"
 resend = "3.1.0"
 ucasoft = "0.59.4"
@@ -17,7 +17,6 @@ jsoup = "1.22.2"
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws" }
 aws-auth = { module = "software.amazon.awssdk:auth", version.ref = "aws" }
 bcrypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
-h2database-h2 = { module = "com.h2database:h2", version.ref = "h2" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 hikari-cp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
@@ -27,6 +26,8 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgres" }
 resend = { module = "com.resend:resend-java", version.ref = "resend" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 ucasoft-ktorSimpleCache = { module = "com.ucasoft.ktor:ktor-simple-cache", version.ref = "ucasoft" }
 ucasoft-ktorSimpleRedisCache = { module = "com.ucasoft.ktor:ktor-simple-redis-cache", version.ref = "ucasoft" }

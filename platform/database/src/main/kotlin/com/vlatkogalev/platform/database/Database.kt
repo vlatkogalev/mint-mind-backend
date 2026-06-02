@@ -11,11 +11,7 @@ import javax.sql.DataSource
 fun createDataSource(config: DatabaseConfig = loadDatabaseConfig()): DataSource {
     val hikariConfig = HikariConfig().apply {
         jdbcUrl = config.url
-        driverClassName = when {
-            config.url.startsWith("jdbc:postgresql:", ignoreCase = true) -> "org.postgresql.Driver"
-            config.url.startsWith("jdbc:h2:", ignoreCase = true) -> "org.h2.Driver"
-            else -> null
-        }
+        driverClassName = "org.postgresql.Driver"
         username = config.user
         password = config.password
         maximumPoolSize = 8
@@ -26,16 +22,9 @@ fun createDataSource(config: DatabaseConfig = loadDatabaseConfig()): DataSource 
 }
 
 fun runMigrations(dataSource: DataSource) {
-    val vendor = dataSource.connection.use { connection ->
-        when (connection.metaData.databaseProductName.lowercase()) {
-            "h2" -> "h2"
-            else -> "postgresql"
-        }
-    }
-
     Flyway.configure()
         .dataSource(dataSource)
-        .locations("classpath:db/migration/$vendor")
+        .locations("classpath:db/migration")
         .load()
         .migrate()
 }

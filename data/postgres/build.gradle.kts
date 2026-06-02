@@ -13,4 +13,9 @@ dependencies {
     implementation(project(":domain:news"))
     implementation(project(":domain:marketplace"))
     implementation(project(":platform:database"))
+
+    testImplementation(testFixtures(project(":platform:database")))
+    testImplementation(libs.testcontainers.core)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(kotlin("test"))
 }
