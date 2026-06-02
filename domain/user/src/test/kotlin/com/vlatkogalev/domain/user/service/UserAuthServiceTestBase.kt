@@ -9,6 +9,9 @@ import com.vlatkogalev.domain.user.model.UserProfile
 import com.vlatkogalev.domain.user.model.UpgradeAnonymousResult
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Base64
@@ -379,6 +382,8 @@ abstract class UserAuthServiceTestBase {
     protected val passwordResetEmailSender = RecordingPasswordResetEmailSender()
     protected val skipVerificationDefault = false
 
+    protected val testEmailScope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+
     protected lateinit var service: UserAuthServiceImpl
 
     @BeforeTest
@@ -393,6 +398,7 @@ abstract class UserAuthServiceTestBase {
             skipEmailVerification = skipVerificationDefault,
             emailVerificationSender = emailSender,
             passwordResetEmailSender = passwordResetEmailSender,
+            emailScope = testEmailScope,
         )
     }
 
@@ -411,6 +417,7 @@ abstract class UserAuthServiceTestBase {
         skipEmailVerification = true,
         emailVerificationSender = emailSender,
         passwordResetEmailSender = passwordResetEmailSender,
+        emailScope = testEmailScope,
     )
 
     protected fun hashToken(token: String): String {

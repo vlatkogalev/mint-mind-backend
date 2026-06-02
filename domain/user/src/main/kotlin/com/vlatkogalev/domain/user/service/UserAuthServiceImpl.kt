@@ -22,9 +22,8 @@ class UserAuthServiceImpl(
     private val skipEmailVerification: Boolean,
     private val emailVerificationSender: EmailVerificationSender,
     private val passwordResetEmailSender: PasswordResetEmailSender,
+    private val emailScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
 ) : UserAuthService {
-
-    private val emailScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override suspend fun authenticateAnonymous(installationId: String): Result<AuthSession> {
         val normalizedInstallationId = installationId.trim()

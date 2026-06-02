@@ -9,6 +9,8 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -77,49 +79,67 @@ class CoinRepositoryImpl : CoinRepository {
         minValue: Double?,
         maxValue: Double?,
         setId: UUID?,
-    ): CoinCollectionStats =
-        newSuspendedTransaction {
-            val filter = buildFilter(userId, country, year, minValue, maxValue, setId)
+    ): CoinCollectionStats = coroutineScope {
+        val filter = buildFilter(userId, country, year, minValue, maxValue, setId)
 
-            val totalCoins = CoinsTable.selectAll().where { filter }.count().toInt()
-            val totalIssuers = CoinsTable.select(CoinsTable.countryOrIssuer).where { filter }
-                .withDistinct()
-                .count().toInt()
-
-            val matchingCoins = CoinsTable.selectAll().where { filter }.toList().map { it.toCoinWithCatalogueNumbers() }
-
-            val meanValue = if (matchingCoins.isEmpty()) 0.0
-            else matchingCoins.mapNotNull { coin ->
-                val low = coin.recognitionResult.valueLow
-                val high = coin.recognitionResult.valueHigh
-                if (low != null && high != null) (low + high) / 2.0 else null
-            }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
-
-            val mostValuable = matchingCoins.maxByOrNull { coin ->
-                val low = coin.recognitionResult.valueLow ?: Double.NEGATIVE_INFINITY
-                val high = coin.recognitionResult.valueHigh ?: Double.NEGATIVE_INFINITY
-                (low + high) / 2.0
+        val totalCoinsDeferred = async {
+            newSuspendedTransaction {
+                CoinsTable.selectAll().where { filter }.count().toInt()
             }
-
-            val mostAncient = matchingCoins
-                .filter { it.recognitionResult.year != null }
-                .minByOrNull { it.recognitionResult.year!! }
-
-            val rarest = matchingCoins
-                .filter { it.recognitionResult.mintage != null }
-                .minByOrNull { it.recognitionResult.mintage!! }
-
-            CoinCollectionStats(
-                totalCoins = totalCoins,
-                totalIssuers = totalIssuers,
-                estimatedTotalValueMean = meanValue,
-                highlights = CollectionHighlights(
-                    mostValuable = mostValuable,
-                    mostAncient = mostAncient,
-                    rarest = rarest,
-                ),
-            )
         }
+        val totalIssuersDeferred = async {
+            newSuspendedTransaction {
+                CoinsTable.select(CoinsTable.countryOrIssuer).where { filter }
+                    .withDistinct().count().toInt()
+            }
+        }
+        val meanValueDeferred = async {
+            newSuspendedTransaction {
+                val rows = CoinsTable.select(CoinsTable.valueLow, CoinsTable.valueHigh).where { filter }.toList()
+                val values = rows.mapNotNull { row ->
+                    val low = row[CoinsTable.valueLow]?.toDouble()
+                    val high = row[CoinsTable.valueHigh]?.toDouble()
+                    if (low != null && high != null) (low + high) / 2.0 else null
+                }
+                values.takeIf { it.isNotEmpty() }?.average() ?: 0.0
+            }
+        }
+        val mostValuableDeferred = async {
+            newSuspendedTransaction {
+                CoinsTable.selectAll().where { filter }
+                    .orderBy(CoinsTable.valueHigh to SortOrder.DESC_NULLS_LAST)
+                    .limit(1).singleOrNull()
+                    ?.toCoinWithCatalogueNumbers()
+            }
+        }
+        val mostAncientDeferred = async {
+            newSuspendedTransaction {
+                CoinsTable.selectAll().where { filter }
+                    .orderBy(CoinsTable.year to SortOrder.ASC_NULLS_LAST)
+                    .limit(1).singleOrNull()
+                    ?.toCoinWithCatalogueNumbers()
+            }
+        }
+        val rarestDeferred = async {
+            newSuspendedTransaction {
+                CoinsTable.selectAll().where { filter }
+                    .orderBy(CoinsTable.mintage to SortOrder.ASC_NULLS_LAST)
+                    .limit(1).singleOrNull()
+                    ?.toCoinWithCatalogueNumbers()
+            }
+        }
+
+        CoinCollectionStats(
+            totalCoins = totalCoinsDeferred.await(),
+            totalIssuers = totalIssuersDeferred.await(),
+            estimatedTotalValueMean = meanValueDeferred.await(),
+            highlights = CollectionHighlights(
+                mostValuable = mostValuableDeferred.await(),
+                mostAncient = mostAncientDeferred.await(),
+                rarest = rarestDeferred.await(),
+            ),
+        )
+    }
 
     override suspend fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int =
         newSuspendedTransaction {

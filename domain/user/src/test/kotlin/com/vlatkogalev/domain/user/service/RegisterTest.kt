@@ -161,7 +161,6 @@ class RegisterTest : UserAuthServiceTestBase() {
     @Test
     fun register_success_sendsVerificationEmail() {
         runBlocking { service.register(TestFixtures.VALID_EMAIL, TestFixtures.VALID_PASSWORD, TestFixtures.VALID_FIRST, TestFixtures.VALID_LAST) }
-        Thread.sleep(200)
 
         assertEquals(1, emailSender.sentEmails.size)
         assertEquals(TestFixtures.VALID_EMAIL, emailSender.sentEmails.single().first)
