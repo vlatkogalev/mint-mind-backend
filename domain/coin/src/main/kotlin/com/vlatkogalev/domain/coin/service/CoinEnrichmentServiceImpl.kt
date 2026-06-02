@@ -89,7 +89,7 @@ class CoinEnrichmentServiceImpl(
                                     syncError = null,
                                 ),
                             )
-                            return@coroutineScope catalogCoinRepository.markEnrichmentSuccess(catalogCoin.id, now) ?: catalogCoin
+                            return@coroutineScope catalogCoinRepository.markEnrichmentSuccess(catalogCoin.id, now, winner) ?: catalogCoin
                         }
                     }
                     is Result.Failure -> allErrors += "$providerName: ${result.reason}"

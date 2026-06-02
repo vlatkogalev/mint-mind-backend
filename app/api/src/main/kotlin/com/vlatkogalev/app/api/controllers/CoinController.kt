@@ -3,6 +3,7 @@
 package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.CatalogueNumberDto
+import com.vlatkogalev.app.api.dto.CatalogEnrichmentDto
 import com.vlatkogalev.app.api.dto.CoinImagesResponse
 import com.vlatkogalev.app.api.dto.CoinListResponse
 import com.vlatkogalev.app.api.dto.CoinDetailResponse
@@ -12,10 +13,12 @@ import com.vlatkogalev.app.api.dto.SaveCoinRequest
 import com.vlatkogalev.app.api.dto.UpdateCoinNotesRequest
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.coin.model.CatalogueNumber
+import com.vlatkogalev.domain.coin.model.CatalogCoin
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.coin.model.CoinSortField
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.RecognitionResult
+import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
 import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.platform.auth.userIdOrNull
@@ -40,6 +43,7 @@ import java.util.UUID
 class CoinController(
     private val coinService: CoinService,
     private val enrichmentService: CoinEnrichmentService,
+    private val catalogCoinRepository: CatalogCoinRepository,
     private val fileStorageService: FileStorageService,
     private val timeProvider: TimeProvider,
 ) {
@@ -73,7 +77,11 @@ class CoinController(
                     notes = payload.notes,
                 )
             ) {
-                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toDetailResponse()))
+                is Result.Success -> {
+                    val coin = result.value
+                    val enrichment = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }?.toEnrichmentDto()
+                    call.respond(HttpStatusCode.Created, success(coin.toDetailResponse(enrichment)))
+                }
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
@@ -119,6 +127,13 @@ class CoinController(
 
             val coins = (coinsResult as Result.Success).value
 
+            val catalogCoinIds = coins.mapNotNull { it.catalogCoinId }.distinct()
+            val catalogCoinById = if (catalogCoinIds.isNotEmpty()) {
+                catalogCoinRepository.findByIds(catalogCoinIds).associateBy { it.id }
+            } else {
+                emptyMap()
+            }
+
             val nextCursor = if (coins.size >= limit) {
                 coins.lastOrNull()?.createdAt?.toEpochMilli()
             } else {
@@ -128,7 +143,7 @@ class CoinController(
             call.respond(
                 success(
                     CoinListResponse(
-                        coins = coins.map { it.toSummaryResponse() },
+                        coins = coins.map { it.toSummaryResponse(catalogCoinById[it.catalogCoinId]?.toEnrichmentDto()) },
                         nextCursor = nextCursor,
                     ),
                 ),
@@ -151,7 +166,11 @@ class CoinController(
             }
 
             when (val result = coinService.getCoin(coinId, userId)) {
-                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
+                is Result.Success -> {
+                    val coin = result.value
+                    val enrichment = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }?.toEnrichmentDto()
+                    call.respond(success(coin.toDetailResponse(enrichment)))
+                }
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
@@ -194,7 +213,11 @@ class CoinController(
 
             val payload = call.receive<UpdateCoinNotesRequest>()
             when (val result = coinService.updateNotes(coinId, userId, payload.notes)) {
-                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
+                is Result.Success -> {
+                    val coin = result.value
+                    val enrichment = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }?.toEnrichmentDto()
+                    call.respond(success(coin.toDetailResponse(enrichment)))
+                }
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
@@ -324,7 +347,7 @@ class CoinController(
     private fun String.toConfidenceOrNull(): Confidence? =
         runCatching { Confidence.valueOf(uppercase()) }.getOrNull()
 
-    private fun Coin.toSummaryResponse(): CoinSummaryResponse {
+    private fun Coin.toSummaryResponse(enrichment: CatalogEnrichmentDto? = null): CoinSummaryResponse {
         val low = recognitionResult.valueLow
         val high = recognitionResult.valueHigh
         val meanValue = if (low != null && high != null) (low + high) / 2.0 else null
@@ -340,10 +363,11 @@ class CoinController(
             estimatedValueMean = meanValue,
             setId = setId?.toString(),
             createdAt = createdAt.toString(),
+            enrichment = enrichment,
         )
     }
 
-    private fun Coin.toDetailResponse(): CoinDetailResponse =
+    private fun Coin.toDetailResponse(enrichment: CatalogEnrichmentDto? = null): CoinDetailResponse =
         CoinDetailResponse(
             id = id.toString(),
             obverseKey = obverseKey,
@@ -353,6 +377,7 @@ class CoinController(
             setId = setId?.toString(),
             notes = notes,
             createdAt = createdAt.toString(),
+            enrichment = enrichment,
         )
 
     private fun RecognitionResult.toDto(): RecognitionResultDto =
@@ -395,5 +420,17 @@ class CoinController(
             success = false,
             error = message,
             timestampMillis = timeProvider.nowMillis(),
+        )
+
+    private fun CatalogCoin.toEnrichmentDto(): CatalogEnrichmentDto =
+        CatalogEnrichmentDto(
+            composition = composition,
+            weightGrams = weightGrams,
+            diameterMm = diameterMm,
+            obverseDescription = obverseDescription,
+            reverseDescription = reverseDescription,
+            historicalContext = historicalContext,
+            thumbnailUrl = thumbnailUrl,
+            numistaUrl = numistaUrl,
         )
 }

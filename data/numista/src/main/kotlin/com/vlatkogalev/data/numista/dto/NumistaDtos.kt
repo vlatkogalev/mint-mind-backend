@@ -39,4 +39,41 @@ data class NumistaTypeDetail(
     val id: Long,
     @SerialName("url")
     val url: String? = null,
+    @SerialName("composition")
+    val composition: NumistaComposition? = null,
+    @SerialName("weight")
+    val weight: Double? = null,
+    @SerialName("size")
+    val size: Double? = null,
+    @SerialName("obverse")
+    val obverse: NumistaSide? = null,
+    @SerialName("reverse")
+    val reverse: NumistaSide? = null,
+    @SerialName("comments")
+    val comments: String? = null,
+    @SerialName("obverse_thumbnail")
+    val obverseThumbnail: String? = null,
+    @SerialName("catalogue_codes")
+    val catalogueCodes: List<NumistaCatalogueCode> = emptyList(),
+)
+
+@Serializable
+data class NumistaComposition(
+    val text: String? = null,
+)
+
+@Serializable
+data class NumistaSide(
+    val description: String? = null,
+)
+
+@Serializable
+data class NumistaCatalogueCode(
+    val catalogue: NumistaCatalogue? = null,
+    val code: String? = null,
+)
+
+@Serializable
+data class NumistaCatalogue(
+    val name: String? = null,
 )

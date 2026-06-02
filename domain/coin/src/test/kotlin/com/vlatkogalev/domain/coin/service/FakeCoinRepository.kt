@@ -283,6 +283,9 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
 
     override suspend fun findById(id: UUID): com.vlatkogalev.domain.coin.model.CatalogCoin? = byId[id]
 
+    override suspend fun findByIds(ids: List<UUID>): List<com.vlatkogalev.domain.coin.model.CatalogCoin> =
+        ids.mapNotNull { byId[it] }
+
     override suspend fun findByProviderExternalId(provider: String, externalId: String): com.vlatkogalev.domain.coin.model.CatalogCoin? {
         val reference = references.values.firstOrNull { it.provider == provider && it.externalId == externalId } ?: return null
         return byId[reference.catalogCoinId]
@@ -293,13 +296,21 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
         return catalogCoin
     }
 
-    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): com.vlatkogalev.domain.coin.model.CatalogCoin? {
+    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant, candidate: com.vlatkogalev.domain.coin.model.CoinCatalogCandidate): com.vlatkogalev.domain.coin.model.CatalogCoin? {
         val coin = byId[catalogCoinId] ?: return null
         val updated = coin.copy(
             enrichedAt = now,
             lastEnrichmentAttemptAt = now,
             lastEnrichmentFailedAt = null,
             lastEnrichmentError = null,
+            composition = coin.composition ?: candidate.composition,
+            weightGrams = coin.weightGrams ?: candidate.weightGrams,
+            diameterMm = coin.diameterMm ?: candidate.diameterMm,
+            obverseDescription = coin.obverseDescription ?: candidate.obverseDescription,
+            reverseDescription = coin.reverseDescription ?: candidate.reverseDescription,
+            historicalContext = coin.historicalContext ?: candidate.historicalContext,
+            thumbnailUrl = coin.thumbnailUrl ?: candidate.thumbnailUrl,
+            numistaUrl = coin.numistaUrl ?: candidate.numistaUrl,
             updatedAt = now,
         )
         byId[catalogCoinId] = updated

@@ -65,6 +65,7 @@ data class CoinSummaryResponse(
     val estimatedValueMean: Double?,
     val setId: String?,
     val createdAt: String,
+    val enrichment: CatalogEnrichmentDto? = null,
 )
 
 @Serializable
@@ -77,6 +78,19 @@ data class CoinDetailResponse(
     val setId: String?,
     val notes: String?,
     val createdAt: String,
+    val enrichment: CatalogEnrichmentDto? = null,
+)
+
+@Serializable
+data class CatalogEnrichmentDto(
+    val composition: String? = null,
+    val weightGrams: Double? = null,
+    val diameterMm: Double? = null,
+    val obverseDescription: String? = null,
+    val reverseDescription: String? = null,
+    val historicalContext: String? = null,
+    val thumbnailUrl: String? = null,
+    val numistaUrl: String? = null,
 )
 
 @Serializable

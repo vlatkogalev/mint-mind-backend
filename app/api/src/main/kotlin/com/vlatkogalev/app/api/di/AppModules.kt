@@ -144,7 +144,7 @@ val appModule = module {
     single { UserAuthController(get(), get(), get()) }
     single { RevenueCatWebhookController(get(), get()) }
     single { StorageController(get(), get()) }
-    single { CoinController(get(), get(), get(), get()) }
+    single { CoinController(get(), get(), get(), get(), get()) }
     single { CoinSetController(get(), get()) }
     single { CoinPricingController(get(), get(), get()) }
     single { NewsController(get(), get()) }

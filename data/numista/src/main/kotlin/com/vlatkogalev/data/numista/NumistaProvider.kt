@@ -68,6 +68,14 @@ class NumistaProvider(
                             denomination = type.type,
                             yearStart = type.yearStart,
                             yearEnd = type.yearEnd,
+                            composition = detail?.composition?.text,
+                            weightGrams = detail?.weight,
+                            diameterMm = detail?.size,
+                            obverseDescription = detail?.obverse?.description,
+                            reverseDescription = detail?.reverse?.description,
+                            historicalContext = detail?.comments,
+                            thumbnailUrl = detail?.obverseThumbnail,
+                            numistaUrl = detail?.url,
                         )
                     }
                 }.awaitAll()

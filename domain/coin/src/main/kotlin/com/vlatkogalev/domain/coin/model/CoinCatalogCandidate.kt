@@ -7,4 +7,12 @@ data class CoinCatalogCandidate(
     val denomination: String?,
     val yearStart: Int?,
     val yearEnd: Int?,
+    val composition: String? = null,
+    val weightGrams: Double? = null,
+    val diameterMm: Double? = null,
+    val obverseDescription: String? = null,
+    val reverseDescription: String? = null,
+    val historicalContext: String? = null,
+    val thumbnailUrl: String? = null,
+    val numistaUrl: String? = null,
 )

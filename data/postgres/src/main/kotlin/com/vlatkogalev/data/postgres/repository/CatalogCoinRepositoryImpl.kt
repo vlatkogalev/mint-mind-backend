@@ -1,6 +1,7 @@
 package com.vlatkogalev.data.postgres.repository
 
 import com.vlatkogalev.domain.coin.model.CatalogCoin
+import com.vlatkogalev.domain.coin.model.CoinCatalogCandidate
 import com.vlatkogalev.domain.coin.model.CoinFingerprint
 import com.vlatkogalev.domain.coin.model.ExternalCoinReference
 import com.vlatkogalev.domain.coin.model.normalized
@@ -16,6 +17,7 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.upsert
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -56,6 +58,14 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                 ?.toCatalogCoin()
         }
 
+    override suspend fun findByIds(ids: List<UUID>): List<CatalogCoin> =
+        if (ids.isEmpty()) emptyList()
+        else newSuspendedTransaction {
+            CatalogCoinsTable.selectAll()
+                .where { CatalogCoinsTable.id inList ids }
+                .map { it.toCatalogCoin() }
+        }
+
     override suspend fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin? =
         newSuspendedTransaction {
             ExternalCoinReferencesTable
@@ -66,25 +76,7 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                 }
                 .limit(1)
                 .singleOrNull()
-                ?.let { row ->
-                    CatalogCoin(
-                        id = row[CatalogCoinsTable.id],
-                        fingerprint = CoinFingerprint(
-                            countryOrIssuer = row[CatalogCoinsTable.countryOrIssuer],
-                            denomination = row[CatalogCoinsTable.denomination],
-                            seriesName = row[CatalogCoinsTable.seriesName],
-                            title = row[CatalogCoinsTable.title],
-                            year = row[CatalogCoinsTable.year],
-                            mintMark = row[CatalogCoinsTable.mintMark],
-                        ).normalized(),
-                        enrichedAt = row[CatalogCoinsTable.enrichedAt]?.toInstantUtcOrNull(),
-                        lastEnrichmentAttemptAt = row[CatalogCoinsTable.lastEnrichmentAttemptAt]?.toInstantUtcOrNull(),
-                        lastEnrichmentFailedAt = row[CatalogCoinsTable.lastEnrichmentFailedAt]?.toInstantUtcOrNull(),
-                        lastEnrichmentError = row[CatalogCoinsTable.lastEnrichmentError],
-                        createdAt = row[CatalogCoinsTable.createdAt].toInstantUtc(),
-                        updatedAt = row[CatalogCoinsTable.updatedAt].toInstantUtc(),
-                    )
-                }
+                ?.toCatalogCoin()
         }
 
     override suspend fun save(catalogCoin: CatalogCoin): CatalogCoin =
@@ -104,6 +96,14 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                 it[title] = catalogCoin.fingerprint.title
                 it[year] = catalogCoin.fingerprint.year
                 it[mintMark] = catalogCoin.fingerprint.mintMark
+                it[composition] = catalogCoin.composition
+                it[weightGrams] = catalogCoin.weightGrams?.toBigDecimal()
+                it[diameterMm] = catalogCoin.diameterMm?.toBigDecimal()
+                it[obverseDescription] = catalogCoin.obverseDescription
+                it[reverseDescription] = catalogCoin.reverseDescription
+                it[historicalContext] = catalogCoin.historicalContext
+                it[thumbnailUrl] = catalogCoin.thumbnailUrl
+                it[numistaUrl] = catalogCoin.numistaUrl
                 it[enrichedAt] = catalogCoin.enrichedAt?.toOffsetDateTimeUtc()
                 it[lastEnrichmentAttemptAt] = catalogCoin.lastEnrichmentAttemptAt?.toOffsetDateTimeUtc()
                 it[lastEnrichmentFailedAt] = catalogCoin.lastEnrichmentFailedAt?.toOffsetDateTimeUtc()
@@ -116,7 +116,7 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                     .toCatalogCoin()
         }
 
-    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): CatalogCoin? =
+    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant, candidate: CoinCatalogCandidate): CatalogCoin? =
         newSuspendedTransaction {
             CatalogCoinsTable.update(
                 where = { CatalogCoinsTable.id eq catalogCoinId },
@@ -125,6 +125,14 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                     it[lastEnrichmentAttemptAt] = now.toOffsetDateTimeUtc()
                     it[lastEnrichmentFailedAt] = null
                     it[lastEnrichmentError] = null
+                    it[composition] = candidate.composition
+                    it[weightGrams] = candidate.weightGrams?.toBigDecimal()
+                    it[diameterMm] = candidate.diameterMm?.toBigDecimal()
+                    it[obverseDescription] = candidate.obverseDescription
+                    it[reverseDescription] = candidate.reverseDescription
+                    it[historicalContext] = candidate.historicalContext
+                    it[thumbnailUrl] = candidate.thumbnailUrl
+                    it[numistaUrl] = candidate.numistaUrl
                 },
             )
             CatalogCoinsTable.selectAll().where { CatalogCoinsTable.id eq catalogCoinId }.singleOrNull()
@@ -193,6 +201,14 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                 year = this[CatalogCoinsTable.year],
                 mintMark = this[CatalogCoinsTable.mintMark],
             ).normalized(),
+            composition = this[CatalogCoinsTable.composition],
+            weightGrams = this[CatalogCoinsTable.weightGrams]?.toDouble(),
+            diameterMm = this[CatalogCoinsTable.diameterMm]?.toDouble(),
+            obverseDescription = this[CatalogCoinsTable.obverseDescription],
+            reverseDescription = this[CatalogCoinsTable.reverseDescription],
+            historicalContext = this[CatalogCoinsTable.historicalContext],
+            thumbnailUrl = this[CatalogCoinsTable.thumbnailUrl],
+            numistaUrl = this[CatalogCoinsTable.numistaUrl],
             enrichedAt = this[CatalogCoinsTable.enrichedAt]?.toInstantUtc(),
             lastEnrichmentAttemptAt = this[CatalogCoinsTable.lastEnrichmentAttemptAt]?.toInstantUtcOrNull(),
             lastEnrichmentFailedAt = this[CatalogCoinsTable.lastEnrichmentFailedAt]?.toInstantUtcOrNull(),

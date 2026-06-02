@@ -178,6 +178,42 @@ class CoinEnrichmentServiceImplTest {
         assertEquals(2, provider.callCount)
     }
 
+    @Test
+    fun getOrEnrich_persistsEnrichmentDetailData_whenCandidateMatches() {
+        val now = Instant.parse("2026-01-10T00:00:00Z")
+        val repository = InMemoryCatalogCoinRepository()
+        val fingerprint = fingerprint(year = 1921)
+        val candidateWithDetail = candidate(
+            "2",
+            yearStart = 1921,
+            yearEnd = 1921,
+            title = "Morgan Dollar",
+            composition = "Silver (.900)",
+            weightGrams = 26.73,
+            diameterMm = 38.1,
+            obverseDescription = "Liberty head left",
+            reverseDescription = "Eagle with wings spread",
+            historicalContext = "Designed by George T. Morgan",
+            thumbnailUrl = "https://example.com/thumb.jpg",
+            numistaUrl = "https://en.numista.com/catalogue/pieces2.html",
+        )
+        val provider = FakeProvider("numista", Result.Success(listOf(candidateWithDetail)))
+        val service = service(repository, listOf(provider), now)
+
+        val result = runBlocking { service.getOrEnrich(fingerprint) }
+
+        assertNotNull(result)
+        assertNotNull(result.enrichedAt)
+        assertEquals("Silver (.900)", result.composition)
+        assertEquals(26.73, result.weightGrams)
+        assertEquals(38.1, result.diameterMm)
+        assertEquals("Liberty head left", result.obverseDescription)
+        assertEquals("Eagle with wings spread", result.reverseDescription)
+        assertEquals("Designed by George T. Morgan", result.historicalContext)
+        assertEquals("https://example.com/thumb.jpg", result.thumbnailUrl)
+        assertEquals("https://en.numista.com/catalogue/pieces2.html", result.numistaUrl)
+    }
+
     private fun service(
         repository: InMemoryCatalogCoinRepository,
         providers: List<CoinCatalogProvider>,
@@ -217,6 +253,14 @@ class CoinEnrichmentServiceImplTest {
         title: String,
         countryOrIssuer: String = "United States",
         denomination: String = "1 Dollar",
+        composition: String? = null,
+        weightGrams: Double? = null,
+        diameterMm: Double? = null,
+        obverseDescription: String? = null,
+        reverseDescription: String? = null,
+        historicalContext: String? = null,
+        thumbnailUrl: String? = null,
+        numistaUrl: String? = null,
     ): CoinCatalogCandidate =
         CoinCatalogCandidate(
             externalReference = ExternalCoinReference(
@@ -235,6 +279,14 @@ class CoinEnrichmentServiceImplTest {
             denomination = denomination,
             yearStart = yearStart,
             yearEnd = yearEnd,
+            composition = composition,
+            weightGrams = weightGrams,
+            diameterMm = diameterMm,
+            obverseDescription = obverseDescription,
+            reverseDescription = reverseDescription,
+            historicalContext = historicalContext,
+            thumbnailUrl = thumbnailUrl,
+            numistaUrl = numistaUrl,
         )
 }
 
@@ -265,6 +317,9 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
 
     override suspend fun findById(id: UUID): CatalogCoin? = coins[id]
 
+    override suspend fun findByIds(ids: List<UUID>): List<CatalogCoin> =
+        ids.mapNotNull { coins[it] }
+
     override suspend fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin? {
         val reference = references.values.firstOrNull { it.provider == provider && it.externalId == externalId } ?: return null
         return coins[reference.catalogCoinId]
@@ -275,13 +330,21 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
         return catalogCoin
     }
 
-    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): CatalogCoin? {
+    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant, candidate: CoinCatalogCandidate): CatalogCoin? {
         val current = coins[catalogCoinId] ?: return null
         val updated = current.copy(
             enrichedAt = now,
             lastEnrichmentAttemptAt = now,
             lastEnrichmentFailedAt = null,
             lastEnrichmentError = null,
+            composition = current.composition ?: candidate.composition,
+            weightGrams = current.weightGrams ?: candidate.weightGrams,
+            diameterMm = current.diameterMm ?: candidate.diameterMm,
+            obverseDescription = current.obverseDescription ?: candidate.obverseDescription,
+            reverseDescription = current.reverseDescription ?: candidate.reverseDescription,
+            historicalContext = current.historicalContext ?: candidate.historicalContext,
+            thumbnailUrl = current.thumbnailUrl ?: candidate.thumbnailUrl,
+            numistaUrl = current.numistaUrl ?: candidate.numistaUrl,
             updatedAt = now,
         )
         coins[catalogCoinId] = updated
