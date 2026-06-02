@@ -23,6 +23,9 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.openapi.describe
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.util.UUID
 
 class StorageController(
@@ -49,13 +52,17 @@ class StorageController(
             }
 
             val uploadSession = fileStorageService.createUploadSession(prefix = "users/$userId")
-            val uploads = (1..payload.fileCount).map { index ->
-                val objectKey = "${uploadSession.objectPrefix}/${uploadSession.sessionId}/${UUID.randomUUID()}-$index"
-                val uploadUrl = fileStorageService.createPresignedUpload(objectKey, uploadUrlTtlSeconds)
-                PresignedUploadUrl(
-                    objectKey = objectKey,
-                    uploadUrl = uploadUrl.toString(),
-                )
+            val uploads = coroutineScope {
+                (1..payload.fileCount).map { index ->
+                    async {
+                        val objectKey = "${uploadSession.objectPrefix}/${uploadSession.sessionId}/${UUID.randomUUID()}-$index"
+                        val uploadUrl = fileStorageService.createPresignedUpload(objectKey, uploadUrlTtlSeconds)
+                        PresignedUploadUrl(
+                            objectKey = objectKey,
+                            uploadUrl = uploadUrl.toString(),
+                        )
+                    }
+                }.awaitAll()
             }
 
             call.respond(
@@ -96,12 +103,16 @@ class StorageController(
                 return@post
             }
 
-            val downloads = payload.objectKeys.map { objectKey ->
-                val downloadUrl = fileStorageService.createPresignedDownload(objectKey, downloadUrlTtlSeconds)
-                PresignedDownloadUrl(
-                    objectKey = objectKey,
-                    downloadUrl = downloadUrl.toString(),
-                )
+            val downloads = coroutineScope {
+                payload.objectKeys.map { objectKey ->
+                    async {
+                        val downloadUrl = fileStorageService.createPresignedDownload(objectKey, downloadUrlTtlSeconds)
+                        PresignedDownloadUrl(
+                            objectKey = objectKey,
+                            downloadUrl = downloadUrl.toString(),
+                        )
+                    }
+                }.awaitAll()
             }
 
             call.respond(

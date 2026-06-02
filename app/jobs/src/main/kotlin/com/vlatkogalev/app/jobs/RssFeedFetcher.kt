@@ -2,6 +2,8 @@ package com.vlatkogalev.app.jobs
 
 import com.vlatkogalev.domain.news.model.NewsArticle
 import com.vlatkogalev.domain.news.repository.NewsRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.parser.Parser
@@ -27,21 +29,12 @@ class RssFeedFetcher(
     private val rssDateFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.ENGLISH)
 
-    /**
-     * Categories to silently drop. Comparison is case-insensitive and
-     * trims whitespace so minor feed inconsistencies don't slip through.
-     */
     private val excludedCategories = setOf(
         "dealers and companies",
         "bullion & precious metals",
         "paper money",
     )
 
-    /**
-     * Tags allowed in the stored HTML content.
-     * Strips scripts, iframes, inline styles, and anything that could
-     * cause layout or security issues inside a mobile WebView.
-     */
     private val contentSafelist: Safelist = Safelist.relaxed()
         .removeTags("script", "iframe", "style", "form", "input", "button")
         .removeAttributes(":all", "style", "onclick", "onload", "onerror")
@@ -52,11 +45,11 @@ class RssFeedFetcher(
         .addAttributes("h2", "class")
         .addAttributes("h3", "class")
 
-    fun run() {
+    suspend fun run() {
         log.info("RssFeedFetcher: fetching {}", feedUrl)
 
         val xml = try {
-            fetchXml()
+            withContext(Dispatchers.IO) { fetchXml() }
         } catch (ex: Exception) {
             log.error("RssFeedFetcher: failed to download feed", ex)
             return
@@ -163,12 +156,6 @@ class RssFeedFetcher(
         }
     }
 
-    /**
-     * Sanitizes raw HTML from the RSS feed:
-     * - Removes scripts, iframes, inline styles, forms
-     * - Keeps semantic structure: headings, paragraphs, lists, images, links
-     * - Rewrites relative URLs to absolute using the feed's base URL
-     */
     private fun sanitizeHtml(rawHtml: String): String =
         Jsoup.clean(rawHtml, feedUrl, contentSafelist)
 

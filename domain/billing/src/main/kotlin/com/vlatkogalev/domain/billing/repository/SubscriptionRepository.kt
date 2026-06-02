@@ -7,11 +7,11 @@ import java.time.Instant
 import java.util.UUID
 
 interface SubscriptionRepository {
-    fun findByRevenueCatCustomerId(revenueCatCustomerId: String): Subscription?
+    suspend fun findByRevenueCatCustomerId(revenueCatCustomerId: String): Subscription?
 
-    fun findByUserId(userId: UUID): Subscription?
+    suspend fun findByUserId(userId: UUID): Subscription?
 
-    fun updateFromRevenueCat(
+    suspend fun updateFromRevenueCat(
         revenueCatCustomerId: String,
         status: SubscriptionStatus,
         expiresAt: Instant?,

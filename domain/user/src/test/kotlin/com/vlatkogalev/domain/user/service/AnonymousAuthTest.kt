@@ -1,5 +1,6 @@
 package com.vlatkogalev.domain.user.service
 
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -10,14 +11,14 @@ import kotlin.test.assertTrue
 class AnonymousAuthTest : UserAuthServiceTestBase() {
     @Test
     fun authenticateAnonymous_blankInstallationId_returnsFailure() {
-        val result = service.authenticateAnonymous(" ")
+        val result = runBlocking { service.authenticateAnonymous(" ") }
 
         assertEquals("installationId is required", assertFailure(result).reason)
     }
 
     @Test
     fun authenticateAnonymous_firstLaunch_createsAnonymousUser() {
-        val session = assertSuccess(service.authenticateAnonymous("install-1")).value
+        val session = assertSuccess(runBlocking { service.authenticateAnonymous("install-1") }).value
 
         assertTrue(session.accessToken.isNotBlank())
         assertTrue(session.refreshToken.isNotBlank())
@@ -27,8 +28,8 @@ class AnonymousAuthTest : UserAuthServiceTestBase() {
 
     @Test
     fun authenticateAnonymous_repeatedLaunch_reusesSameUser() {
-        val first = assertSuccess(service.authenticateAnonymous("install-2")).value
-        val second = assertSuccess(service.authenticateAnonymous("install-2")).value
+        val first = assertSuccess(runBlocking { service.authenticateAnonymous("install-2") }).value
+        val second = assertSuccess(runBlocking { service.authenticateAnonymous("install-2") }).value
 
         assertEquals(first.user.id, second.user.id)
         assertNotEquals(first.refreshToken, second.refreshToken)
@@ -36,9 +37,9 @@ class AnonymousAuthTest : UserAuthServiceTestBase() {
 
     @Test
     fun signup_upgradeAnonymous_keepsUserIdAndDisablesAnonymous() {
-        val anonymous = assertSuccess(service.authenticateAnonymous("install-3")).value
+        val anonymous = assertSuccess(runBlocking { service.authenticateAnonymous("install-3") }).value
         val upgraded = assertSuccess(
-            service.signup("upgrade@example.com", TestFixtures.VALID_PASSWORD, anonymous.user.id),
+            runBlocking { service.signup("upgrade@example.com", TestFixtures.VALID_PASSWORD, anonymous.user.id) },
         ).value
 
         assertEquals(anonymous.user.id, upgraded.user.id)
@@ -49,22 +50,22 @@ class AnonymousAuthTest : UserAuthServiceTestBase() {
     @Test
     fun signup_requiresAnonymousUser() {
         val registered = assertSuccess(
-            service.register("registered@example.com", TestFixtures.VALID_PASSWORD, "John", "Doe"),
+            runBlocking { service.register("registered@example.com", TestFixtures.VALID_PASSWORD, "John", "Doe") },
         ).value
 
-        val result = service.signup("direct@example.com", TestFixtures.VALID_PASSWORD, registered.id)
+        val result = runBlocking { service.signup("direct@example.com", TestFixtures.VALID_PASSWORD, registered.id) }
 
         assertEquals("Signup upgrade requires anonymous account", assertFailure(result).reason)
     }
 
     @Test
     fun signup_duplicateEmail_returnsFailure() {
-        val anonymous = assertSuccess(service.authenticateAnonymous("install-4")).value
-        assertSuccess(service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, anonymous.user.id))
+        val anonymous = assertSuccess(runBlocking { service.authenticateAnonymous("install-4") }).value
+        assertSuccess(runBlocking { service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, anonymous.user.id) })
 
-        val anotherAnonymous = assertSuccess(service.authenticateAnonymous("install-5")).value
+        val anotherAnonymous = assertSuccess(runBlocking { service.authenticateAnonymous("install-5") }).value
 
-        val result = service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, anotherAnonymous.user.id)
+        val result = runBlocking { service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, anotherAnonymous.user.id) }
 
         assertEquals("Email already registered", assertFailure(result).reason)
     }

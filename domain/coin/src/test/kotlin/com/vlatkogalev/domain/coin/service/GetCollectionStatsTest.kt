@@ -1,5 +1,6 @@
 package com.vlatkogalev.domain.coin.service
 
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -42,7 +43,7 @@ class GetCollectionStatsTest : CoinServiceTestBase() {
         )
         repo.insert(TestFixtures.makeCoin(userId = TestFixtures.OTHER_USER_ID))
 
-        val stats = assertSuccess(service.getCollectionStats(TestFixtures.USER_ID)).value
+        val stats = assertSuccess(runBlocking { service.getCollectionStats(TestFixtures.USER_ID) }).value
 
         assertEquals(3, stats.totalCoins)
         assertEquals(2, stats.totalIssuers)
@@ -56,7 +57,7 @@ class GetCollectionStatsTest : CoinServiceTestBase() {
     fun getCollectionStats_withoutMintage_returnsNullRarest() {
         repo.insert(TestFixtures.makeCoin(recognitionResult = TestFixtures.makeRecognitionResult(mintage = null)))
 
-        val stats = assertSuccess(service.getCollectionStats(TestFixtures.USER_ID)).value
+        val stats = assertSuccess(runBlocking { service.getCollectionStats(TestFixtures.USER_ID) }).value
 
         assertNull(stats.highlights.rarest)
     }

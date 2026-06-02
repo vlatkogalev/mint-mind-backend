@@ -16,7 +16,7 @@ class CoinServiceImpl(
     private val enrichmentService: CoinEnrichmentService,
 ) : CoinService {
 
-    override fun saveCoin(
+    override suspend fun saveCoin(
         userId: UUID,
         obverseKey: String,
         reverseKey: String,
@@ -44,7 +44,7 @@ class CoinServiceImpl(
         Result.Failure(ex.message ?: "Failed to save coin", ex)
     }
 
-    override fun getCoin(coinId: UUID, userId: UUID): Result<Coin> = try {
+    override suspend fun getCoin(coinId: UUID, userId: UUID): Result<Coin> = try {
         val coin = coinRepository.findById(coinId)
         when {
             coin == null -> Result.Failure("Coin not found")
@@ -55,7 +55,7 @@ class CoinServiceImpl(
         Result.Failure(ex.message ?: "Failed to fetch coin", ex)
     }
 
-    override fun listCoins(
+    override suspend fun listCoins(
         userId: UUID,
         country: String?,
         year: Int?,
@@ -83,21 +83,21 @@ class CoinServiceImpl(
         Result.Failure(ex.message ?: "Failed to list coins", ex)
     }
 
-    override fun deleteCoin(coinId: UUID, userId: UUID): Result<Unit> = try {
+    override suspend fun deleteCoin(coinId: UUID, userId: UUID): Result<Unit> = try {
         if (coinRepository.deleteById(coinId, userId)) Result.Success(Unit)
         else Result.Failure("Coin not found")
     } catch (ex: Exception) {
         Result.Failure(ex.message ?: "Failed to delete coin", ex)
     }
 
-    override fun updateNotes(coinId: UUID, userId: UUID, notes: String?): Result<Coin> = try {
+    override suspend fun updateNotes(coinId: UUID, userId: UUID, notes: String?): Result<Coin> = try {
         val updatedCoin = coinRepository.updateNotes(coinId, userId, notes)
         if (updatedCoin == null) Result.Failure("Coin not found") else Result.Success(updatedCoin)
     } catch (ex: Exception) {
         Result.Failure(ex.message ?: "Failed to update notes", ex)
     }
 
-    override fun getCollectionStats(
+    override suspend fun getCollectionStats(
         userId: UUID,
         country: String?,
         year: Int?,

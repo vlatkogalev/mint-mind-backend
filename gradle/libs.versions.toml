@@ -1,6 +1,8 @@
 [versions]
 aws = "2.32.15"
 bcrypt = "0.10.2"
+coroutines = "1.10.2"
+exposed = "0.59.0"
 flyway = "10.20.1"
 hikari = "6.3.0"
 koin = "4.2.1"
@@ -29,6 +31,12 @@ slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+exposed-java-time = { module = "org.jetbrains.exposed:exposed-java-time", version.ref = "exposed" }
+exposed-json = { module = "org.jetbrains.exposed:exposed-json", version.ref = "exposed" }
 ucasoft-ktorSimpleCache = { module = "com.ucasoft.ktor:ktor-simple-cache", version.ref = "ucasoft" }
 ucasoft-ktorSimpleRedisCache = { module = "com.ucasoft.ktor:ktor-simple-redis-cache", version.ref = "ucasoft" }
 

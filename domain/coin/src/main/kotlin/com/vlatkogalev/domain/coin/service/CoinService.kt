@@ -9,7 +9,7 @@ import com.vlatkogalev.platform.core.Result
 import java.util.UUID
 
 interface CoinService {
-    fun saveCoin(
+    suspend fun saveCoin(
         userId: UUID,
         obverseKey: String,
         reverseKey: String,
@@ -18,9 +18,9 @@ interface CoinService {
         notes: String?,
     ): Result<Coin>
 
-    fun getCoin(coinId: UUID, userId: UUID): Result<Coin>
+    suspend fun getCoin(coinId: UUID, userId: UUID): Result<Coin>
 
-    fun listCoins(
+    suspend fun listCoins(
         userId: UUID,
         country: String?,
         year: Int?,
@@ -32,11 +32,11 @@ interface CoinService {
         offset: Int,
     ): Result<List<Coin>>
 
-    fun deleteCoin(coinId: UUID, userId: UUID): Result<Unit>
+    suspend fun deleteCoin(coinId: UUID, userId: UUID): Result<Unit>
 
-    fun updateNotes(coinId: UUID, userId: UUID, notes: String?): Result<Coin>
+    suspend fun updateNotes(coinId: UUID, userId: UUID, notes: String?): Result<Coin>
 
-    fun getCollectionStats(
+    suspend fun getCollectionStats(
         userId: UUID,
         country: String? = null,
         year: Int? = null,

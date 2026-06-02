@@ -2,6 +2,8 @@ package com.vlatkogalev.data.ebay
 
 import com.vlatkogalev.domain.marketplace.model.MarketplaceListing
 import com.vlatkogalev.platform.core.config.EbayConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -13,9 +15,6 @@ import java.net.http.HttpResponse
 import java.time.Instant
 import java.util.UUID
 
-/**
- * Fetches live coin listings from eBay Browse API.
- */
 class EbayMarketplaceFetcher(
     private val config: EbayConfig,
     private val tokenProvider: EbayTokenProvider,
@@ -24,7 +23,10 @@ class EbayMarketplaceFetcher(
     private val httpClient = HttpClient.newHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun fetchListings(pagesToFetch: Int = 5): List<MarketplaceListing> {
+    suspend fun fetchListings(pagesToFetch: Int = 5): List<MarketplaceListing> =
+        withContext(Dispatchers.IO) { blockingFetchListings(pagesToFetch) }
+
+    private fun blockingFetchListings(pagesToFetch: Int): List<MarketplaceListing> {
         if (pagesToFetch <= 0) return emptyList()
 
         val allListings = mutableListOf<MarketplaceListing>()

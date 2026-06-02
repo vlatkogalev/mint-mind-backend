@@ -7,5 +7,5 @@ import com.vlatkogalev.platform.core.Result
 interface CoinCatalogProvider {
     val providerName: String
 
-    fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>>
+    suspend fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>>
 }

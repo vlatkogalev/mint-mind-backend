@@ -5,9 +5,6 @@ import com.vlatkogalev.domain.marketplace.repository.MarketplaceRepository
 import org.slf4j.LoggerFactory
 import java.time.Instant
 
-/**
- * Fetches live eBay coin listings and persists them to the database.
- */
 class EbayListingsJob(
     private val fetcher: EbayMarketplaceFetcher,
     private val repository: MarketplaceRepository,
@@ -15,7 +12,7 @@ class EbayListingsJob(
 ) {
     private val log = LoggerFactory.getLogger(EbayListingsJob::class.java)
 
-    fun run() {
+    suspend fun run() {
         log.info("EbayListingsJob: starting fetch of up to {} pages", pagesToFetch)
 
         val runStartedAt = Instant.now()

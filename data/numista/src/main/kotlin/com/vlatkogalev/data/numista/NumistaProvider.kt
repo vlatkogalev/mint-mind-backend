@@ -8,6 +8,11 @@ import com.vlatkogalev.domain.coin.model.ExternalCoinReference
 import com.vlatkogalev.domain.coin.service.CoinCatalogProvider
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.NumistaConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.net.URI
@@ -31,35 +36,41 @@ class NumistaProvider(
         .build()
     private val json = Json { ignoreUnknownKeys = true }
 
-    override fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>> {
+    override suspend fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>> {
         if (!config.enabled) return Result.Success(emptyList())
 
         val query = buildQuery(fingerprint)
         if (query.isBlank()) return Result.Success(emptyList())
 
         return try {
-            val searchBody = get("${config.apiBaseUrl}/v3/types?category=coin&q=${urlEncode(query)}&count=10")
+            val searchBody = withContext(Dispatchers.IO) {
+                get("${config.apiBaseUrl}/v3/types?category=coin&q=${urlEncode(query)}&count=10")
+            }
             val searchResponse = json.decodeFromString<NumistaTypesSearchResponse>(searchBody)
-            val candidates = searchResponse.types.map { type ->
-                val detail = fetchDetail(type.id)
-                CoinCatalogCandidate(
-                    externalReference = ExternalCoinReference(
-                        id = UUID.randomUUID(),
-                        catalogCoinId = UNASSIGNED_CATALOG_COIN_ID,
-                        provider = providerName,
-                        externalId = type.id.toString(),
-                        externalUrl = detail?.url ?: "https://en.numista.com/catalogue/pieces${type.id}.html",
-                        lastSyncedAt = null,
-                        syncStatus = null,
-                        syncError = null,
-                        createdAt = Instant.now(),
-                    ),
-                    title = type.title,
-                    countryOrIssuer = type.country?.name ?: type.issuer?.name,
-                    denomination = type.type,
-                    yearStart = type.yearStart,
-                    yearEnd = type.yearEnd,
-                )
+            val candidates = coroutineScope {
+                searchResponse.types.map { type ->
+                    async(Dispatchers.IO) {
+                        val detail = fetchDetail(type.id)
+                        CoinCatalogCandidate(
+                            externalReference = ExternalCoinReference(
+                                id = UUID.randomUUID(),
+                                catalogCoinId = UNASSIGNED_CATALOG_COIN_ID,
+                                provider = providerName,
+                                externalId = type.id.toString(),
+                                externalUrl = detail?.url ?: "https://en.numista.com/catalogue/pieces${type.id}.html",
+                                lastSyncedAt = null,
+                                syncStatus = null,
+                                syncError = null,
+                                createdAt = Instant.now(),
+                            ),
+                            title = type.title,
+                            countryOrIssuer = type.country?.name ?: type.issuer?.name,
+                            denomination = type.type,
+                            yearStart = type.yearStart,
+                            yearEnd = type.yearEnd,
+                        )
+                    }
+                }.awaitAll()
             }
             Result.Success(candidates)
         } catch (ex: Exception) {

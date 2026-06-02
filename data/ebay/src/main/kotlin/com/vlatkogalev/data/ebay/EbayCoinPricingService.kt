@@ -7,6 +7,10 @@ import com.vlatkogalev.domain.pricing.model.PriceRange
 import com.vlatkogalev.domain.pricing.service.CoinPricingService
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.EbayConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -28,22 +32,31 @@ class EbayCoinPricingService(
 
     private val excludedTerms = "-lot -set -roll -collection -pair -group -album -box -boxes -coincard -collectible -note -banknote -bill -currency"
 
-    override fun getPricing(coin: Coin, minResults: Int): Result<CoinPricingResult> =
+    override suspend fun getPricing(coin: Coin, minResults: Int): Result<CoinPricingResult> =
         try {
-            val token = tokenProvider.getAccessToken()
-
+            val token = withContext(Dispatchers.IO) { tokenProvider.getAccessToken() }
             val narrowQuery = buildQuery(coin, includeGrade = true)
-            val narrowListings = fetchListings(narrowQuery, token)
+            val broadQuery = buildQuery(coin, includeGrade = false)
 
-            val (query, listings) = if (narrowListings.size >= minResults) {
-                narrowQuery to narrowListings
-            } else {
-                log.debug(
-                    "EbayCoinPricingService: narrow query '{}' returned {} results, retrying broad",
-                    narrowQuery, narrowListings.size,
-                )
-                val broadQuery = buildQuery(coin, includeGrade = false)
-                broadQuery to fetchListings(broadQuery, token)
+            val (query, listings) = coroutineScope {
+                val narrowDeferred = async(Dispatchers.IO) { fetchListings(narrowQuery, token) }
+
+                if (narrowQuery == broadQuery) {
+                    narrowQuery to narrowDeferred.await()
+                } else {
+                    val broadDeferred = async(Dispatchers.IO) { fetchListings(broadQuery, token) }
+                    val narrow = narrowDeferred.await()
+                    if (narrow.size >= minResults) {
+                        broadDeferred.cancel()
+                        narrowQuery to narrow
+                    } else {
+                        log.debug(
+                            "EbayCoinPricingService: narrow query '{}' returned {} results, retrying broad",
+                            narrowQuery, narrow.size,
+                        )
+                        broadQuery to broadDeferred.await()
+                    }
+                }
             }
 
             Result.Success(

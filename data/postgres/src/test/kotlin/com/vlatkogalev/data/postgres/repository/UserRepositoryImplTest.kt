@@ -1,7 +1,8 @@
 package com.vlatkogalev.data.postgres.repository
 
-import com.vlatkogalev.data.postgres.daos.UserQueries
 import com.vlatkogalev.platform.database.PostgresTestContainer
+import com.vlatkogalev.platform.database.configureExposed
+import kotlinx.coroutines.runBlocking
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -9,8 +10,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class UserRepositoryImplTest {
-    private val dataSource = PostgresTestContainer.dataSource
-    private val repo = UserRepositoryImpl(UserQueries(dataSource), dataSource)
+    private val dataSource = PostgresTestContainer.dataSource.also { configureExposed(it) }
+    private val repo = UserRepositoryImpl()
 
     @BeforeTest
     fun cleanUp() {
@@ -32,7 +33,7 @@ class UserRepositoryImplTest {
     }
 
     @Test
-    fun `create and findById round-trip`() {
+    fun `create and findById round-trip`() = runBlocking {
         val created = repo.create(
             email = "alice@example.com",
             firstName = "Alice",

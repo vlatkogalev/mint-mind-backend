@@ -1,52 +1,45 @@
 package com.vlatkogalev.data.postgres.repository
 
-import com.vlatkogalev.data.postgres.daos.CoinQueries
-import com.vlatkogalev.data.postgres.entities.CatalogueNumberRecord
-import com.vlatkogalev.data.postgres.entities.CoinRecord
-import com.vlatkogalev.domain.coin.model.CatalogueNumber
-import com.vlatkogalev.domain.coin.model.Coin
-import com.vlatkogalev.domain.coin.model.CoinCollectionStats
-import com.vlatkogalev.domain.coin.model.CollectionHighlights
-import com.vlatkogalev.domain.coin.model.CoinSortField
-import com.vlatkogalev.domain.coin.model.Confidence
-import com.vlatkogalev.domain.coin.model.RecognitionResult
+import com.vlatkogalev.domain.coin.model.*
 import com.vlatkogalev.domain.coin.repository.CoinRepository
-import java.util.UUID
+import com.vlatkogalev.platform.database.tables.CoinCatalogueNumbersTable
+import com.vlatkogalev.platform.database.tables.CoinsTable
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import java.math.BigDecimal
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.util.*
 
-class CoinRepositoryImpl(
-    private val queries: CoinQueries,
-) : CoinRepository {
-    override fun save(coin: Coin): Coin =
-        queries.withTransaction { connection ->
-            val existing = queries.findById(connection, coin.id)
+class CoinRepositoryImpl : CoinRepository {
+    override suspend fun save(coin: Coin): Coin =
+        newSuspendedTransaction {
+            val existing = CoinsTable.selectAll().where { CoinsTable.id eq coin.id }.singleOrNull()
             if (existing == null) {
-                queries.insert(connection, coin)
-                queries.insertCatalogueNumbers(connection, coin.id, coin.catalogueNumbers)
+                insertCoin(coin)
+                insertCatalogueNumbers(coin.id, coin.catalogueNumbers)
             } else {
-                queries.update(connection, coin)
+                updateCoin(coin)
             }
-
-            val saved = queries.findById(connection, coin.id) ?: error("Saved coin could not be loaded")
-            val numbers = queries.findCatalogueNumbersByCoinId(connection, coin.id)
-            saved.toDomain(numbers)
+            findCoinById(coin.id) ?: error("Saved coin could not be loaded")
         }
 
-    override fun findById(id: UUID): Coin? {
-        val coin = queries.findById(id) ?: return null
-        val numbers = queries.findCatalogueNumbersByCoinId(id)
-        return coin.toDomain(numbers)
-    }
+    override suspend fun findById(id: UUID): Coin? = newSuspendedTransaction { findCoinById(id) }
 
-    override fun updateNotes(id: UUID, userId: UUID, notes: String?): Coin? =
-        queries.withTransaction { connection ->
-            val updated = queries.updateNotes(connection, id, userId, notes)
-            if (!updated) return@withTransaction null
-            val coin = queries.findById(connection, id) ?: return@withTransaction null
-            val numbers = queries.findCatalogueNumbersByCoinId(connection, id)
-            coin.toDomain(numbers)
+    override suspend fun updateNotes(id: UUID, userId: UUID, notes: String?): Coin? =
+        newSuspendedTransaction {
+            val updated = CoinsTable.update(
+                where = { (CoinsTable.id eq id) and (CoinsTable.userId eq userId) },
+                body = { it[CoinsTable.notes] = notes },
+            ) > 0
+            if (!updated) return@newSuspendedTransaction null
+            findCoinById(id)
         }
 
-    override fun findByUserId(
+    override suspend fun findByUserId(
         userId: UUID,
         country: String?,
         year: Int?,
@@ -56,137 +49,279 @@ class CoinRepositoryImpl(
         sortBy: CoinSortField,
         limit: Int,
         offset: Int,
-    ): List<Coin> {
-        val coinRecords = queries.findByUserId(
-            userId = userId,
-            country = country,
-            year = year,
-            minValue = minValue,
-            maxValue = maxValue,
-            setId = setId,
-            sortBy = sortBy,
-            limit = limit,
-            offset = offset,
-        )
-        if (coinRecords.isEmpty()) return emptyList()
+    ): List<Coin> =
+        newSuspendedTransaction {
+            val coinRecords = CoinsTable.selectAll().where {
+                (CoinsTable.userId eq userId) and
+                        (if (!country.isNullOrBlank()) CoinsTable.countryOrIssuer eq country else Op.TRUE) and
+                        (if (year != null) CoinsTable.year eq year else Op.TRUE) and
+                        (if (minValue != null) CoinsTable.valueLow greaterEq BigDecimal.valueOf(minValue) else Op.TRUE) and
+                        (if (maxValue != null) CoinsTable.valueHigh lessEq BigDecimal.valueOf(maxValue) else Op.TRUE) and
+                        (if (setId != null) CoinsTable.setId eq setId else Op.TRUE)
+            }
+                .orderBy(CoinsTable.createdAt to SortOrder.DESC)
+                .limit(limit).offset(offset.toLong())
+                .toList()
 
-        val cataloguesByCoinId = queries.findCatalogueNumbersByCoinIds(coinRecords.map { it.id })
-        return coinRecords.map { coin ->
-            coin.toDomain(cataloguesByCoinId[coin.id].orEmpty())
+            if (coinRecords.isEmpty()) return@newSuspendedTransaction emptyList()
+
+            val cataloguesByCoinId = findCatalogueNumbersByCoinIds(coinRecords.map { it[CoinsTable.id] })
+            val coins = coinRecords.map { it.toCoin(cataloguesByCoinId[it[CoinsTable.id]].orEmpty()) }
+            sortCoins(coins, sortBy)
         }
-    }
 
-    override fun getCollectionStats(
+    override suspend fun getCollectionStats(
         userId: UUID,
         country: String?,
         year: Int?,
         minValue: Double?,
         maxValue: Double?,
         setId: UUID?,
-    ): CoinCollectionStats = CoinCollectionStats(
-        totalCoins = queries.countCoins(
-            userId = userId,
-            country = country,
-            year = year,
-            minValue = minValue,
-            maxValue = maxValue,
-            setId = setId,
-        ),
+    ): CoinCollectionStats =
+        newSuspendedTransaction {
+            val filter = buildFilter(userId, country, year, minValue, maxValue, setId)
 
-        totalIssuers = queries.countDistinctIssuers(
-            userId = userId,
-            country = country,
-            year = year,
-            minValue = minValue,
-            maxValue = maxValue,
-            setId = setId,
-        ),
+            val totalCoins = CoinsTable.selectAll().where { filter }.count().toInt()
+            val totalIssuers = CoinsTable.select(CoinsTable.countryOrIssuer).where { filter }
+                .withDistinct()
+                .count().toInt()
 
-        estimatedTotalValueMean = queries.getMeanValue(
-            userId = userId,
-            country = country,
-            year = year,
-            minValue = minValue,
-            maxValue = maxValue,
-            setId = setId,
-        ),
+            val matchingCoins = CoinsTable.selectAll().where { filter }.toList().map { it.toCoinWithCatalogueNumbers() }
 
-        highlights = CollectionHighlights(
-            mostValuable = queries.findMostValuable(
-                userId = userId,
-                country = country,
-                year = year,
-                minValue = minValue,
-                maxValue = maxValue,
-                setId = setId,
-            )?.toDomainWithCatalogueNumbers(),
+            val meanValue = if (matchingCoins.isEmpty()) 0.0
+            else matchingCoins.mapNotNull { coin ->
+                val low = coin.recognitionResult.valueLow
+                val high = coin.recognitionResult.valueHigh
+                if (low != null && high != null) (low + high) / 2.0 else null
+            }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
 
-            mostAncient = queries.findMostAncient(
-                userId = userId,
-                country = country,
-                year = year,
-                minValue = minValue,
-                maxValue = maxValue,
-                setId = setId,
-            )?.toDomainWithCatalogueNumbers(),
+            val mostValuable = matchingCoins.maxByOrNull { coin ->
+                val low = coin.recognitionResult.valueLow ?: Double.NEGATIVE_INFINITY
+                val high = coin.recognitionResult.valueHigh ?: Double.NEGATIVE_INFINITY
+                (low + high) / 2.0
+            }
 
-            rarest = queries.findRarest(
-                userId = userId,
-                country = country,
-                year = year,
-                minValue = minValue,
-                maxValue = maxValue,
-                setId = setId,
-            )?.toDomainWithCatalogueNumbers(),
-        ),
-    )
+            val mostAncient = matchingCoins
+                .filter { it.recognitionResult.year != null }
+                .minByOrNull { it.recognitionResult.year!! }
 
-    override fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int =
-        queries.reassignFromUser(fromUserId, toUserId)
+            val rarest = matchingCoins
+                .filter { it.recognitionResult.mintage != null }
+                .minByOrNull { it.recognitionResult.mintage!! }
 
-    override fun countByUserId(userId: UUID): Int = queries.countByUserId(userId)
+            CoinCollectionStats(
+                totalCoins = totalCoins,
+                totalIssuers = totalIssuers,
+                estimatedTotalValueMean = meanValue,
+                highlights = CollectionHighlights(
+                    mostValuable = mostValuable,
+                    mostAncient = mostAncient,
+                    rarest = rarest,
+                ),
+            )
+        }
 
-    override fun deleteById(id: UUID, userId: UUID): Boolean = queries.deleteById(id, userId)
+    override suspend fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int =
+        newSuspendedTransaction {
+            CoinsTable.update(
+                where = { CoinsTable.userId eq fromUserId },
+                body = { it[CoinsTable.userId] = toUserId },
+            )
+        }
 
-    private fun CoinRecord.toDomainWithCatalogueNumbers(): Coin =
-        toDomain(queries.findCatalogueNumbersByCoinId(id))
+    override suspend fun countByUserId(userId: UUID): Int =
+        newSuspendedTransaction {
+            CoinsTable.selectAll().where { CoinsTable.userId eq userId }.count().toInt()
+        }
 
-    private fun CoinRecord.toDomain(catalogueNumbers: List<CatalogueNumberRecord>): Coin =
+    override suspend fun deleteById(id: UUID, userId: UUID): Boolean =
+        newSuspendedTransaction {
+            CoinsTable.deleteWhere { (CoinsTable.id eq id) and (CoinsTable.userId eq userId) } > 0
+        }
+
+    private fun insertCoin(coin: Coin) {
+        CoinsTable.insert {
+            it[id] = coin.id
+            it[userId] = coin.userId
+            it[obverseKey] = coin.obverseKey
+            it[reverseKey] = coin.reverseKey
+            it[notes] = coin.notes
+            it[createdAt] = OffsetDateTime.ofInstant(coin.createdAt, ZoneOffset.UTC)
+            it[overallConfidence] = coin.recognitionResult.overallConfidence.name
+            it[countryOrIssuer] = coin.recognitionResult.countryOrIssuer
+            it[denomination] = coin.recognitionResult.denomination
+            it[seriesName] = coin.recognitionResult.seriesName
+            it[year] = coin.recognitionResult.year
+            it[mintMark] = coin.recognitionResult.mintMark
+            it[metalComposition] = coin.recognitionResult.metalComposition
+            it[estimatedGrade] = coin.recognitionResult.estimatedGrade
+            it[estimatedGradeValue] = coin.recognitionResult.estimatedGradeValue
+            it[rarityQualitative] = coin.recognitionResult.rarityQualitative
+            it[valueLow] = coin.recognitionResult.valueLow?.let { BigDecimal.valueOf(it) }
+            it[valueHigh] = coin.recognitionResult.valueHigh?.let { BigDecimal.valueOf(it) }
+            it[mintage] = coin.recognitionResult.mintage
+            it[obverseDescription] = coin.recognitionResult.obverseDescription
+            it[reverseDescription] = coin.recognitionResult.reverseDescription
+            it[historicalContext] = coin.recognitionResult.historicalContext
+            it[rawJson] = coin.recognitionResult.rawJson
+            it[setId] = coin.setId
+            it[catalogCoinId] = coin.catalogCoinId
+        }
+    }
+
+    private fun updateCoin(coin: Coin) {
+        CoinsTable.update(
+            where = { (CoinsTable.id eq coin.id) and (CoinsTable.userId eq coin.userId) },
+            body = {
+                it[notes] = coin.notes
+                it[overallConfidence] = coin.recognitionResult.overallConfidence.name
+                it[countryOrIssuer] = coin.recognitionResult.countryOrIssuer
+                it[denomination] = coin.recognitionResult.denomination
+                it[seriesName] = coin.recognitionResult.seriesName
+                it[year] = coin.recognitionResult.year
+                it[mintMark] = coin.recognitionResult.mintMark
+                it[metalComposition] = coin.recognitionResult.metalComposition
+                it[estimatedGrade] = coin.recognitionResult.estimatedGrade
+                it[estimatedGradeValue] = coin.recognitionResult.estimatedGradeValue
+                it[rarityQualitative] = coin.recognitionResult.rarityQualitative
+                it[valueLow] = coin.recognitionResult.valueLow?.let { BigDecimal.valueOf(it) }
+                it[valueHigh] = coin.recognitionResult.valueHigh?.let { BigDecimal.valueOf(it) }
+                it[mintage] = coin.recognitionResult.mintage
+                it[obverseDescription] = coin.recognitionResult.obverseDescription
+                it[reverseDescription] = coin.recognitionResult.reverseDescription
+                it[historicalContext] = coin.recognitionResult.historicalContext
+                it[rawJson] = coin.recognitionResult.rawJson
+                it[setId] = coin.setId
+                it[catalogCoinId] = coin.catalogCoinId
+            },
+        )
+    }
+
+    private fun insertCatalogueNumbers(coinId: UUID, numbers: List<CatalogueNumber>) {
+        if (numbers.isEmpty()) return
+        CoinCatalogueNumbersTable.batchInsert(numbers) { number ->
+            this[CoinCatalogueNumbersTable.coinId] = coinId
+            this[CoinCatalogueNumbersTable.catalogueName] = number.catalogueName
+            this[CoinCatalogueNumbersTable.number] = number.number
+            this[CoinCatalogueNumbersTable.confidence] = number.confidence.name
+        }
+    }
+
+    private fun findCoinById(id: UUID): Coin? {
+        val coin = CoinsTable.selectAll().where { CoinsTable.id eq id }.singleOrNull() ?: return null
+        val numbers = CoinCatalogueNumbersTable.selectAll()
+            .where { CoinCatalogueNumbersTable.coinId eq id }
+            .map { it.toCatalogueNumber() }
+        return coin.toCoin(numbers)
+    }
+
+    private fun findCatalogueNumbersByCoinIds(coinIds: List<UUID>): Map<UUID, List<CatalogueNumber>> {
+        if (coinIds.isEmpty()) return emptyMap()
+        return CoinCatalogueNumbersTable.selectAll()
+            .where { CoinCatalogueNumbersTable.coinId inList coinIds }
+            .groupBy { it[CoinCatalogueNumbersTable.coinId] }
+            .mapValues { (_, rows) -> rows.map { it.toCatalogueNumber() } }
+    }
+
+    private fun ResultRow.toCoinWithCatalogueNumbers(): Coin {
+        val coinId = this[CoinsTable.id]
+        val numberRows = CoinCatalogueNumbersTable.selectAll()
+            .where { CoinCatalogueNumbersTable.coinId eq coinId }
+            .map { it.toCatalogueNumber() }
+        return toCoin(numberRows)
+    }
+
+    private fun ResultRow.toCoin(catalogueNumbers: List<CatalogueNumber>): Coin =
         Coin(
-            id = id,
-            userId = userId,
-            obverseKey = obverseKey,
-            reverseKey = reverseKey,
+            id = this[CoinsTable.id],
+            userId = this[CoinsTable.userId],
+            obverseKey = this[CoinsTable.obverseKey],
+            reverseKey = this[CoinsTable.reverseKey],
             recognitionResult = RecognitionResult(
-                overallConfidence = Confidence.valueOf(overallConfidence.uppercase()),
-                countryOrIssuer = countryOrIssuer,
-                denomination = denomination,
-                seriesName = seriesName,
-                year = year,
-                mintMark = mintMark,
-                metalComposition = metalComposition,
-                estimatedGrade = estimatedGrade,
-                estimatedGradeValue = estimatedGradeValue,
-                rarityQualitative = rarityQualitative,
-                valueLow = valueLow,
-                valueHigh = valueHigh,
-                mintage = mintage,
-                obverseDescription = obverseDescription,
-                reverseDescription = reverseDescription,
-                historicalContext = historicalContext,
-                rawJson = rawJson,
+                overallConfidence = Confidence.valueOf(this[CoinsTable.overallConfidence].uppercase()),
+                countryOrIssuer = this[CoinsTable.countryOrIssuer],
+                denomination = this[CoinsTable.denomination],
+                seriesName = this[CoinsTable.seriesName],
+                year = this[CoinsTable.year],
+                mintMark = this[CoinsTable.mintMark],
+                metalComposition = this[CoinsTable.metalComposition],
+                estimatedGrade = this[CoinsTable.estimatedGrade],
+                estimatedGradeValue = this[CoinsTable.estimatedGradeValue],
+                rarityQualitative = this[CoinsTable.rarityQualitative],
+                valueLow = this[CoinsTable.valueLow]?.toDouble(),
+                valueHigh = this[CoinsTable.valueHigh]?.toDouble(),
+                mintage = this[CoinsTable.mintage],
+                obverseDescription = this[CoinsTable.obverseDescription],
+                reverseDescription = this[CoinsTable.reverseDescription],
+                historicalContext = this[CoinsTable.historicalContext],
+                rawJson = this[CoinsTable.rawJson],
             ),
-            catalogueNumbers = catalogueNumbers.map { it.toDomain() },
-            setId = setId,
-            catalogCoinId = catalogCoinId,
-            notes = notes,
-            createdAt = createdAt,
+            catalogueNumbers = catalogueNumbers,
+            setId = this[CoinsTable.setId],
+            catalogCoinId = this[CoinsTable.catalogCoinId],
+            notes = this[CoinsTable.notes],
+            createdAt = this[CoinsTable.createdAt].toInstant(),
         )
 
-    private fun CatalogueNumberRecord.toDomain(): CatalogueNumber =
+    private fun ResultRow.toCatalogueNumber(): CatalogueNumber =
         CatalogueNumber(
-            catalogueName = catalogueName,
-            number = number,
-            confidence = Confidence.valueOf(confidence.uppercase()),
+            catalogueName = this[CoinCatalogueNumbersTable.catalogueName],
+            number = this[CoinCatalogueNumbersTable.number],
+            confidence = Confidence.valueOf(this[CoinCatalogueNumbersTable.confidence].uppercase()),
         )
+
+    private fun buildFilter(
+        userId: UUID,
+        country: String?,
+        year: Int?,
+        minValue: Double?,
+        maxValue: Double?,
+        setId: UUID?,
+    ): Op<Boolean> =
+        (CoinsTable.userId eq userId) and
+                (if (!country.isNullOrBlank()) CoinsTable.countryOrIssuer eq country else Op.TRUE) and
+                (if (year != null) CoinsTable.year eq year else Op.TRUE) and
+                (if (minValue != null) CoinsTable.valueLow greaterEq BigDecimal.valueOf(minValue) else Op.TRUE) and
+                (if (maxValue != null) CoinsTable.valueHigh lessEq BigDecimal.valueOf(maxValue) else Op.TRUE) and
+                (if (setId != null) CoinsTable.setId eq setId else Op.TRUE)
+
+    private fun orderByClauses(sortBy: CoinSortField): List<Pair<Expression<*>, SortOrder>> =
+        when (sortBy) {
+            CoinSortField.DATE_ADDED_OLD_TO_NEW ->
+                listOf(CoinsTable.createdAt to SortOrder.ASC)
+
+            CoinSortField.DATE_ADDED_NEW_TO_OLD ->
+                listOf(CoinsTable.createdAt to SortOrder.DESC)
+
+            CoinSortField.RELEASE_YEAR_OLD_TO_NEW ->
+                listOf(CoinsTable.year to SortOrder.ASC_NULLS_LAST)
+
+            CoinSortField.RELEASE_YEAR_NEW_TO_OLD ->
+                listOf(CoinsTable.year to SortOrder.DESC_NULLS_LAST)
+
+            else -> listOf(CoinsTable.createdAt to SortOrder.DESC)
+        }
+
+    private fun sortCoins(coins: List<Coin>, sortBy: CoinSortField): List<Coin> =
+        when (sortBy) {
+            CoinSortField.VALUE_HIGH_TO_LOW -> coins.sortedByDescending { coin ->
+                val low = coin.recognitionResult.valueLow ?: Double.NEGATIVE_INFINITY
+                val high = coin.recognitionResult.valueHigh ?: Double.NEGATIVE_INFINITY
+                (low + high) / 2.0
+            }
+
+            CoinSortField.VALUE_LOW_TO_HIGH -> coins.sortedBy { coin ->
+                val low = coin.recognitionResult.valueLow ?: Double.POSITIVE_INFINITY
+                val high = coin.recognitionResult.valueHigh ?: Double.POSITIVE_INFINITY
+                (low + high) / 2.0
+            }
+
+            CoinSortField.RELEASE_YEAR_OLD_TO_NEW -> coins.sortedBy { it.recognitionResult.year ?: Int.MAX_VALUE }
+            CoinSortField.RELEASE_YEAR_NEW_TO_OLD -> coins.sortedByDescending {
+                it.recognitionResult.year ?: Int.MIN_VALUE
+            }
+
+            CoinSortField.DATE_ADDED_OLD_TO_NEW -> coins.sortedBy { it.createdAt }
+            CoinSortField.DATE_ADDED_NEW_TO_OLD -> coins.sortedByDescending { it.createdAt }
+        }
 }

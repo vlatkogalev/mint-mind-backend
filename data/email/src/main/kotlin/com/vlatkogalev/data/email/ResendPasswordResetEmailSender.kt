@@ -3,6 +3,8 @@ package com.vlatkogalev.data.email
 import com.resend.Resend
 import com.resend.services.emails.model.CreateEmailOptions
 import com.vlatkogalev.domain.user.service.PasswordResetEmailSender
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ResendPasswordResetEmailSender(
     apiKey: String,
@@ -11,18 +13,20 @@ class ResendPasswordResetEmailSender(
 ) : PasswordResetEmailSender {
     private val client = Resend(apiKey)
 
-    override fun sendPasswordResetEmail(email: String, resetToken: String) {
-        val resetLink = "$appBaseUrl/auth/reset-password?token=$resetToken"
+    override suspend fun sendPasswordResetEmail(email: String, resetToken: String) {
+        withContext(Dispatchers.IO) {
+            val resetLink = "$appBaseUrl/auth/reset-password?token=$resetToken"
 
-        val params = CreateEmailOptions.builder()
-            .from(fromAddress)
-            .to(email)
-            .subject("[Action required] Reset your password")
-            .html(htmlBody(resetLink))
-            .text(textBody(resetLink))
-            .build()
+            val params = CreateEmailOptions.builder()
+                .from(fromAddress)
+                .to(email)
+                .subject("[Action required] Reset your password")
+                .html(htmlBody(resetLink))
+                .text(textBody(resetLink))
+                .build()
 
-        client.emails().send(params)
+            client.emails().send(params)
+        }
     }
 
     private fun htmlBody(link: String) = """

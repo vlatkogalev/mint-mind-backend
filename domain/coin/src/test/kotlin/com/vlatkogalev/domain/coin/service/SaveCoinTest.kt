@@ -1,6 +1,7 @@
 package com.vlatkogalev.domain.coin.service
 
 import com.vlatkogalev.domain.coin.model.Confidence
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -11,14 +12,16 @@ class SaveCoinTest : CoinServiceTestBase() {
 
     @Test
     fun saveCoin_success_returnsCreatedCoin() {
-        val result = service.saveCoin(
-            userId = TestFixtures.USER_ID,
-            obverseKey = "users/obverse.jpg",
-            reverseKey = "users/reverse.jpg",
-            recognitionResult = TestFixtures.makeRecognitionResult(),
-            catalogueNumbers = listOf(TestFixtures.makeCatalogueNumber()),
-            notes = null,
-        )
+        val result = runBlocking {
+            service.saveCoin(
+                userId = TestFixtures.USER_ID,
+                obverseKey = "users/obverse.jpg",
+                reverseKey = "users/reverse.jpg",
+                recognitionResult = TestFixtures.makeRecognitionResult(),
+                catalogueNumbers = listOf(TestFixtures.makeCatalogueNumber()),
+                notes = null,
+            )
+        }
 
         val coin = assertSuccess(result).value
         assertEquals(TestFixtures.USER_ID, coin.userId)
@@ -29,8 +32,8 @@ class SaveCoinTest : CoinServiceTestBase() {
 
     @Test
     fun saveCoin_success_generatesUniqueId() {
-        val result1 = service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null)
-        val result2 = service.saveCoin(TestFixtures.USER_ID, "k3", "k4", TestFixtures.makeRecognitionResult(), emptyList(), null)
+        val result1 = runBlocking { service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null) }
+        val result2 = runBlocking { service.saveCoin(TestFixtures.USER_ID, "k3", "k4", TestFixtures.makeRecognitionResult(), emptyList(), null) }
 
         val id1 = assertSuccess(result1).value.id
         val id2 = assertSuccess(result2).value.id
@@ -47,7 +50,7 @@ class SaveCoinTest : CoinServiceTestBase() {
             valueHigh = 250.0,
         )
 
-        val coin = assertSuccess(service.saveCoin(TestFixtures.USER_ID, "k1", "k2", recognition, emptyList(), null)).value
+        val coin = assertSuccess(runBlocking { service.saveCoin(TestFixtures.USER_ID, "k1", "k2", recognition, emptyList(), null) }).value
 
         assertEquals(Confidence.MEDIUM, coin.recognitionResult.overallConfidence)
         assertEquals("Germany", coin.recognitionResult.countryOrIssuer)
@@ -63,7 +66,7 @@ class SaveCoinTest : CoinServiceTestBase() {
             TestFixtures.makeCatalogueNumber("Yeoman", "Y# 25", Confidence.MEDIUM),
         )
 
-        val coin = assertSuccess(service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), numbers, null)).value
+        val coin = assertSuccess(runBlocking { service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), numbers, null) }).value
 
         assertEquals(2, coin.catalogueNumbers.size)
         assertEquals("Krause", coin.catalogueNumbers[0].catalogueName)
@@ -74,7 +77,9 @@ class SaveCoinTest : CoinServiceTestBase() {
     @Test
     fun saveCoin_success_preservesNotes() {
         val coin = assertSuccess(
-            service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), "Inherited from grandfather"),
+            runBlocking {
+                service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), "Inherited from grandfather")
+            },
         ).value
 
         assertEquals("Inherited from grandfather", coin.notes)
@@ -82,14 +87,14 @@ class SaveCoinTest : CoinServiceTestBase() {
 
     @Test
     fun saveCoin_success_persistsCoinInRepository() {
-        val coin = assertSuccess(service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null)).value
+        val coin = assertSuccess(runBlocking { service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null) }).value
 
-        assertNotNull(repo.findById(coin.id))
+        assertNotNull(runBlocking { repo.findById(coin.id) })
     }
 
     @Test
     fun saveCoin_withEmptyCatalogueNumbers_succeeds() {
-        val result = service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null)
+        val result = runBlocking { service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null) }
 
         val coin = assertSuccess(result).value
         assertTrue(coin.catalogueNumbers.isEmpty())
@@ -99,7 +104,7 @@ class SaveCoinTest : CoinServiceTestBase() {
     fun saveCoin_withRepositoryException_returnsFailure() {
         repo.throwOnSave = true
 
-        val result = service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null)
+        val result = runBlocking { service.saveCoin(TestFixtures.USER_ID, "k1", "k2", TestFixtures.makeRecognitionResult(), emptyList(), null) }
 
         assertEquals("save failed", assertFailure(result).reason)
     }

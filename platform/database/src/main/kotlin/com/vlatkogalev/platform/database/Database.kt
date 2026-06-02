@@ -5,6 +5,7 @@ import com.vlatkogalev.platform.core.config.loadDatabaseConfig
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
+import org.jetbrains.exposed.sql.Database as ExposedDatabase
 import java.sql.Connection
 import javax.sql.DataSource
 
@@ -27,6 +28,10 @@ fun runMigrations(dataSource: DataSource) {
         .locations("classpath:db/migration")
         .load()
         .migrate()
+}
+
+fun configureExposed(dataSource: DataSource) {
+    ExposedDatabase.connect(dataSource)
 }
 
 fun <T> DataSource.withTransaction(block: (Connection) -> T): T =

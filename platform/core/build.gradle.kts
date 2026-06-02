@@ -8,6 +8,7 @@ kotlin {
 }
 
 dependencies {
+    api(libs.kotlinx.coroutines.core)
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.contentNegotiation)
     implementation(ktorLibs.server.statusPages)

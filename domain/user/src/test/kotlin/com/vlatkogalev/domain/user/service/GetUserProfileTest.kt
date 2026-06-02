@@ -1,5 +1,6 @@
 package com.vlatkogalev.domain.user.service
 
+import kotlinx.coroutines.runBlocking
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,46 +9,50 @@ import kotlin.test.assertNotNull
 class GetUserProfileTest : UserAuthServiceTestBase() {
     @Test
     fun getUserProfile_withUnknownId_returnsFailure() {
-        val result = service.getUserProfile(UUID.randomUUID())
+        val result = runBlocking { service.getUserProfile(UUID.randomUUID()) }
 
         assertEquals("User not found", assertFailure(result).reason)
     }
 
     @Test
     fun getUserProfile_success_returnsCorrectFields() {
-        val user = repo.insert(
-            TestFixtures.makeAccount(
-                emailVerified = true,
-                profile = TestFixtures.makeAccount().profile?.copy(avatarUrl = "https://example.com/avatar.png"),
-            ),
-        )
+        runBlocking {
+            val user = repo.insert(
+                TestFixtures.makeAccount(
+                    emailVerified = true,
+                    profile = TestFixtures.makeAccount().profile?.copy(avatarUrl = "https://example.com/avatar.png"),
+                ),
+            )
 
-        val profile = assertSuccess(service.getUserProfile(user.id)).value
+            val profile = assertSuccess(service.getUserProfile(user.id)).value
 
-        assertEquals(user.id, profile.id)
-        assertEquals(user.email, profile.email)
-        assertEquals(TestFixtures.VALID_FIRST, profile.firstName)
-        assertEquals(TestFixtures.VALID_LAST, profile.lastName)
-        assertEquals("https://example.com/avatar.png", profile.avatarUrl)
-        assertEquals(user.emailVerified, profile.emailVerified)
-        assertEquals(user.isAnonymous, profile.isAnonymous)
+            assertEquals(user.id, profile.id)
+            assertEquals(user.email, profile.email)
+            assertEquals(TestFixtures.VALID_FIRST, profile.firstName)
+            assertEquals(TestFixtures.VALID_LAST, profile.lastName)
+            assertEquals("https://example.com/avatar.png", profile.avatarUrl)
+            assertEquals(user.emailVerified, profile.emailVerified)
+            assertEquals(user.isAnonymous, profile.isAnonymous)
+        }
     }
 
     @Test
     fun getUserProfile_withMissingProfile_throwsIllegalState() {
-        val user = repo.insert(TestFixtures.makeAccount(profile = null))
+        runBlocking {
+            val user = repo.insert(TestFixtures.makeAccount(profile = null))
 
-        val failure = assertFailure(service.getUserProfile(user.id))
+            val failure = assertFailure(service.getUserProfile(user.id))
 
-        assertEquals("User profile is missing", failure.reason)
-        assertNotNull(failure.cause)
+            assertEquals("User profile is missing", failure.reason)
+            assertNotNull(failure.cause)
+        }
     }
 
     @Test
     fun getUserProfile_withRepositoryException_returnsFailure() {
         repo.throwOnFindById = true
 
-        val result = service.getUserProfile(UUID.randomUUID())
+        val result = runBlocking { service.getUserProfile(UUID.randomUUID()) }
 
         assertEquals("findById failed", assertFailure(result).reason)
     }

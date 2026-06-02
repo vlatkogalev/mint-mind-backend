@@ -11,7 +11,7 @@ class CoinSetServiceImpl(
     private val coinSetRepository: CoinSetRepository,
     private val coinRepository: CoinRepository,
 ) : CoinSetService {
-    override fun createSet(userId: UUID, name: String, description: String?): Result<CoinSet> = try {
+    override suspend fun createSet(userId: UUID, name: String, description: String?): Result<CoinSet> = try {
         if (name.isBlank()) return Result.Failure("name must not be blank")
         Result.Success(
             coinSetRepository.create(
@@ -30,7 +30,7 @@ class CoinSetServiceImpl(
         Result.Failure(ex.message ?: "Failed to create set", ex)
     }
 
-    override fun getSet(setId: UUID, userId: UUID): Result<CoinSet> = try {
+    override suspend fun getSet(setId: UUID, userId: UUID): Result<CoinSet> = try {
         val set = coinSetRepository.findById(setId)
         when {
             set == null -> Result.Failure("Set not found")
@@ -41,13 +41,13 @@ class CoinSetServiceImpl(
         Result.Failure(ex.message ?: "Failed to get set", ex)
     }
 
-    override fun listSets(userId: UUID): Result<List<CoinSet>> = try {
+    override suspend fun listSets(userId: UUID): Result<List<CoinSet>> = try {
         Result.Success(coinSetRepository.findByUserId(userId))
     } catch (ex: Exception) {
         Result.Failure(ex.message ?: "Failed to list sets", ex)
     }
 
-    override fun addCoinsToSet(setId: UUID, userId: UUID, coinIds: List<UUID>): Result<CoinSet> = try {
+    override suspend fun addCoinsToSet(setId: UUID, userId: UUID, coinIds: List<UUID>): Result<CoinSet> = try {
         if (coinIds.isEmpty()) return Result.Failure("coinIds must not be empty")
         val set = coinSetRepository.findById(setId) ?: return Result.Failure("Set not found")
         if (set.userId != userId) return Result.Failure("Set not found")
@@ -65,7 +65,7 @@ class CoinSetServiceImpl(
         Result.Failure(ex.message ?: "Failed to add coins to set", ex)
     }
 
-    override fun removeCoinsFromSet(setId: UUID, userId: UUID, coinIds: List<UUID>): Result<CoinSet> = try {
+    override suspend fun removeCoinsFromSet(setId: UUID, userId: UUID, coinIds: List<UUID>): Result<CoinSet> = try {
         if (coinIds.isEmpty()) return Result.Failure("coinIds must not be empty")
         val updated = coinSetRepository.removeCoins(setId, userId, coinIds) ?: return Result.Failure("Set not found")
         Result.Success(updated)
@@ -73,7 +73,7 @@ class CoinSetServiceImpl(
         Result.Failure(ex.message ?: "Failed to remove coins from set", ex)
     }
 
-    override fun updateSet(setId: UUID, userId: UUID, name: String, description: String?): Result<CoinSet> = try {
+    override suspend fun updateSet(setId: UUID, userId: UUID, name: String, description: String?): Result<CoinSet> = try {
         if (name.isBlank()) return Result.Failure("name must not be blank")
         val updated = coinSetRepository.update(setId, userId, name.trim(), description) ?: return Result.Failure("Set not found")
         Result.Success(updated)
@@ -81,7 +81,7 @@ class CoinSetServiceImpl(
         Result.Failure(ex.message ?: "Failed to update set", ex)
     }
 
-    override fun deleteSet(setId: UUID, userId: UUID): Result<Unit> = try {
+    override suspend fun deleteSet(setId: UUID, userId: UUID): Result<Unit> = try {
         if (coinSetRepository.deleteById(setId, userId)) Result.Success(Unit)
         else Result.Failure("Set not found")
     } catch (ex: Exception) {

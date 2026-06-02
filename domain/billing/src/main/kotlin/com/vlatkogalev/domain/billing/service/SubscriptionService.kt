@@ -12,14 +12,14 @@ import java.util.*
 class SubscriptionService(
     private val subscriptionRepository: SubscriptionRepository,
 ) {
-    fun getUserPlan(userId: UUID, now: Instant = Instant.now()): SubscriptionPlan =
+    suspend fun getUserPlan(userId: UUID, now: Instant = Instant.now()): SubscriptionPlan =
         subscriptionRepository.findByUserId(userId)
             ?.takeIf { it.status == SubscriptionStatus.ACTIVE }
             ?.takeIf { it.expiresAt == null || it.expiresAt.isAfter(now) }
             ?.plan
             ?: SubscriptionPlan.FREE
 
-    fun handleRevenueCatEvent(event: RevenueCatSubscriptionEvent): Result<Unit> =
+    suspend fun handleRevenueCatEvent(event: RevenueCatSubscriptionEvent): Result<Unit> =
         try {
             val updated = subscriptionRepository.updateFromRevenueCat(
                 revenueCatCustomerId = event.revenueCatCustomerId,

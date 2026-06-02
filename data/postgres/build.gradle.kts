@@ -13,6 +13,9 @@ dependencies {
     implementation(project(":domain:news"))
     implementation(project(":domain:marketplace"))
     implementation(project(":platform:database"))
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.java.time)
 
     testImplementation(testFixtures(project(":platform:database")))
     testImplementation(libs.testcontainers.core)

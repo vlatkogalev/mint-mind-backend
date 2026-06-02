@@ -56,7 +56,7 @@ class FakeUserRepository : UserRepository {
         updateLastSeenCalls = 0
     }
 
-    fun insert(user: UserAccount): UserAccount {
+    suspend fun insert(user: UserAccount): UserAccount {
         users[user.id] = user
         if (!user.email.isNullOrBlank() && authIdentities.values.none { it.userId == user.id && it.authType == AuthType.EMAIL }) {
             createAuthIdentity(
@@ -76,18 +76,18 @@ class FakeUserRepository : UserRepository {
     fun findPasswordResetTokenByUserId(userId: UUID): PasswordResetToken? =
         resetTokens.values.firstOrNull { it.userId == userId }
 
-    override fun findById(userId: UUID): UserAccount? {
+    override suspend fun findById(userId: UUID): UserAccount? {
         if (throwOnFindById) error("findById failed")
         return users[userId]
     }
 
-    override fun findByVerificationToken(token: String): UserAccount? =
+    override suspend fun findByVerificationToken(token: String): UserAccount? =
         users.values.firstOrNull { it.verificationToken == token }
 
-    override fun findUserByInstallationId(installationId: String): UserAccount? =
+    override suspend fun findUserByInstallationId(installationId: String): UserAccount? =
         installationToUserId[installationId]?.let { users[it] }
 
-    override fun create(
+    override suspend fun create(
         email: String,
         firstName: String,
         lastName: String,
@@ -117,7 +117,7 @@ class FakeUserRepository : UserRepository {
         )
     }
 
-    override fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount? {
+    override suspend fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount? {
         if (throwOnUpdateProfile) error("updateProfile failed")
         val user = users[userId] ?: return null
         val currentProfile = user.profile ?: error("User profile is missing")
@@ -131,28 +131,28 @@ class FakeUserRepository : UserRepository {
         return updated
     }
 
-    override fun createAnonymousInstallation(installationId: String, userId: UUID) {
+    override suspend fun createAnonymousInstallation(installationId: String, userId: UUID) {
         installationToUserId[installationId] = userId
     }
 
-    override fun updateLastSeen(installationId: String) {
+    override suspend fun updateLastSeen(installationId: String) {
         updateLastSeenCalls++
     }
 
-    override fun createAuthIdentity(identity: UserAuthIdentity) {
+    override suspend fun createAuthIdentity(identity: UserAuthIdentity) {
         authIdentities[identity.id] = identity
     }
 
-    override fun findAuthIdentityByEmail(email: String): UserAuthIdentity? =
+    override suspend fun findAuthIdentityByEmail(email: String): UserAuthIdentity? =
         run {
             if (throwOnFindByEmail) error("findByEmail failed")
             authIdentities.values.firstOrNull { it.authType == AuthType.EMAIL && it.email.equals(email, ignoreCase = true) }
         }
 
-    override fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity> =
+    override suspend fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity> =
         authIdentities.values.filter { it.userId == userId }
 
-    override fun createAnonymousUser(installationId: String): UserAccount {
+    override suspend fun createAnonymousUser(installationId: String): UserAccount {
         if (throwOnCreate) error("create failed")
         val userId = UUID.randomUUID()
         val user = insert(
@@ -188,7 +188,7 @@ class FakeUserRepository : UserRepository {
         return user
     }
 
-    override fun upgradeAnonymousUser(
+    override suspend fun upgradeAnonymousUser(
         userId: UUID,
         email: String,
         passwordHash: String,
@@ -220,18 +220,18 @@ class FakeUserRepository : UserRepository {
         return UpgradeAnonymousResult.Success(upgraded)
     }
 
-    override fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
+    override suspend fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
         if (throwOnSaveRefreshTokenHash) error("saveRefreshTokenHash failed")
         val user = users[userId] ?: return
         users[userId] = user.copy(refreshTokenHash = tokenHash)
     }
 
-    override fun clearRefreshTokenHash(userId: UUID) {
+    override suspend fun clearRefreshTokenHash(userId: UUID) {
         val user = users[userId] ?: return
         users[userId] = user.copy(refreshTokenHash = null)
     }
 
-    override fun verifyEmail(token: String): Boolean {
+    override suspend fun verifyEmail(token: String): Boolean {
         if (throwOnVerifyEmail) error("verifyEmail failed")
         val user = findByVerificationToken(token) ?: return false
         users[user.id] = user.copy(
@@ -241,7 +241,7 @@ class FakeUserRepository : UserRepository {
         return true
     }
 
-    override fun updateVerificationToken(userId: UUID, token: String) {
+    override suspend fun updateVerificationToken(userId: UUID, token: String) {
         if (throwOnUpdateVerificationToken) error("updateVerificationToken failed")
         val user = users[userId] ?: return
         users[userId] = user.copy(
@@ -250,7 +250,7 @@ class FakeUserRepository : UserRepository {
         )
     }
 
-    override fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant) {
+    override suspend fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant) {
         if (throwOnUpsertPasswordResetToken) error("upsertPasswordResetToken failed")
         resetTokens.entries.removeIf { it.value.userId == userId }
         resetTokens[token] = PasswordResetToken(
@@ -260,16 +260,16 @@ class FakeUserRepository : UserRepository {
         )
     }
 
-    override fun findPasswordResetToken(token: String): PasswordResetToken? {
+    override suspend fun findPasswordResetToken(token: String): PasswordResetToken? {
         if (throwOnFindPasswordResetToken) error("findPasswordResetToken failed")
         return resetTokens[token]
     }
 
-    override fun consumePasswordResetToken(token: String) {
+    override suspend fun consumePasswordResetToken(token: String) {
         resetTokens.remove(token)
     }
 
-    override fun updatePassword(userId: UUID, newPasswordHash: String) {
+    override suspend fun updatePassword(userId: UUID, newPasswordHash: String) {
         val user = users[userId] ?: return
         users[userId] = user.copy(passwordHash = newPasswordHash)
         authIdentities.entries
@@ -279,7 +279,7 @@ class FakeUserRepository : UserRepository {
             }
     }
 
-    override fun confirmPasswordReset(token: String, newPasswordHash: String): PasswordResetConfirmationResult {
+    override suspend fun confirmPasswordReset(token: String, newPasswordHash: String): PasswordResetConfirmationResult {
         confirmPasswordResetCalls++
         if (throwOnConfirmPasswordReset) error("confirmPasswordReset failed")
         val resetToken = resetTokens[token] ?: return PasswordResetConfirmationResult.INVALID_TOKEN
@@ -292,36 +292,36 @@ class FakeUserRepository : UserRepository {
         return PasswordResetConfirmationResult.SUCCESS
     }
 
-    override fun deleteById(userId: UUID): Boolean {
+    override suspend fun deleteById(userId: UUID): Boolean {
         if (throwOnDeleteById) error("deleteById failed")
         return users.remove(userId) != null
     }
 }
 
 class FakePasswordHasher : UserPasswordHasher {
-    override fun hash(password: String): String = "hashed:$password"
-    override fun verify(password: String, encodedHash: String): Boolean = encodedHash == "hashed:$password"
+    override suspend fun hash(password: String): String = "hashed:$password"
+    override suspend fun verify(password: String, encodedHash: String): Boolean = encodedHash == "hashed:$password"
 }
 
 class FakeTokenProvider : UserTokenProvider {
     private val refreshCounts = mutableMapOf<UUID, Int>()
 
-    override fun createAccessToken(userId: UUID, isAnonymous: Boolean): String = "access:$userId"
+    override suspend fun createAccessToken(userId: UUID, isAnonymous: Boolean): String = "access:$userId"
 
-    override fun generateRefreshToken(userId: UUID): String {
+    override suspend fun generateRefreshToken(userId: UUID): String {
         val nextCount = (refreshCounts[userId] ?: 0) + 1
         refreshCounts[userId] = nextCount
         return "$userId:refresh-token-$nextCount"
     }
 
-    override fun accessTokenExpiresInSeconds(): Long = 3600L
-    override fun refreshTokenExpiresInSeconds(): Long = 86400L
+    override suspend fun accessTokenExpiresInSeconds(): Long = 3600L
+    override suspend fun refreshTokenExpiresInSeconds(): Long = 86400L
 }
 
 class RecordingEmailSender : EmailVerificationSender {
     val sentEmails = mutableListOf<Pair<String, String>>()
 
-    override fun sendVerificationEmail(email: String, verificationToken: String) {
+    override suspend fun sendVerificationEmail(email: String, verificationToken: String) {
         sentEmails += email to verificationToken
     }
 
@@ -331,7 +331,7 @@ class RecordingEmailSender : EmailVerificationSender {
 class RecordingPasswordResetEmailSender : PasswordResetEmailSender {
     val sentEmails = mutableListOf<Pair<String, String>>()
 
-    override fun sendPasswordResetEmail(email: String, resetToken: String) {
+    override suspend fun sendPasswordResetEmail(email: String, resetToken: String) {
         sentEmails += email to resetToken
     }
 
@@ -396,7 +396,7 @@ abstract class UserAuthServiceTestBase {
         )
     }
 
-    protected fun verifiedUser(email: String = TestFixtures.VALID_EMAIL): UserAccount = repo.insert(
+    protected suspend fun verifiedUser(email: String = TestFixtures.VALID_EMAIL): UserAccount = repo.insert(
         TestFixtures.makeAccount(
             email = email,
             emailVerified = true,

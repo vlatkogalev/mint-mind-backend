@@ -4,11 +4,11 @@ import com.vlatkogalev.domain.coin.model.CoinSet
 import java.util.UUID
 
 interface CoinSetRepository {
-    fun create(set: CoinSet): CoinSet
-    fun findById(id: UUID): CoinSet?
-    fun findByUserId(userId: UUID): List<CoinSet>
-    fun addCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet?
-    fun removeCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet?
-    fun update(setId: UUID, userId: UUID, name: String, description: String?): CoinSet?
-    fun deleteById(id: UUID, userId: UUID): Boolean
+    suspend fun create(set: CoinSet): CoinSet
+    suspend fun findById(id: UUID): CoinSet?
+    suspend fun findByUserId(userId: UUID): List<CoinSet>
+    suspend fun addCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet?
+    suspend fun removeCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet?
+    suspend fun update(setId: UUID, userId: UUID, name: String, description: String?): CoinSet?
+    suspend fun deleteById(id: UUID, userId: UUID): Boolean
 }

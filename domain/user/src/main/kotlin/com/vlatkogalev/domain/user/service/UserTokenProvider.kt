@@ -3,8 +3,8 @@ package com.vlatkogalev.domain.user.service
 import java.util.UUID
 
 interface UserTokenProvider {
-    fun createAccessToken(userId: UUID, isAnonymous: Boolean): String
-    fun generateRefreshToken(userId: UUID): String
-    fun accessTokenExpiresInSeconds(): Long
-    fun refreshTokenExpiresInSeconds(): Long
+    suspend fun createAccessToken(userId: UUID, isAnonymous: Boolean): String
+    suspend fun generateRefreshToken(userId: UUID): String
+    suspend fun accessTokenExpiresInSeconds(): Long
+    suspend fun refreshTokenExpiresInSeconds(): Long
 }

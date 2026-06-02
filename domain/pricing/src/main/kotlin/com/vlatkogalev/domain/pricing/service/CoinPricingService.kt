@@ -12,5 +12,5 @@ interface CoinPricingService {
      * 1. With grade (narrow) — if >= [minResults] results come back, return immediately.
      * 2. Without grade (broad) — fallback when pass 1 is thin.
      */
-    fun getPricing(coin: Coin, minResults: Int = 3): Result<CoinPricingResult>
+    suspend fun getPricing(coin: Coin, minResults: Int = 3): Result<CoinPricingResult>
 }

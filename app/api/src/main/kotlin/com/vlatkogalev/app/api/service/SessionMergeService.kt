@@ -7,7 +7,7 @@ class SessionMergeService(
     private val userRepository: UserRepository,
     private val coinRepository: CoinRepository,
 ) {
-    fun mergeIfNeeded(installationId: String, authenticatedEmail: String) {
+    suspend fun mergeIfNeeded(installationId: String, authenticatedEmail: String) {
         val normalizedInstallationId = installationId.trim()
         if (normalizedInstallationId.isBlank()) return
 

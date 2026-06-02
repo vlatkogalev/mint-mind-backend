@@ -6,6 +6,7 @@ import com.vlatkogalev.domain.coin.model.CoinFingerprint
 import com.vlatkogalev.domain.coin.model.ExternalCoinReference
 import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.platform.core.Result
+import kotlinx.coroutines.runBlocking
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -21,11 +22,11 @@ class CoinEnrichmentServiceImplTest {
         val now = Instant.parse("2026-01-01T00:00:00Z")
         val repository = InMemoryCatalogCoinRepository()
         val fingerprint = fingerprint(year = 1921)
-        val existing = repository.save(stubCoin(fingerprint, now).copy(enrichedAt = now))
+        val existing = runBlocking { repository.save(stubCoin(fingerprint, now).copy(enrichedAt = now)) }
         val provider = FakeProvider("numista")
         val service = service(repository, listOf(provider), now)
 
-        val result = service.getOrEnrich(fingerprint)
+        val result = runBlocking { service.getOrEnrich(fingerprint) }
 
         assertEquals(existing.id, result?.id)
         assertEquals(0, provider.callCount)
@@ -36,11 +37,11 @@ class CoinEnrichmentServiceImplTest {
         val now = Instant.parse("2026-01-02T00:00:00Z")
         val repository = InMemoryCatalogCoinRepository()
         val fingerprint = fingerprint(year = 1921)
-        repository.save(stubCoin(fingerprint, now).copy(lastEnrichmentFailedAt = now.minus(Duration.ofHours(1))))
+        runBlocking { repository.save(stubCoin(fingerprint, now).copy(lastEnrichmentFailedAt = now.minus(Duration.ofHours(1)))) }
         val provider = FakeProvider("numista")
         val service = service(repository, listOf(provider), now)
 
-        val result = service.getOrEnrich(fingerprint)
+        val result = runBlocking { service.getOrEnrich(fingerprint) }
 
         assertNotNull(result)
         assertEquals(0, provider.callCount)
@@ -54,7 +55,7 @@ class CoinEnrichmentServiceImplTest {
         val provider = FakeProvider("numista")
         val service = service(repository, listOf(provider), now)
 
-        val result = service.getOrEnrich(fingerprint)
+        val result = runBlocking { service.getOrEnrich(fingerprint) }
 
         assertNotNull(result)
         assertNull(result.enrichedAt)
@@ -72,8 +73,8 @@ class CoinEnrichmentServiceImplTest {
         val provider = FakeProvider("numista", Result.Success(listOf(candidateNoYear, candidateWithYear)))
         val service = service(repository, listOf(provider), now)
 
-        val result = service.getOrEnrich(fingerprint)
-        val reference = result?.id?.let { repository.findExternalReference(it, "numista") }
+        val result = runBlocking { service.getOrEnrich(fingerprint) }
+        val reference = result?.id?.let { runBlocking { repository.findExternalReference(it, "numista") } }
 
         assertNotNull(result)
         assertNotNull(result.enrichedAt)
@@ -89,7 +90,7 @@ class CoinEnrichmentServiceImplTest {
         val provider = FakeProvider("numista", Result.Failure("provider down"))
         val service = service(repository, listOf(provider), now)
 
-        val result = service.getOrEnrich(fingerprint)
+        val result = runBlocking { service.getOrEnrich(fingerprint) }
 
         assertNotNull(result)
         assertNull(result.enrichedAt)
@@ -109,8 +110,8 @@ class CoinEnrichmentServiceImplTest {
         )
         val service = service(repository, listOf(provider), now)
 
-        val first = service.getOrEnrich(fingerprint)
-        val second = service.getOrEnrich(fingerprint)
+        val first = runBlocking { service.getOrEnrich(fingerprint) }
+        val second = runBlocking { service.getOrEnrich(fingerprint) }
 
         assertNotNull(first)
         assertNotNull(second)
@@ -140,7 +141,7 @@ class CoinEnrichmentServiceImplTest {
         )
         val service = service(repository, listOf(provider), now)
 
-        val result = service.getOrEnrich(fingerprint)
+        val result = runBlocking { service.getOrEnrich(fingerprint) }
 
         assertNotNull(result)
         assertNull(result.enrichedAt)
@@ -154,7 +155,7 @@ class CoinEnrichmentServiceImplTest {
         val provider = FakeProvider("numista")
         val service = service(repository, listOf(provider), now)
 
-        val result = service.enrichById(UUID.randomUUID())
+        val result = runBlocking { service.enrichById(UUID.randomUUID()) }
 
         val failure = result as? Result.Failure
         assertNotNull(failure)
@@ -168,8 +169,8 @@ class CoinEnrichmentServiceImplTest {
         val provider = FakeProvider("numista")
         val service = service(repository, listOf(provider), now)
 
-        val first = service.getOrEnrich(fingerprint(year = 1921).copy(title = "Morgan Dollar"))
-        val second = service.getOrEnrich(fingerprint(year = 1921).copy(title = "Peace Dollar"))
+        val first = runBlocking { service.getOrEnrich(fingerprint(year = 1921).copy(title = "Morgan Dollar")) }
+        val second = runBlocking { service.getOrEnrich(fingerprint(year = 1921).copy(title = "Peace Dollar")) }
 
         assertNotNull(first)
         assertNotNull(second)
@@ -244,7 +245,7 @@ private class FakeProvider(
     var callCount: Int = 0
         private set
 
-    override fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>> {
+    override suspend fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>> {
         callCount++
         return response
     }
@@ -254,7 +255,7 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
     private val coins = mutableMapOf<UUID, CatalogCoin>()
     private val references = mutableMapOf<Pair<UUID, String>, ExternalCoinReference>()
 
-    override fun findByFingerprint(fingerprint: CoinFingerprint): CatalogCoin? =
+    override suspend fun findByFingerprint(fingerprint: CoinFingerprint): CatalogCoin? =
         coins.values.firstOrNull {
             it.fingerprint.countryOrIssuer == fingerprint.countryOrIssuer &&
                 it.fingerprint.denomination == fingerprint.denomination &&
@@ -262,19 +263,19 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
                 it.fingerprint.year == fingerprint.year
         }
 
-    override fun findById(id: UUID): CatalogCoin? = coins[id]
+    override suspend fun findById(id: UUID): CatalogCoin? = coins[id]
 
-    override fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin? {
+    override suspend fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin? {
         val reference = references.values.firstOrNull { it.provider == provider && it.externalId == externalId } ?: return null
         return coins[reference.catalogCoinId]
     }
 
-    override fun save(catalogCoin: CatalogCoin): CatalogCoin {
+    override suspend fun save(catalogCoin: CatalogCoin): CatalogCoin {
         coins[catalogCoin.id] = catalogCoin
         return catalogCoin
     }
 
-    override fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): CatalogCoin? {
+    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): CatalogCoin? {
         val current = coins[catalogCoinId] ?: return null
         val updated = current.copy(
             enrichedAt = now,
@@ -287,7 +288,7 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
         return updated
     }
 
-    override fun markEnrichmentFailed(catalogCoinId: UUID, now: Instant, error: String?): CatalogCoin? {
+    override suspend fun markEnrichmentFailed(catalogCoinId: UUID, now: Instant, error: String?): CatalogCoin? {
         val current = coins[catalogCoinId] ?: return null
         val updated = current.copy(
             lastEnrichmentAttemptAt = now,
@@ -299,11 +300,11 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
         return updated
     }
 
-    override fun saveExternalReference(reference: ExternalCoinReference): ExternalCoinReference {
+    override suspend fun saveExternalReference(reference: ExternalCoinReference): ExternalCoinReference {
         references[reference.catalogCoinId to reference.provider] = reference
         return reference
     }
 
-    override fun findExternalReference(catalogCoinId: UUID, provider: String): ExternalCoinReference? =
+    override suspend fun findExternalReference(catalogCoinId: UUID, provider: String): ExternalCoinReference? =
         references[catalogCoinId to provider]
 }

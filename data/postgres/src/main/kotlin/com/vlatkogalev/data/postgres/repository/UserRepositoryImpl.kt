@@ -1,9 +1,5 @@
 package com.vlatkogalev.data.postgres.repository
 
-import com.vlatkogalev.data.postgres.daos.UserQueries
-import com.vlatkogalev.data.postgres.entities.PasswordResetTokenRecord
-import com.vlatkogalev.data.postgres.entities.UserAuthIdentityRecord
-import com.vlatkogalev.data.postgres.entities.UserRecord
 import com.vlatkogalev.domain.user.model.AuthType
 import com.vlatkogalev.domain.user.model.PasswordResetConfirmationResult
 import com.vlatkogalev.domain.user.model.PasswordResetToken
@@ -12,220 +8,396 @@ import com.vlatkogalev.domain.user.model.UserAuthIdentity
 import com.vlatkogalev.domain.user.model.UserAccount
 import com.vlatkogalev.domain.user.model.UserProfile
 import com.vlatkogalev.domain.user.repository.UserRepository
-import com.vlatkogalev.platform.database.withTransaction
+import com.vlatkogalev.platform.database.tables.AnonymousInstallationsTable
+import com.vlatkogalev.platform.database.tables.PasswordResetTokensTable
+import com.vlatkogalev.platform.database.tables.ProfilesTable
+import com.vlatkogalev.platform.database.tables.SubscriptionsTable
+import com.vlatkogalev.platform.database.tables.UserAuthIdentitiesTable
+import com.vlatkogalev.platform.database.tables.UsersTable
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.upsert
 import java.time.Instant
-import java.util.*
-import javax.sql.DataSource
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.util.UUID
 
-class UserRepositoryImpl(
-    private val queries: UserQueries,
-    private val dataSource: DataSource,
-) : UserRepository {
-    override fun findById(userId: UUID): UserAccount? = queries.findById(userId)?.toUserAccount()
+class UserRepositoryImpl : UserRepository {
 
-    override fun findByVerificationToken(token: String): UserAccount? =
-        queries.findByVerificationToken(token)?.toUserAccount()
+    override suspend fun findById(userId: UUID): UserAccount? =
+        newSuspendedTransaction { findUserById(userId) }
 
-    override fun findUserByInstallationId(installationId: String): UserAccount? =
-        queries.findByInstallationId(installationId)?.toUserAccount()
+    override suspend fun findByVerificationToken(token: String): UserAccount? =
+        newSuspendedTransaction {
+            UsersTable.selectAll()
+                .where { UsersTable.verificationToken eq token }
+                .singleOrNull()
+                ?.let { resultToUserAccount(it) }
+        }
 
-    override fun create(
+    override suspend fun findUserByInstallationId(installationId: String): UserAccount? =
+        newSuspendedTransaction {
+            AnonymousInstallationsTable.selectAll()
+                .where { AnonymousInstallationsTable.installationId eq installationId }
+                .singleOrNull()
+                ?.let { aiRow ->
+                    UsersTable.selectAll()
+                        .where { UsersTable.id eq aiRow[AnonymousInstallationsTable.userId] }
+                        .singleOrNull()
+                        ?.let { userRow -> resultToUserAccount(userRow) }
+                }
+        }
+
+    override suspend fun create(
         email: String,
         firstName: String,
         lastName: String,
         passwordHash: String,
         verificationToken: String,
     ): UserAccount =
-        dataSource.withTransaction { connection ->
+        newSuspendedTransaction {
             val userId = UUID.randomUUID()
-            queries.create(
-                connection = connection,
-                userId = userId,
-                profileId = UUID.randomUUID(),
-                subscriptionId = UUID.randomUUID(),
-                email = email,
-                firstName = firstName,
-                lastName = lastName,
-                passwordHash = passwordHash,
-                verificationToken = verificationToken,
-                rcCustomerId = userId.toString(),
-            ).toUserAccount()
+            val profileId = UUID.randomUUID()
+            val subscriptionId = UUID.randomUUID()
+
+            UsersTable.insert { stmt ->
+                stmt[id] = userId
+                stmt[UsersTable.email] = email
+                stmt[UsersTable.passwordHash] = passwordHash
+                stmt[UsersTable.verificationToken] = verificationToken
+                stmt[UsersTable.isAnonymous] = false
+            }
+
+            ProfilesTable.insert { stmt ->
+                stmt[id] = profileId
+                stmt[ProfilesTable.userId] = userId
+                stmt[ProfilesTable.firstName] = firstName
+                stmt[ProfilesTable.lastName] = lastName
+            }
+
+            SubscriptionsTable.insert { stmt ->
+                stmt[id] = subscriptionId
+                stmt[SubscriptionsTable.userId] = userId
+                stmt[SubscriptionsTable.rcCustomerId] = userId.toString()
+                stmt[SubscriptionsTable.plan] = "free"
+                stmt[SubscriptionsTable.status] = "active"
+            }
+
+            findUserById(userId) ?: error("Created user could not be loaded")
         }
 
-    override fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount? =
-        queries.updateProfile(userId, firstName, lastName)?.toUserAccount()
-
-    override fun createAnonymousInstallation(installationId: String, userId: UUID) {
-        queries.createAnonymousInstallation(installationId, userId)
-    }
-
-    override fun updateLastSeen(installationId: String) {
-        queries.updateLastSeen(installationId)
-    }
-
-    override fun createAuthIdentity(identity: UserAuthIdentity) {
-        queries.createAuthIdentity(
-            id = identity.id,
-            userId = identity.userId,
-            authType = identity.authType.name,
-            email = identity.email,
-            passwordHash = identity.passwordHash,
-        )
-    }
-
-    override fun findAuthIdentityByEmail(email: String): UserAuthIdentity? =
-        queries.findAuthIdentityByEmail(email)?.toDomain()
-
-    override fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity> =
-        queries.findAuthIdentitiesByUserId(userId).map { it.toDomain() }
-
-    override fun createAnonymousUser(installationId: String): UserAccount =
-        dataSource.withTransaction { connection ->
-            val userId = UUID.randomUUID()
-            val user = queries.createAnonymousUser(
-                connection = connection,
-                userId = userId,
-                profileId = UUID.randomUUID(),
-                subscriptionId = UUID.randomUUID(),
-                rcCustomerId = userId.toString(),
+    override suspend fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount? =
+        newSuspendedTransaction {
+            ProfilesTable.update(
+                where = { ProfilesTable.userId eq userId },
+                body = {
+                    it[ProfilesTable.firstName] = firstName
+                    it[ProfilesTable.lastName] = lastName
+                },
             )
-            queries.createAuthIdentity(
-                connection = connection,
-                id = UUID.randomUUID(),
-                userId = userId,
-                authType = AuthType.ANONYMOUS.name,
-                email = null,
-                passwordHash = null,
-            )
-            queries.createAnonymousInstallation(installationId, userId)
-            user.toUserAccount()
+            findUserById(userId)
         }
 
-    override fun upgradeAnonymousUser(
+    override suspend fun createAnonymousInstallation(installationId: String, userId: UUID) {
+        newSuspendedTransaction {
+            AnonymousInstallationsTable.upsert(AnonymousInstallationsTable.installationId) { stmt ->
+                stmt[AnonymousInstallationsTable.installationId] = installationId
+                stmt[AnonymousInstallationsTable.userId] = userId
+                stmt[AnonymousInstallationsTable.lastSeenAt] = nowUtc()
+            }
+        }
+    }
+
+    override suspend fun updateLastSeen(installationId: String) {
+        newSuspendedTransaction {
+            AnonymousInstallationsTable.update(
+                where = { AnonymousInstallationsTable.installationId eq installationId },
+                body = { it[AnonymousInstallationsTable.lastSeenAt] = nowUtc() },
+            )
+        }
+    }
+
+    override suspend fun createAuthIdentity(identity: UserAuthIdentity) {
+        newSuspendedTransaction {
+            UserAuthIdentitiesTable.insert { stmt ->
+                stmt[id] = identity.id
+                stmt[userId] = identity.userId
+                stmt[authType] = identity.authType.name
+                stmt[email] = identity.email
+                stmt[passwordHash] = identity.passwordHash
+            }
+        }
+    }
+
+    override suspend fun findAuthIdentityByEmail(email: String): UserAuthIdentity? =
+        newSuspendedTransaction {
+            UserAuthIdentitiesTable.selectAll()
+                .where { UserAuthIdentitiesTable.email eq email.lowercase() }
+                .singleOrNull()
+                ?.toUserAuthIdentity()
+        }
+
+    override suspend fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity> =
+        newSuspendedTransaction {
+            UserAuthIdentitiesTable.selectAll()
+                .where { UserAuthIdentitiesTable.userId eq userId }
+                .orderBy(UserAuthIdentitiesTable.createdAt to SortOrder.ASC)
+                .map { it.toUserAuthIdentity() }
+        }
+
+    override suspend fun createAnonymousUser(installationId: String): UserAccount =
+        newSuspendedTransaction {
+            val userId = UUID.randomUUID()
+            val profileId = UUID.randomUUID()
+            val subscriptionId = UUID.randomUUID()
+
+            UsersTable.insert { stmt ->
+                stmt[id] = userId
+                stmt[isAnonymous] = true
+            }
+
+            ProfilesTable.insert { stmt ->
+                stmt[id] = profileId
+                stmt[ProfilesTable.userId] = userId
+                stmt[ProfilesTable.firstName] = "Anonymous"
+                stmt[ProfilesTable.lastName] = "User"
+            }
+
+            SubscriptionsTable.insert { stmt ->
+                stmt[id] = subscriptionId
+                stmt[SubscriptionsTable.userId] = userId
+                stmt[SubscriptionsTable.rcCustomerId] = userId.toString()
+                stmt[SubscriptionsTable.plan] = "free"
+                stmt[SubscriptionsTable.status] = "active"
+            }
+
+            UserAuthIdentitiesTable.insert { stmt ->
+                stmt[id] = UUID.randomUUID()
+                stmt[UserAuthIdentitiesTable.userId] = userId
+                stmt[authType] = AuthType.ANONYMOUS.name
+                stmt[email] = null
+                stmt[passwordHash] = null
+            }
+
+            AnonymousInstallationsTable.insert { stmt ->
+                stmt[AnonymousInstallationsTable.installationId] = installationId
+                stmt[AnonymousInstallationsTable.userId] = userId
+            }
+
+            findUserById(userId) ?: error("Created anonymous user could not be loaded")
+        }
+
+    override suspend fun upgradeAnonymousUser(
         userId: UUID,
         email: String,
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,
     ): UpgradeAnonymousResult =
-        dataSource.withTransaction { connection ->
-            val current = queries.findById(connection, userId)
-                ?: return@withTransaction UpgradeAnonymousResult.NotFound
+        newSuspendedTransaction {
+            val isAnonymous = UsersTable.selectAll()
+                .where { UsersTable.id eq userId }
+                .singleOrNull()
+                ?.get(UsersTable.isAnonymous)
 
-            if (!current.isAnonymous) {
-                return@withTransaction UpgradeAnonymousResult.NotAnonymous
+            if (isAnonymous == null) return@newSuspendedTransaction UpgradeAnonymousResult.NotFound
+            if (!isAnonymous) return@newSuspendedTransaction UpgradeAnonymousResult.NotAnonymous
+
+            val updated = UsersTable.update(
+                where = { (UsersTable.id eq userId) and (UsersTable.isAnonymous eq true) },
+                body = {
+                    it[UsersTable.email] = email
+                    it[UsersTable.passwordHash] = passwordHash
+                    it[UsersTable.emailVerified] = markVerified
+                    it[UsersTable.verificationToken] = if (markVerified) null else verificationToken
+                    it[UsersTable.isAnonymous] = false
+                    val now = nowUtc()
+                    it[UsersTable.upgradedAt] = now
+                    it[UsersTable.updatedAt] = now
+                },
+            ) > 0
+            if (!updated) return@newSuspendedTransaction UpgradeAnonymousResult.NotFound
+
+            UserAuthIdentitiesTable.insert { stmt ->
+                stmt[id] = UUID.randomUUID()
+                stmt[UserAuthIdentitiesTable.userId] = userId
+                stmt[UserAuthIdentitiesTable.authType] = AuthType.EMAIL.name
+                stmt[UserAuthIdentitiesTable.email] = email
+                stmt[UserAuthIdentitiesTable.passwordHash] = passwordHash
             }
 
-            val upgraded = queries.upgradeAnonymousUser(
-                connection = connection,
-                userId = userId,
-                email = email,
-                passwordHash = passwordHash,
-                verificationToken = verificationToken,
-                markVerified = markVerified,
-            )
-            if (!upgraded) return@withTransaction UpgradeAnonymousResult.NotFound
-
-            queries.createAuthIdentity(
-                connection = connection,
-                id = UUID.randomUUID(),
-                userId = userId,
-                authType = AuthType.EMAIL.name,
-                email = email,
-                passwordHash = passwordHash,
-            )
             UpgradeAnonymousResult.Success(
-                queries.findById(connection, userId)?.toUserAccount()
-                    ?: return@withTransaction UpgradeAnonymousResult.NotFound
+                findUserById(userId) ?: return@newSuspendedTransaction UpgradeAnonymousResult.NotFound,
             )
         }
 
-    override fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
-        queries.saveRefreshTokenHash(userId, tokenHash)
+    override suspend fun saveRefreshTokenHash(userId: UUID, tokenHash: String) {
+        newSuspendedTransaction {
+            UsersTable.update(
+                where = { UsersTable.id eq userId },
+                body = { it[UsersTable.refreshTokenHash] = tokenHash },
+            )
+        }
     }
 
-    override fun clearRefreshTokenHash(userId: UUID) {
-        queries.clearRefreshTokenHash(userId)
+    override suspend fun clearRefreshTokenHash(userId: UUID) {
+        newSuspendedTransaction {
+            UsersTable.update(
+                where = { UsersTable.id eq userId },
+                body = { it[UsersTable.refreshTokenHash] = null },
+            )
+        }
     }
 
-    override fun verifyEmail(token: String): Boolean = queries.verifyEmail(token)
+    override suspend fun verifyEmail(token: String): Boolean =
+        newSuspendedTransaction {
+            UsersTable.update(
+                where = { UsersTable.verificationToken eq token },
+                body = {
+                    it[emailVerified] = true
+                    it[verificationToken] = null
+                },
+            ) > 0
+        }
 
-    override fun updateVerificationToken(userId: UUID, token: String) {
-        queries.updateVerificationToken(userId, token)
+    override suspend fun updateVerificationToken(userId: UUID, token: String) {
+        newSuspendedTransaction {
+            UsersTable.update(
+                where = { UsersTable.id eq userId },
+                body = {
+                    it[verificationToken] = token
+                    it[emailVerified] = false
+                    it[verificationEmailSentAt] = nowUtc()
+                },
+            )
+        }
     }
 
-    override fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant) {
-        queries.upsertPasswordResetToken(userId, token, expiresAt)
+    override suspend fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant) {
+        newSuspendedTransaction {
+            PasswordResetTokensTable.upsert(PasswordResetTokensTable.userId) { stmt ->
+                stmt[PasswordResetTokensTable.userId] = userId
+                stmt[PasswordResetTokensTable.token] = token
+                stmt[PasswordResetTokensTable.expiresAt] = OffsetDateTime.ofInstant(expiresAt, ZoneOffset.UTC)
+            }
+        }
     }
 
-    override fun findPasswordResetToken(token: String): PasswordResetToken? =
-        queries.findPasswordResetToken(token)?.toPasswordResetToken()
+    override suspend fun findPasswordResetToken(token: String): PasswordResetToken? =
+        newSuspendedTransaction {
+            PasswordResetTokensTable.selectAll()
+                .where { PasswordResetTokensTable.token eq token }
+                .singleOrNull()
+                ?.toPasswordResetToken()
+        }
 
-    override fun consumePasswordResetToken(token: String) {
-        queries.consumePasswordResetToken(token)
+    override suspend fun consumePasswordResetToken(token: String) {
+        newSuspendedTransaction {
+            PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.token eq token }
+        }
     }
 
-    override fun updatePassword(userId: UUID, newPasswordHash: String) {
-        queries.updatePassword(userId, newPasswordHash)
+    override suspend fun updatePassword(userId: UUID, newPasswordHash: String) {
+        newSuspendedTransaction {
+            UsersTable.update(
+                where = { UsersTable.id eq userId },
+                body = {
+                    it[UsersTable.passwordHash] = newPasswordHash
+                    it[UsersTable.refreshTokenHash] = null
+                },
+            )
+        }
     }
 
-    override fun confirmPasswordReset(
+    override suspend fun confirmPasswordReset(
         token: String,
         newPasswordHash: String,
     ): PasswordResetConfirmationResult =
-        dataSource.withTransaction { connection ->
-            val resetToken = queries.findPasswordResetToken(connection, token)
-                ?: return@withTransaction PasswordResetConfirmationResult.INVALID_TOKEN
+        newSuspendedTransaction {
+            val resetToken = PasswordResetTokensTable.selectAll()
+                .where { PasswordResetTokensTable.token eq token }
+                .singleOrNull()
+                ?: return@newSuspendedTransaction PasswordResetConfirmationResult.INVALID_TOKEN
 
-            if (resetToken.expiresAt.isBefore(Instant.now())) {
-                queries.consumePasswordResetToken(connection, token)
-                return@withTransaction PasswordResetConfirmationResult.EXPIRED_TOKEN
+            val now = OffsetDateTime.now(ZoneOffset.UTC)
+            if (resetToken[PasswordResetTokensTable.expiresAt].isBefore(now)) {
+                PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.token eq token }
+                return@newSuspendedTransaction PasswordResetConfirmationResult.EXPIRED_TOKEN
             }
 
-            queries.updatePassword(connection, resetToken.userId, newPasswordHash)
-            queries.consumePasswordResetToken(connection, token)
-            queries.clearRefreshTokenHash(connection, resetToken.userId)
+            val userId = resetToken[PasswordResetTokensTable.userId]
+            UsersTable.update(
+                where = { UsersTable.id eq userId },
+                body = {
+                    it[UsersTable.passwordHash] = newPasswordHash
+                    it[UsersTable.refreshTokenHash] = null
+                },
+            )
+            PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.token eq token }
             PasswordResetConfirmationResult.SUCCESS
         }
 
-    override fun deleteById(userId: UUID): Boolean = queries.deleteById(userId)
+    override suspend fun deleteById(userId: UUID): Boolean =
+        newSuspendedTransaction {
+            UsersTable.deleteWhere { UsersTable.id eq userId } > 0
+        }
 
-    private fun UserRecord.toUserAccount(): UserAccount =
-        UserAccount(
-            id = id,
-            email = email,
-            passwordHash = passwordHash,
-            emailVerified = emailVerified,
-            verificationToken = verificationToken,
-            verificationEmailSentAt = verificationEmailSentAt,
-            refreshTokenHash = refreshTokenHash,
-            isAnonymous = isAnonymous,
-            upgradedAt = upgradedAt,
-            profile = profileId?.let { id ->
-                UserProfile(
-                    id = id,
-                    userId = this.id,
-                    firstName = firstName.orEmpty(),
-                    lastName = lastName.orEmpty(),
-                    avatarUrl = avatarUrl,
-                )
-            },
+    private fun findUserById(userId: UUID): UserAccount? =
+        UsersTable.selectAll()
+            .where { UsersTable.id eq userId }
+            .singleOrNull()
+            ?.let { resultToUserAccount(it) }
+
+    private fun resultToUserAccount(userRow: ResultRow): UserAccount {
+        val userId = userRow[UsersTable.id]
+        val profile = ProfilesTable.selectAll()
+            .where { ProfilesTable.userId eq userId }
+            .singleOrNull()
+        val profileId = profile?.get(ProfilesTable.id)
+
+        return UserAccount(
+            id = userId,
+            email = userRow[UsersTable.email],
+            passwordHash = userRow[UsersTable.passwordHash],
+            emailVerified = userRow[UsersTable.emailVerified],
+            verificationToken = userRow[UsersTable.verificationToken],
+            verificationEmailSentAt = userRow[UsersTable.verificationEmailSentAt]?.toInstant(),
+            refreshTokenHash = userRow[UsersTable.refreshTokenHash],
+            isAnonymous = userRow[UsersTable.isAnonymous],
+            upgradedAt = userRow[UsersTable.upgradedAt]?.toInstant(),
+            profile = if (profile != null) UserProfile(
+                id = profileId!!,
+                userId = userId,
+                firstName = profile[ProfilesTable.firstName],
+                lastName = profile[ProfilesTable.lastName],
+                avatarUrl = profile[ProfilesTable.avatarUrl],
+            ) else null,
         )
+    }
 
-    private fun PasswordResetTokenRecord.toPasswordResetToken(): PasswordResetToken =
+    private fun ResultRow.toPasswordResetToken(): PasswordResetToken =
         PasswordResetToken(
-            userId = userId,
-            token = token,
-            expiresAt = expiresAt,
+            userId = this[PasswordResetTokensTable.userId],
+            token = this[PasswordResetTokensTable.token],
+            expiresAt = this[PasswordResetTokensTable.expiresAt].toInstant(),
         )
 
-    private fun UserAuthIdentityRecord.toDomain(): UserAuthIdentity =
+    private fun ResultRow.toUserAuthIdentity(): UserAuthIdentity =
         UserAuthIdentity(
-            id = id,
-            userId = userId,
-            authType = AuthType.valueOf(authType),
-            email = email,
-            passwordHash = passwordHash,
-            createdAt = createdAt,
+            id = this[UserAuthIdentitiesTable.id],
+            userId = this[UserAuthIdentitiesTable.userId],
+            authType = AuthType.valueOf(this[UserAuthIdentitiesTable.authType]),
+            email = this[UserAuthIdentitiesTable.email],
+            passwordHash = this[UserAuthIdentitiesTable.passwordHash],
+            createdAt = this[UserAuthIdentitiesTable.createdAt].toInstant(),
         )
+
+    private fun nowUtc(): OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)
 }

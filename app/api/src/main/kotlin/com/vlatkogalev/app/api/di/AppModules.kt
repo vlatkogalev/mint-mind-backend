@@ -18,14 +18,7 @@ import com.vlatkogalev.data.ebay.EbayMarketplaceFetcher
 import com.vlatkogalev.data.ebay.EbayTokenProvider
 import com.vlatkogalev.data.email.ResendEmailVerificationSender
 import com.vlatkogalev.data.numista.NumistaProvider
-import com.vlatkogalev.data.postgres.daos.CatalogCoinQueries
-import com.vlatkogalev.data.postgres.daos.CoinQueries
-import com.vlatkogalev.data.postgres.daos.CoinSetQueries
-import com.vlatkogalev.data.postgres.daos.MarketplaceQueries
-import com.vlatkogalev.data.postgres.daos.NewsQueries
 import com.vlatkogalev.data.email.ResendPasswordResetEmailSender
-import com.vlatkogalev.data.postgres.daos.SubscriptionQueries
-import com.vlatkogalev.data.postgres.daos.UserQueries
 import com.vlatkogalev.data.postgres.repository.CatalogCoinRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.CoinRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.CoinSetRepositoryImpl
@@ -66,15 +59,17 @@ import com.vlatkogalev.platform.core.config.loadEmailConfig
 import com.vlatkogalev.platform.core.config.loadNumistaConfig
 import com.vlatkogalev.platform.core.storage.FileStorageService
 import com.vlatkogalev.platform.core.time.TimeProvider
+import com.vlatkogalev.platform.database.configureExposed
 import com.vlatkogalev.platform.database.createDataSource
 import com.vlatkogalev.platform.database.runMigrations
 import org.koin.dsl.module
 import javax.sql.DataSource
 
 val appModule = module {
-    single<DataSource> {
+    single(createdAtStart = true) {
         val dataSource = createDataSource()
         runMigrations(dataSource)
+        configureExposed(dataSource)
         dataSource
     }
 
@@ -103,21 +98,13 @@ val appModule = module {
     single { RssFeedFetcher(get()) }
     single { NewsJobScheduler(get()) }
 
-    single { UserQueries(get()) }
-    single { SubscriptionQueries(get()) }
-    single { CoinQueries(get()) }
-    single { CoinSetQueries(get()) }
-    single { CatalogCoinQueries(get()) }
-    single { NewsQueries(get()) }
-    single { MarketplaceQueries(get()) }
-
-    single<UserRepository> { UserRepositoryImpl(get(), get()) }
-    single<SubscriptionRepository> { SubscriptionRepositoryImpl(get()) }
-    single<CoinRepository> { CoinRepositoryImpl(get()) }
-    single<CatalogCoinRepository> { CatalogCoinRepositoryImpl(get(), get()) }
-    single<CoinSetRepository> { CoinSetRepositoryImpl(get()) }
-    single<NewsRepository> { NewsRepositoryImpl(get()) }
-    single<MarketplaceRepository> { MarketplaceRepositoryImpl(get()) }
+    single<UserRepository> { UserRepositoryImpl() }
+    single<SubscriptionRepository> { SubscriptionRepositoryImpl() }
+    single<CoinRepository> { CoinRepositoryImpl() }
+    single<CatalogCoinRepository> { CatalogCoinRepositoryImpl() }
+    single<CoinSetRepository> { CoinSetRepositoryImpl() }
+    single<NewsRepository> { NewsRepositoryImpl() }
+    single<MarketplaceRepository> { MarketplaceRepositoryImpl() }
 
     single { SubscriptionService(get()) }
     single<CoinCatalogProvider> { NumistaProvider(get()) }

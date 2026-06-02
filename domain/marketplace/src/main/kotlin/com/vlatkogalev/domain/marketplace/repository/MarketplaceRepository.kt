@@ -4,11 +4,11 @@ import com.vlatkogalev.domain.marketplace.model.MarketplaceListing
 import java.time.Instant
 
 interface MarketplaceRepository {
-    fun upsertAll(listings: List<MarketplaceListing>)
+    suspend fun upsertAll(listings: List<MarketplaceListing>)
 
-    fun deleteNotSeenSince(threshold: Instant)
+    suspend fun deleteNotSeenSince(threshold: Instant)
 
-    fun findPage(limit: Int, beforeTimestamp: Long?): List<MarketplaceListing>
+    suspend fun findPage(limit: Int, beforeTimestamp: Long?): List<MarketplaceListing>
 
-    fun getLatestFetchTime(): Instant?
+    suspend fun getLatestFetchTime(): Instant?
 }

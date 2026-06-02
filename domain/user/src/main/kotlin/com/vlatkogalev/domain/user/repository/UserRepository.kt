@@ -9,13 +9,13 @@ import java.time.Instant
 import java.util.*
 
 interface UserRepository {
-    fun findById(userId: UUID): UserAccount?
+    suspend fun findById(userId: UUID): UserAccount?
 
-    fun findByVerificationToken(token: String): UserAccount?
+    suspend fun findByVerificationToken(token: String): UserAccount?
 
-    fun findUserByInstallationId(installationId: String): UserAccount?
+    suspend fun findUserByInstallationId(installationId: String): UserAccount?
 
-    fun create(
+    suspend fun create(
         email: String,
         firstName: String,
         lastName: String,
@@ -23,21 +23,21 @@ interface UserRepository {
         verificationToken: String,
     ): UserAccount
 
-    fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount?
+    suspend fun updateProfile(userId: UUID, firstName: String, lastName: String): UserAccount?
 
-    fun createAnonymousInstallation(installationId: String, userId: UUID)
+    suspend fun createAnonymousInstallation(installationId: String, userId: UUID)
 
-    fun updateLastSeen(installationId: String)
+    suspend fun updateLastSeen(installationId: String)
 
-    fun createAuthIdentity(identity: UserAuthIdentity)
+    suspend fun createAuthIdentity(identity: UserAuthIdentity)
 
-    fun findAuthIdentityByEmail(email: String): UserAuthIdentity?
+    suspend fun findAuthIdentityByEmail(email: String): UserAuthIdentity?
 
-    fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity>
+    suspend fun findAuthIdentitiesByUserId(userId: UUID): List<UserAuthIdentity>
 
-    fun createAnonymousUser(installationId: String): UserAccount
+    suspend fun createAnonymousUser(installationId: String): UserAccount
 
-    fun upgradeAnonymousUser(
+    suspend fun upgradeAnonymousUser(
         userId: UUID,
         email: String,
         passwordHash: String,
@@ -45,23 +45,23 @@ interface UserRepository {
         markVerified: Boolean,
     ): UpgradeAnonymousResult
 
-    fun saveRefreshTokenHash(userId: UUID, tokenHash: String)
+    suspend fun saveRefreshTokenHash(userId: UUID, tokenHash: String)
 
-    fun clearRefreshTokenHash(userId: UUID)
+    suspend fun clearRefreshTokenHash(userId: UUID)
 
-    fun verifyEmail(token: String): Boolean
+    suspend fun verifyEmail(token: String): Boolean
 
-    fun updateVerificationToken(userId: UUID, token: String)
+    suspend fun updateVerificationToken(userId: UUID, token: String)
 
-    fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant)
+    suspend fun upsertPasswordResetToken(userId: UUID, token: String, expiresAt: Instant)
 
-    fun findPasswordResetToken(token: String): PasswordResetToken?
+    suspend fun findPasswordResetToken(token: String): PasswordResetToken?
 
-    fun consumePasswordResetToken(token: String)
+    suspend fun consumePasswordResetToken(token: String)
 
-    fun updatePassword(userId: UUID, newPasswordHash: String)
+    suspend fun updatePassword(userId: UUID, newPasswordHash: String)
 
-    fun confirmPasswordReset(token: String, newPasswordHash: String): PasswordResetConfirmationResult
+    suspend fun confirmPasswordReset(token: String, newPasswordHash: String): PasswordResetConfirmationResult
 
-    fun deleteById(userId: UUID): Boolean
+    suspend fun deleteById(userId: UUID): Boolean
 }

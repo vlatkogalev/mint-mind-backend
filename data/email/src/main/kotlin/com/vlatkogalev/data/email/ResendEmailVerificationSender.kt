@@ -3,6 +3,8 @@ package com.vlatkogalev.data.email
 import com.resend.Resend
 import com.resend.services.emails.model.CreateEmailOptions
 import com.vlatkogalev.domain.user.service.EmailVerificationSender
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ResendEmailVerificationSender(
     apiKey: String,
@@ -11,18 +13,20 @@ class ResendEmailVerificationSender(
 ) : EmailVerificationSender {
     private val client = Resend(apiKey)
 
-    override fun sendVerificationEmail(email: String, verificationToken: String) {
-        val verifyLink = "$appBaseUrl/auth/verify-email?token=$verificationToken"
+    override suspend fun sendVerificationEmail(email: String, verificationToken: String) {
+        withContext(Dispatchers.IO) {
+            val verifyLink = "$appBaseUrl/auth/verify-email?token=$verificationToken"
 
-        val params = CreateEmailOptions.builder()
-            .from(fromAddress)
-            .to(email)
-            .subject("[Action required] Verify your e-mail")
-            .html(htmlBody(verifyLink))
-            .text(textBody(verifyLink))
-            .build()
+            val params = CreateEmailOptions.builder()
+                .from(fromAddress)
+                .to(email)
+                .subject("[Action required] Verify your e-mail")
+                .html(htmlBody(verifyLink))
+                .text(textBody(verifyLink))
+                .build()
 
-        client.emails().send(params)
+            client.emails().send(params)
+        }
     }
 
     private fun htmlBody(link: String) = """

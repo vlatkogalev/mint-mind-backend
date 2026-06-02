@@ -42,18 +42,18 @@ class FakeCoinRepository : CoinRepository {
         return coin
     }
 
-    override fun save(coin: Coin): Coin {
+    override suspend fun save(coin: Coin): Coin {
         if (throwOnSave) error("save failed")
         coins[coin.id] = coin
         return coin
     }
 
-    override fun findById(id: UUID): Coin? {
+    override suspend fun findById(id: UUID): Coin? {
         if (throwOnFindById) error("findById failed")
         return coins[id]
     }
 
-    override fun updateNotes(id: UUID, userId: UUID, notes: String?): Coin? {
+    override suspend fun updateNotes(id: UUID, userId: UUID, notes: String?): Coin? {
         if (throwOnUpdateNotes) error("updateNotes failed")
         val coin = coins[id] ?: return null
         if (coin.userId != userId) return null
@@ -62,7 +62,7 @@ class FakeCoinRepository : CoinRepository {
         return updated
     }
 
-    override fun findByUserId(
+    override suspend fun findByUserId(
         userId: UUID,
         country: String?,
         year: Int?,
@@ -88,7 +88,7 @@ class FakeCoinRepository : CoinRepository {
             .toList()
     }
 
-    override fun getCollectionStats(
+    override suspend fun getCollectionStats(
         userId: UUID,
         country: String?,
         year: Int?,
@@ -137,9 +137,9 @@ class FakeCoinRepository : CoinRepository {
         )
     }
 
-    override fun countByUserId(userId: UUID): Int = coins.values.count { it.userId == userId }
+    override suspend fun countByUserId(userId: UUID): Int = coins.values.count { it.userId == userId }
 
-    override fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int {
+    override suspend fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int {
         if (throwOnReassignFromUser) error("reassignFromUser failed")
         var count = 0
         coins.entries
@@ -151,7 +151,7 @@ class FakeCoinRepository : CoinRepository {
         return count
     }
 
-    override fun deleteById(id: UUID, userId: UUID): Boolean {
+    override suspend fun deleteById(id: UUID, userId: UUID): Boolean {
         if (throwOnDeleteById) error("deleteById failed")
         val coin = coins[id] ?: return false
         if (coin.userId != userId) return false
@@ -272,7 +272,7 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
         references.clear()
     }
 
-    override fun findByFingerprint(fingerprint: com.vlatkogalev.domain.coin.model.CoinFingerprint): com.vlatkogalev.domain.coin.model.CatalogCoin? =
+    override suspend fun findByFingerprint(fingerprint: com.vlatkogalev.domain.coin.model.CoinFingerprint): com.vlatkogalev.domain.coin.model.CatalogCoin? =
         byId.values.firstOrNull {
             it.fingerprint.countryOrIssuer == fingerprint.countryOrIssuer &&
                 it.fingerprint.denomination == fingerprint.denomination &&
@@ -280,19 +280,19 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
                 it.fingerprint.year == fingerprint.year
         }
 
-    override fun findById(id: UUID): com.vlatkogalev.domain.coin.model.CatalogCoin? = byId[id]
+    override suspend fun findById(id: UUID): com.vlatkogalev.domain.coin.model.CatalogCoin? = byId[id]
 
-    override fun findByProviderExternalId(provider: String, externalId: String): com.vlatkogalev.domain.coin.model.CatalogCoin? {
+    override suspend fun findByProviderExternalId(provider: String, externalId: String): com.vlatkogalev.domain.coin.model.CatalogCoin? {
         val reference = references.values.firstOrNull { it.provider == provider && it.externalId == externalId } ?: return null
         return byId[reference.catalogCoinId]
     }
 
-    override fun save(catalogCoin: com.vlatkogalev.domain.coin.model.CatalogCoin): com.vlatkogalev.domain.coin.model.CatalogCoin {
+    override suspend fun save(catalogCoin: com.vlatkogalev.domain.coin.model.CatalogCoin): com.vlatkogalev.domain.coin.model.CatalogCoin {
         byId[catalogCoin.id] = catalogCoin
         return catalogCoin
     }
 
-    override fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): com.vlatkogalev.domain.coin.model.CatalogCoin? {
+    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant): com.vlatkogalev.domain.coin.model.CatalogCoin? {
         val coin = byId[catalogCoinId] ?: return null
         val updated = coin.copy(
             enrichedAt = now,
@@ -305,7 +305,7 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
         return updated
     }
 
-    override fun markEnrichmentFailed(catalogCoinId: UUID, now: Instant, error: String?): com.vlatkogalev.domain.coin.model.CatalogCoin? {
+    override suspend fun markEnrichmentFailed(catalogCoinId: UUID, now: Instant, error: String?): com.vlatkogalev.domain.coin.model.CatalogCoin? {
         val coin = byId[catalogCoinId] ?: return null
         val updated = coin.copy(
             lastEnrichmentAttemptAt = now,
@@ -317,11 +317,11 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
         return updated
     }
 
-    override fun saveExternalReference(reference: com.vlatkogalev.domain.coin.model.ExternalCoinReference): com.vlatkogalev.domain.coin.model.ExternalCoinReference {
+    override suspend fun saveExternalReference(reference: com.vlatkogalev.domain.coin.model.ExternalCoinReference): com.vlatkogalev.domain.coin.model.ExternalCoinReference {
         references[reference.catalogCoinId to reference.provider] = reference
         return reference
     }
 
-    override fun findExternalReference(catalogCoinId: UUID, provider: String): com.vlatkogalev.domain.coin.model.ExternalCoinReference? =
+    override suspend fun findExternalReference(catalogCoinId: UUID, provider: String): com.vlatkogalev.domain.coin.model.ExternalCoinReference? =
         references[catalogCoinId to provider]
 }

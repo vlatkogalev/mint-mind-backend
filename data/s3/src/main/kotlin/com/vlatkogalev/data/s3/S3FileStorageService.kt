@@ -4,6 +4,8 @@ import com.vlatkogalev.platform.core.config.AwsConfig
 import com.vlatkogalev.platform.core.config.loadAwsConfig
 import com.vlatkogalev.platform.core.storage.FileStorageService
 import com.vlatkogalev.platform.core.storage.UploadSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
@@ -24,33 +26,37 @@ class S3FileStorageService(
 
     private val bucket = config.bucketName
 
-    override fun createPresignedUpload(key: String, ttlSeconds: Long): URL =
-        presigner.presignPutObject(
-            PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofSeconds(ttlSeconds))
-                .putObjectRequest(
-                    PutObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(key)
-                        .build(),
-                )
-                .build(),
-        ).url()
+    override suspend fun createPresignedUpload(key: String, ttlSeconds: Long): URL =
+        withContext(Dispatchers.IO) {
+            presigner.presignPutObject(
+                PutObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofSeconds(ttlSeconds))
+                    .putObjectRequest(
+                        PutObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .build(),
+                    )
+                    .build(),
+            ).url()
+        }
 
-    override fun createPresignedDownload(key: String, ttlSeconds: Long): URL =
-        presigner.presignGetObject(
-            GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofSeconds(ttlSeconds))
-                .getObjectRequest(
-                    GetObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(key)
-                        .build(),
-                )
-                .build(),
-        ).url()
+    override suspend fun createPresignedDownload(key: String, ttlSeconds: Long): URL =
+        withContext(Dispatchers.IO) {
+            presigner.presignGetObject(
+                GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofSeconds(ttlSeconds))
+                    .getObjectRequest(
+                        GetObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .build(),
+                    )
+                    .build(),
+            ).url()
+        }
 
-    override fun createUploadSession(prefix: String): UploadSession =
+    override suspend fun createUploadSession(prefix: String): UploadSession =
         UploadSession(
             sessionId = UUID.randomUUID().toString(),
             objectPrefix = prefix,
