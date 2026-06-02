@@ -13,6 +13,7 @@ import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransacti
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.math.BigDecimal
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.*
@@ -51,19 +52,25 @@ class CoinRepositoryImpl : CoinRepository {
         setId: UUID?,
         sortBy: CoinSortField,
         limit: Int,
-        offset: Int,
+        beforeTimestamp: Long?,
     ): List<Coin> =
         newSuspendedTransaction {
-            val coinRecords = CoinsTable.selectAll().where {
-                (CoinsTable.userId eq userId) and
-                        (if (!country.isNullOrBlank()) CoinsTable.countryOrIssuer eq country else Op.TRUE) and
-                        (if (year != null) CoinsTable.year eq year else Op.TRUE) and
-                        (if (minValue != null) CoinsTable.valueLow greaterEq BigDecimal.valueOf(minValue) else Op.TRUE) and
-                        (if (maxValue != null) CoinsTable.valueHigh lessEq BigDecimal.valueOf(maxValue) else Op.TRUE) and
-                        (if (setId != null) CoinsTable.setId eq setId else Op.TRUE)
-            }
+            val baseFilter = (CoinsTable.userId eq userId) and
+                    (if (!country.isNullOrBlank()) CoinsTable.countryOrIssuer eq country else Op.TRUE) and
+                    (if (year != null) CoinsTable.year eq year else Op.TRUE) and
+                    (if (minValue != null) CoinsTable.valueLow greaterEq BigDecimal.valueOf(minValue) else Op.TRUE) and
+                    (if (maxValue != null) CoinsTable.valueHigh lessEq BigDecimal.valueOf(maxValue) else Op.TRUE) and
+                    (if (setId != null) CoinsTable.setId eq setId else Op.TRUE)
+
+            val filter = if (beforeTimestamp != null) {
+                baseFilter and (CoinsTable.createdAt less OffsetDateTime.ofInstant(
+                    java.time.Instant.ofEpochMilli(beforeTimestamp), ZoneOffset.UTC
+                ))
+            } else baseFilter
+
+            val coinRecords = CoinsTable.selectAll().where { filter }
                 .orderBy(CoinsTable.createdAt to SortOrder.DESC)
-                .limit(limit).offset(offset.toLong())
+                .limit(limit)
                 .toList()
 
             if (coinRecords.isEmpty()) return@newSuspendedTransaction emptyList()

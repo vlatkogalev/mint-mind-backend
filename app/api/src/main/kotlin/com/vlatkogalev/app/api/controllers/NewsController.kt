@@ -25,19 +25,21 @@ class NewsController(
         get {
             val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 20)
                 .coerceIn(1, 100)
-            val offset = (call.request.queryParameters["offset"]?.toIntOrNull() ?: 0)
-                .coerceAtLeast(0)
+            val cursor = call.request.queryParameters["cursor"]?.toLongOrNull()
 
-            val articles = newsRepository.findAll(limit, offset)
-            val total = newsRepository.countAll()
+            val articles = newsRepository.findAll(limit, cursor)
+
+            val nextCursor = if (articles.size >= limit) {
+                articles.lastOrNull()?.publishedAt?.toEpochMilli()
+            } else {
+                null
+            }
 
             call.respond(
                 success(
                     NewsListResponse(
                         articles = articles.map { it.toSummaryResponse() },
-                        total = total,
-                        limit = limit,
-                        offset = offset,
+                        nextCursor = nextCursor,
                     ),
                 ),
             )

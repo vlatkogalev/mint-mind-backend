@@ -473,13 +473,13 @@ paths:
             type: integer
             format: int32
             default: 20
-        - name: "offset"
+        - name: "cursor"
           in: "query"
           required: false
           schema:
             type: integer
-            format: int32
-            default: 0
+            format: int64
+          description: "Cursor for pagination (the `createdAt` timestamp of the last item from the previous page in epoch milliseconds)."
         - name: "sortBy"
           in: "query"
           required: false
@@ -1023,14 +1023,13 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
-        - name: "offset"
+        - name: "cursor"
           in: "query"
           required: false
           schema:
             type: integer
-            format: int32
-            minimum: 0
-            default: 0
+            format: int64
+          description: "Cursor for pagination (the `publishedAt` timestamp of the last article from the previous page in epoch milliseconds)."
       responses:
         "200":
           description: "OK"
@@ -1584,25 +1583,17 @@ components:
 
     CoinListResponse:
       type: object
-      required: [ coins, totalCoins, totalIssuers, estimatedMeanValue, highlights ]
+      required: [ coins, nextCursor ]
       properties:
         coins:
           type: array
           items:
             $ref: "#/components/schemas/CoinSummaryResponse"
-        totalCoins:
+        nextCursor:
           type: integer
-          format: int32
-          description: "Total coins in the user's collection (not just the current page)."
-        totalIssuers:
-          type: integer
-          format: int32
-        estimatedMeanValue:
-          type: number
-          format: double
-          description: "Mean estimated value across all coins in the collection."
-        highlights:
-          $ref: "#/components/schemas/CollectionHighlightsResponse"
+          format: int64
+          nullable: true
+          description: "Cursor for the next page (epoch milliseconds of the last coin's createdAt). Null when there are no more pages."
 
     CoinDetailResponse:
       type: object
@@ -1796,21 +1787,17 @@ components:
 
     NewsListResponse:
       type: object
-      required: [ articles, total, limit, offset ]
+      required: [ articles, nextCursor ]
       properties:
         articles:
           type: array
           items:
             $ref: "#/components/schemas/NewsArticleSummaryResponse"
-        total:
+        nextCursor:
           type: integer
-          format: int32
-        limit:
-          type: integer
-          format: int32
-        offset:
-          type: integer
-          format: int32
+          format: int64
+          nullable: true
+          description: "Cursor for the next page (epoch milliseconds of the last article's publishedAt). Null when there are no more pages."
 
     MarketplaceListingResponse:
       type: object

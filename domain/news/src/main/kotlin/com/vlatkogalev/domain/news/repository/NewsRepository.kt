@@ -10,7 +10,5 @@ interface NewsRepository {
 
     suspend fun findById(id: UUID): NewsArticle?
 
-    suspend fun findAll(limit: Int = 20, offset: Int = 0): List<NewsArticle>
-
-    suspend fun countAll(): Int
+    suspend fun findAll(limit: Int = 20, beforeTimestamp: Long? = null): List<NewsArticle>
 }

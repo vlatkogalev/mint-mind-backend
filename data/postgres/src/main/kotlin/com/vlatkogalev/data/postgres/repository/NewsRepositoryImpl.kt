@@ -5,6 +5,7 @@ import com.vlatkogalev.domain.news.repository.NewsRepository
 import com.vlatkogalev.platform.database.tables.NewsArticlesTable
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
@@ -56,17 +57,18 @@ class NewsRepositoryImpl : NewsRepository {
                 ?.toNewsArticle()
         }
 
-    override suspend fun findAll(limit: Int, offset: Int): List<NewsArticle> =
+    override suspend fun findAll(limit: Int, beforeTimestamp: Long?): List<NewsArticle> =
         newSuspendedTransaction {
-            NewsArticlesTable.selectAll()
+            val query = NewsArticlesTable.selectAll()
                 .orderBy(NewsArticlesTable.publishedAt to SortOrder.DESC)
-                .limit(limit).offset(offset.toLong())
-                .map { it.toNewsArticle() }
-        }
-
-    override suspend fun countAll(): Int =
-        newSuspendedTransaction {
-            NewsArticlesTable.selectAll().count().toInt()
+            val filtered = if (beforeTimestamp != null) {
+                query.where {
+                    NewsArticlesTable.publishedAt less OffsetDateTime.ofInstant(
+                        java.time.Instant.ofEpochMilli(beforeTimestamp), ZoneOffset.UTC
+                    )
+                }
+            } else query
+            filtered.limit(limit).map { it.toNewsArticle() }
         }
 
     private fun ResultRow.toNewsArticle() = NewsArticle(

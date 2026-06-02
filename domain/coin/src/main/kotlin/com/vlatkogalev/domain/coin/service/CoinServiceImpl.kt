@@ -64,7 +64,7 @@ class CoinServiceImpl(
         setId: UUID?,
         sortBy: CoinSortField,
         limit: Int,
-        offset: Int,
+        cursor: Long?,
     ): Result<List<Coin>> = try {
         Result.Success(
             coinRepository.findByUserId(
@@ -76,7 +76,7 @@ class CoinServiceImpl(
                 setId = setId,
                 sortBy = sortBy,
                 limit = limit.coerceIn(1, 100),
-                offset = offset.coerceAtLeast(0),
+                beforeTimestamp = cursor,
             ),
         )
     } catch (ex: Exception) {

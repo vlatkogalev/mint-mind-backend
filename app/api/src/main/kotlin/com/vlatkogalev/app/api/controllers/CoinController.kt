@@ -6,7 +6,6 @@ import com.vlatkogalev.app.api.dto.CatalogueNumberDto
 import com.vlatkogalev.app.api.dto.CoinImagesResponse
 import com.vlatkogalev.app.api.dto.CoinListResponse
 import com.vlatkogalev.app.api.dto.CoinDetailResponse
-import com.vlatkogalev.app.api.dto.CollectionHighlightsResponse
 import com.vlatkogalev.app.api.dto.CoinSummaryResponse
 import com.vlatkogalev.app.api.dto.RecognitionResultDto
 import com.vlatkogalev.app.api.dto.SaveCoinRequest
@@ -93,7 +92,7 @@ class CoinController(
             val minValue = call.request.queryParameters["minValue"]?.toDoubleOrNull()
             val maxValue = call.request.queryParameters["maxValue"]?.toDoubleOrNull()
             val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
-            val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
+            val cursor = call.request.queryParameters["cursor"]?.toLongOrNull()
             val setId = call.request.queryParameters["setId"]?.let {
                 runCatching { UUID.fromString(it) }.getOrNull()
             }
@@ -110,7 +109,7 @@ class CoinController(
                 setId = setId,
                 sortBy = sortBy,
                 limit = limit,
-                offset = offset,
+                cursor = cursor,
             )
 
             if (coinsResult is Result.Failure) {
@@ -120,30 +119,17 @@ class CoinController(
 
             val coins = (coinsResult as Result.Success).value
 
-            val statsResult = coinService.getCollectionStats(
-                userId = userId,
-                country = call.request.queryParameters["country"],
-                year = year,
-                minValue = minValue,
-                maxValue = maxValue,
-                setId = setId,
-            )
-
-            if (statsResult is Result.Failure) {
-                call.respond(HttpStatusCode.BadRequest, error(statsResult.reason))
-                return@get
+            val nextCursor = if (coins.size >= limit) {
+                coins.lastOrNull()?.createdAt?.toEpochMilli()
+            } else {
+                null
             }
-
-            val stats = (statsResult as Result.Success).value
 
             call.respond(
                 success(
                     CoinListResponse(
                         coins = coins.map { it.toSummaryResponse() },
-                        totalCoins = stats.totalCoins,
-                        totalIssuers = stats.totalIssuers,
-                        estimatedMeanValue = stats.estimatedTotalValueMean,
-                        highlights = stats.toHighlightsResponse(),
+                        nextCursor = nextCursor,
                     ),
                 ),
             )
@@ -395,13 +381,6 @@ class CoinController(
             catalogueName = catalogueName,
             number = number,
             confidence = confidence.name,
-        )
-
-    private fun com.vlatkogalev.domain.coin.model.CoinCollectionStats.toHighlightsResponse(): CollectionHighlightsResponse =
-        CollectionHighlightsResponse(
-            mostValuable = highlights.mostValuable?.toSummaryResponse(),
-            mostAncient = highlights.mostAncient?.toSummaryResponse(),
-            rarest = highlights.rarest?.toSummaryResponse(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

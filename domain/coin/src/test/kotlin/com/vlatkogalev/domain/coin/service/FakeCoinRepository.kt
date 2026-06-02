@@ -71,7 +71,7 @@ class FakeCoinRepository : CoinRepository {
         setId: UUID?,
         sortBy: CoinSortField,
         limit: Int,
-        offset: Int,
+        beforeTimestamp: Long?,
     ): List<Coin> {
         if (throwOnFindByUserId) error("findByUserId failed")
         return coins.values
@@ -82,9 +82,10 @@ class FakeCoinRepository : CoinRepository {
             .filter { minValue == null || (it.recognitionResult.valueLow ?: 0.0) >= minValue }
             .filter { maxValue == null || (it.recognitionResult.valueHigh ?: 0.0) <= maxValue }
             .filter { setId == null || it.setId == setId }
-            .sortedWith(sortBy.comparator())
-            .drop(offset.coerceAtLeast(0))
+            .filter { beforeTimestamp == null || it.createdAt.toEpochMilli() < beforeTimestamp }
+            .sortedByDescending { it.createdAt }
             .take(limit.coerceIn(1, 100))
+            .sortedWith(sortBy.comparator())
             .toList()
     }
 

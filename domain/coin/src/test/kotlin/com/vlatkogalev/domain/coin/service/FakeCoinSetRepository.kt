@@ -66,7 +66,7 @@ class FakeCoinSetRepository(
             setId = null,
             sortBy = CoinSortField.DATE_ADDED_NEW_TO_OLD,
             limit = Int.MAX_VALUE,
-            offset = 0,
+            beforeTimestamp = null,
         ).filter { it.setId == id }.forEach { coin ->
             coinRepository.save(coin.copy(setId = null))
         }
@@ -86,7 +86,7 @@ class FakeCoinSetRepository(
                 setId = null,
                 sortBy = CoinSortField.DATE_ADDED_NEW_TO_OLD,
                 limit = Int.MAX_VALUE,
-                offset = 0,
+                beforeTimestamp = null,
             )
         }.filter { it.setId == id }
 

@@ -18,7 +18,7 @@ interface CoinRepository {
         setId: UUID? = null,
         sortBy: CoinSortField = CoinSortField.DATE_ADDED_NEW_TO_OLD,
         limit: Int = 20,
-        offset: Int = 0,
+        beforeTimestamp: Long? = null,
     ): List<Coin>
     suspend fun getCollectionStats(
         userId: UUID,

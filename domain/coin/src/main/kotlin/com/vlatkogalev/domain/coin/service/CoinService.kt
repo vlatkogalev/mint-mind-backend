@@ -29,7 +29,7 @@ interface CoinService {
         setId: UUID? = null,
         sortBy: CoinSortField = CoinSortField.DATE_ADDED_NEW_TO_OLD,
         limit: Int,
-        offset: Int,
+        cursor: Long?,
     ): Result<List<Coin>>
 
     suspend fun deleteCoin(coinId: UUID, userId: UUID): Result<Unit>

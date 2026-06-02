@@ -89,10 +89,7 @@ data class CollectionHighlightsResponse(
 @Serializable
 data class CoinListResponse(
     val coins: List<CoinSummaryResponse>,
-    val totalCoins: Int,
-    val totalIssuers: Int,
-    val estimatedMeanValue: Double,
-    val highlights: CollectionHighlightsResponse,
+    val nextCursor: Long?,
 )
 
 @Serializable

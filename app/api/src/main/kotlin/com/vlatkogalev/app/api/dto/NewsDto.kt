@@ -26,7 +26,5 @@ data class NewsArticleResponse(
 @Serializable
 data class NewsListResponse(
     val articles: List<NewsArticleSummaryResponse>,
-    val total: Int,
-    val limit: Int,
-    val offset: Int,
+    val nextCursor: Long?,
 )
