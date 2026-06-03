@@ -1768,13 +1768,17 @@ components:
 
     NewsArticleSummaryResponse:
       type: object
-      required: [ id, title, description, publishedAt ]
+      required: [ id, title, link, description, publishedAt ]
       properties:
         id:
           type: string
           format: uuid
         title:
           type: string
+        link:
+          type: string
+          format: uri
+          description: "URL to the original article source."
         description:
           type: string
         imageUrl:

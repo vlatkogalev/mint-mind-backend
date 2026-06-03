@@ -73,6 +73,7 @@ class NewsController(
     private fun NewsArticle.toSummaryResponse() = NewsArticleSummaryResponse(
         id = id.toString(),
         title = title,
+        link = link,
         description = description,
         imageUrl = imageUrl,
         publishedAt = publishedAt.toString(),

@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class NewsArticleSummaryResponse(
     val id: String,
     val title: String,
+    val link: String,
     val description: String,
     val imageUrl: String?,
     val publishedAt: String,
