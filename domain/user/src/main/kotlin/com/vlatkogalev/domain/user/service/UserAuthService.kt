@@ -30,4 +30,6 @@ interface UserAuthService {
     suspend fun confirmPasswordReset(token: String, newPassword: String): Result<Unit>
 
     suspend fun deleteAccount(userId: UUID): Result<Unit>
+
+    suspend fun logout(userId: UUID): Result<Unit>
 }

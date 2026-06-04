@@ -216,6 +216,21 @@ class UserAuthController(
             tag(ApiTags.AUTH)
             summary = "Delete the authenticated user's account"
         }
+
+        post("/logout") {
+            val userId = call.userUuidOrNull()
+            if (userId == null) {
+                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                return@post
+            }
+            when (val result = userAuthService.logout(userId)) {
+                is Result.Success -> call.respond(success(mapOf("message" to "Logged out")))
+                is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.AUTH)
+            summary = "Logout and invalidate the current refresh token"
+        }
     }
 
     private fun io.ktor.server.application.ApplicationCall.userUuidOrNull(): UUID? =

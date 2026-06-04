@@ -15,7 +15,12 @@ paths:
     post:
       tags: [ "Auth" ]
       summary: "Register a new user"
-      description: "Creates a user, profile, free active subscription, and stores an email verification token. Secret auth fields are never returned."
+      description: >
+        Creates a new registered account directly, without an anonymous session.
+        Prefer /auth/upgrade-account for mobile clients where an anonymous session
+        already exists. This endpoint is intended for integrations or cases where
+        no anonymous session is available. Returns only a User, not an AuthSession —
+        the user must verify their email and then call /auth/login to obtain tokens.
       requestBody:
         required: true
         content:
@@ -243,6 +248,27 @@ paths:
                 $ref: "#/components/schemas/MessageResponse"
         "400":
           description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      tags: [ "Auth" ]
+      summary: "Logout and invalidate the current refresh token"
+      description: "Clears the stored refresh token hash for the authenticated user. The access token remains valid until it naturally expires (TTL ~900s). Anonymous users do not need to call this endpoint."
+      security:
+        - bearerAuth: [ ]
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: "Unauthorized"
           content:
             application/json:
               schema:

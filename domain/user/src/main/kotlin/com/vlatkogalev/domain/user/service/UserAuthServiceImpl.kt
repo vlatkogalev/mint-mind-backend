@@ -289,6 +289,13 @@ class UserAuthServiceImpl(
         Result.Failure(ex.message ?: "Failed to delete account", ex)
     }
 
+    override suspend fun logout(userId: UUID): Result<Unit> = try {
+        userRepository.clearRefreshTokenHash(userId)
+        Result.Success(Unit)
+    } catch (ex: Exception) {
+        Result.Failure(ex.message ?: "Failed to logout", ex)
+    }
+
     private suspend fun UserAccount.toAuthSession(refreshToken: String): AuthSession =
         AuthSession(
             accessToken = jwtTokenProvider.createAccessToken(id, isAnonymous),

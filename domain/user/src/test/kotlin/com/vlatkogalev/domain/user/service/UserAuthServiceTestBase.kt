@@ -36,6 +36,7 @@ class FakeUserRepository : UserRepository {
     var throwOnConfirmPasswordReset = false
     var throwOnDeleteById = false
     var throwOnFindPasswordResetToken = false
+    var throwOnClearRefreshTokenHash = false
     var confirmPasswordResetCalls = 0
     var updateLastSeenCalls = 0
 
@@ -55,6 +56,7 @@ class FakeUserRepository : UserRepository {
         throwOnConfirmPasswordReset = false
         throwOnDeleteById = false
         throwOnFindPasswordResetToken = false
+        throwOnClearRefreshTokenHash = false
         confirmPasswordResetCalls = 0
         updateLastSeenCalls = 0
     }
@@ -230,6 +232,7 @@ class FakeUserRepository : UserRepository {
     }
 
     override suspend fun clearRefreshTokenHash(userId: UUID) {
+        if (throwOnClearRefreshTokenHash) error("clearRefreshTokenHash failed")
         val user = users[userId] ?: return
         users[userId] = user.copy(refreshTokenHash = null)
     }

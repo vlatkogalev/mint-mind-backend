@@ -225,6 +225,10 @@ class UserRepositoryImpl : UserRepository {
             ) > 0
             if (!updated) return@newSuspendedTransaction UpgradeAnonymousResult.NotFound
 
+            AnonymousInstallationsTable.deleteWhere {
+                AnonymousInstallationsTable.userId eq userId
+            }
+
             UserAuthIdentitiesTable.insert { stmt ->
                 stmt[id] = UUID.randomUUID()
                 stmt[UserAuthIdentitiesTable.userId] = userId
