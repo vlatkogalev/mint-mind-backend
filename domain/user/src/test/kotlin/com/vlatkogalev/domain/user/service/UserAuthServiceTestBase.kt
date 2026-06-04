@@ -196,6 +196,8 @@ class FakeUserRepository : UserRepository {
     override suspend fun upgradeAnonymousUser(
         userId: UUID,
         email: String,
+        firstName: String,
+        lastName: String,
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,
@@ -210,6 +212,13 @@ class FakeUserRepository : UserRepository {
             verificationEmailSentAt = if (markVerified) user.verificationEmailSentAt else Instant.now(),
             isAnonymous = false,
             upgradedAt = Instant.now(),
+            profile = (user.profile ?: UserProfile(
+                id = UUID.randomUUID(),
+                userId = userId,
+                firstName = firstName,
+                lastName = lastName,
+                avatarUrl = null,
+            )).copy(firstName = firstName, lastName = lastName),
         )
         users[userId] = upgraded
         createAuthIdentity(

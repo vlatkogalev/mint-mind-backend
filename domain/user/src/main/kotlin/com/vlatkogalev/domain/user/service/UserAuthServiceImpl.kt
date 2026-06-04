@@ -96,9 +96,15 @@ class UserAuthServiceImpl(
         }
     }
 
-    override suspend fun signup(email: String, password: String, currentUserId: UUID): Result<AuthSession> {
+    override suspend fun signup(email: String, password: String, firstName: String, lastName: String, currentUserId: UUID): Result<AuthSession> {
         val normalizedEmail = email.trim().lowercase()
         if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
+        if (firstName.isNotBlank()) {
+            if (firstName.trim().length > 50) return Result.Failure("First name must be 50 characters or fewer")
+        }
+        if (lastName.isNotBlank()) {
+            if (lastName.trim().length > 50) return Result.Failure("Last name must be 50 characters or fewer")
+        }
         validatePassword(password)?.let { return it }
 
         return try {
@@ -112,6 +118,8 @@ class UserAuthServiceImpl(
             val user = when (val result = userRepository.upgradeAnonymousUser(
                 userId = currentUserId,
                 email = normalizedEmail,
+                firstName = firstName.trim(),
+                lastName = lastName.trim(),
                 passwordHash = passwordHash,
                 verificationToken = verificationToken,
                 markVerified = skipEmailVerification,

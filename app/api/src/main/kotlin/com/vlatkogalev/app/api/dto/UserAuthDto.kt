@@ -24,6 +24,8 @@ data class AnonymousAuthRequest(
 data class SignupRequest(
     val email: String,
     val password: String,
+    val firstName: String = "",
+    val lastName: String = "",
 ) {
     fun validate(): String? {
         if (email.isBlank()) return "email is required"

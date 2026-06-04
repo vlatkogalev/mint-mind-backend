@@ -197,6 +197,8 @@ class UserRepositoryImpl : UserRepository {
     override suspend fun upgradeAnonymousUser(
         userId: UUID,
         email: String,
+        firstName: String,
+        lastName: String,
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,
@@ -224,6 +226,14 @@ class UserRepositoryImpl : UserRepository {
                 },
             ) > 0
             if (!updated) return@newSuspendedTransaction UpgradeAnonymousResult.NotFound
+
+            ProfilesTable.update(
+                where = { ProfilesTable.userId eq userId },
+                body = {
+                    it[ProfilesTable.firstName] = firstName
+                    it[ProfilesTable.lastName] = lastName
+                },
+            )
 
             AnonymousInstallationsTable.deleteWhere {
                 AnonymousInstallationsTable.userId eq userId

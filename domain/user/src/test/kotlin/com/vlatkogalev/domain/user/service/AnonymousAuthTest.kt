@@ -39,7 +39,7 @@ class AnonymousAuthTest : UserAuthServiceTestBase() {
     fun signup_upgradeAnonymous_keepsUserIdAndDisablesAnonymous() {
         val anonymous = assertSuccess(runBlocking { service.authenticateAnonymous("install-3") }).value
         val upgraded = assertSuccess(
-            runBlocking { service.signup("upgrade@example.com", TestFixtures.VALID_PASSWORD, anonymous.user.id) },
+            runBlocking { service.signup("upgrade@example.com", TestFixtures.VALID_PASSWORD, "Test", "User", anonymous.user.id) },
         ).value
 
         assertEquals(anonymous.user.id, upgraded.user.id)
@@ -53,7 +53,7 @@ class AnonymousAuthTest : UserAuthServiceTestBase() {
             runBlocking { service.register("registered@example.com", TestFixtures.VALID_PASSWORD, "John", "Doe") },
         ).value
 
-        val result = runBlocking { service.signup("direct@example.com", TestFixtures.VALID_PASSWORD, registered.id) }
+        val result = runBlocking { service.signup("direct@example.com", TestFixtures.VALID_PASSWORD, "Test", "User", registered.id) }
 
         assertEquals("Signup upgrade requires anonymous account", assertFailure(result).reason)
     }
@@ -61,11 +61,11 @@ class AnonymousAuthTest : UserAuthServiceTestBase() {
     @Test
     fun signup_duplicateEmail_returnsFailure() {
         val anonymous = assertSuccess(runBlocking { service.authenticateAnonymous("install-4") }).value
-        assertSuccess(runBlocking { service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, anonymous.user.id) })
+        assertSuccess(runBlocking { service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, "Test", "User", anonymous.user.id) })
 
         val anotherAnonymous = assertSuccess(runBlocking { service.authenticateAnonymous("install-5") }).value
 
-        val result = runBlocking { service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, anotherAnonymous.user.id) }
+        val result = runBlocking { service.signup("dup@example.com", TestFixtures.VALID_PASSWORD, "Test", "User", anotherAnonymous.user.id) }
 
         assertEquals("Email already registered", assertFailure(result).reason)
     }
