@@ -1,65 +1,68 @@
-# AGENTS.md
+# AGENTS.md — MintMind Backend
 
-## Build & test
+## Commands
 
 ```bash
-# Build everything (includes tests)
-./gradlew build --no-daemon
+./gradlew build --no-daemon                 # Compile + test (what CI runs)
+./gradlew :app:api:run                      # Local dev server on PORT or :8080
+./gradlew :app:api:buildFatJar              # Shadow JAR for Docker image
 
-# Build only the runnable server JAR (used by Docker)
-./gradlew :app:api:buildFatJar --no-daemon
-
-# Run tests for a single module
-./gradlew :domain:user:test
-./gradlew :data:postgres:test
+# Run a single module's tests
+./gradlew :domain:user:test                 # Auth domain (fast, in-memory fakes)
+./gradlew :domain:coin:test                 # Coin domain (fast, in-memory fakes)
+./gradlew :app:api:test                     # DTO validation tests
+./gradlew :data:postgres:test               # Integration tests (needs Docker → Testcontainers)
 ```
 
-## Module architecture
+`./gradlew build` runs tests automatically. Integration tests in `:data:postgres` require Docker for Testcontainers; the fixture is `PostgresTestContainer` in `platform/database` testFixtures.
 
-- `domain:*` — pure interfaces/models. Depends **only** on `:platform:core`. No DB/IO code.
-- `data:*` — implementations of domain interfaces. Depends on `:platform:database` + relevant `:domain:*` modules.
-- `app:api` — Ktor entrypoint (`Main.kt`), routes, controllers, DI wiring (`AppModules.kt`).
-- `app:jobs` — background job schedulers (news feed, eBay marketplace).
-- `platform:core` — shared types (`ApiResponse`, `Result`), config loaders (env-var based), error handling.
-- `platform:auth` — JWT auth Ktor plugin (`"jwt-auth"`).
-- `platform:database` — Flyway migrations, HikariCP `DataSource` factory, `BaseRepository`, and **test fixtures** (`PostgresTestContainer`).
-- `platform:storage` / `platform:logging` / `platform:billing` — small infrastructure modules.
+No linting or static analysis is configured (no ktlint, detekt, Jacoco).
 
-## Testing
+## Architecture
 
-- Tests use `kotlin.test` (`@Test`, `@BeforeTest`), **not** JUnit.
-- Domain tests use **fakes** defined in the test source set (e.g. `FakeUserRepository`, `FakePasswordHasher`). No DB dependency.
-- DB integration tests use `PostgresTestContainer` from `:platform:database` test fixtures. Import it as `com.vlatkogalev.platform.database.PostgresTestContainer` and use `PostgresTestContainer.dataSource`.
-- Integration test cleanup (`@BeforeTest`) must delete rows in FK-safe order (children before parents).
+### Domain purity (`domain:*` modules)
 
-## Database
+Domain modules depend **only** on `platform:core`. No database queries, no HTTP, no I/O. They define interfaces (repositories, services, models). Implementations live in `data:*` (Postgres, S3, Resend, eBay, Numista).
 
-- Flyway migrations live in `platform/database/src/main/resources/db/migration/`.
-- Migrations run automatically at app startup (inside `appModule` in `AppModules.kt`), **not** via a Gradle task.
-- `DataSource` is a Koin singleton; it also runs migrations eagerly during creation.
+### `Result<T>` — never throw
 
-## Config & env
+Services return `Result<T>` (`Success` / `Failure`). Use `resultOf { }` to wrap exceptions. Controllers map `Failure` to HTTP status codes.
 
-- All config is loaded from `System.getenv()` via `loadXxxConfig()` functions in `platform:core/config`.
-- `.env` files are gitignored. `.env.example` documents all configurable variables. `docker-compose.yml` shows the deployment env-vars.
-- `app:api/Main.kt` reads `PORT` env var (default `8080`) for the Netty port.
+All API responses are wrapped in `ApiResponse<T>`: `{ success, data, error, timestampMillis }`. This is enforced by `configureCore()`.
 
-## Key dependencies & version catalogs
+### Exposed R2DBC, not JDBC
 
-- JDK 21 (enforced via `jvmToolchain(21)` in every module).
-- Ktor 3.4 (Ktor version catalog as `ktorLibs` in `settings.gradle.kts`).
-- Koin 4.2 for DI.
-- Custom version catalog at `gradle/libs.versions.toml` (aliased `libs`).
-- Two version catalogs coexist: `ktorLibs` and `libs`.
+All queries use `suspendTransaction` / `dbQuery` with `R2dbcDatabase`. The `r2dbcUrl` is derived by `"jdbc:" → "r2dbc:"` string replace on the JDBC URL. **Always use the `R2dbcDatabase` singleton, never create a JDBC connection for queries.**
 
-## CI & Docker
+### Database startup flow
 
-- CI (`ci.yml`): `./gradlew build --no-daemon` then Docker push to GHCR on `main`.
-- Deploy (`deploy-hostinger-vps.yml`): triggers after CI on `main`, uses `hostinger/deploy-on-vps@v2` with `docker-compose.yml`.
-- Dockerfile builds a **fat JAR** via `:app:api:buildFatJar`, merges `META-INF/services` files.
+Flyway migrations run **before** the server starts, inside a `createdAtStart` Koin singleton (`AppModules.kt:71`):
+1. Open temporary JDBC `HikariDataSource`
+2. Run Flyway migrations (SQL files in `platform/database/src/main/resources/db/migration/`)
+3. Close JDBC pool
+4. Open `R2dbcDatabase` pool
 
-## Style & conventions
+Migrations are idempotent (`IF NOT EXISTS`, `DROP TRIGGER IF EXISTS`).
 
-- Kotlin official code style.
-- Gradle configuration cache and build cache are on, with high memory (`-Xmx12g` for Gradle, `-Xmx8g` for Kotlin daemon).
-- Controllers register route extensions like `registerProtectedRoutes()` / `registerPublicRoutes()` called from `Routes.kt`.
+### Dual HTTP clients
+
+- **Server:** Ktor Netty (inbound API)
+- **Client:** Ktor CIO (outbound to Numista catalog, eBay APIs)
+
+## Auth
+
+- JWT access tokens: Auth0 `java-jwt`, HMAC-256. Configured via `AUTH_SECRET` env var.
+- Refresh tokens: `userId:randomUUID` string (not a JWT), bcrypt-hashed before storage.
+- `AUTH_SKIP_VERIFICATION=true` bypasses email verification in local/dev.
+
+## Config
+
+- Config loaded from `System.getenv()` (see `.env.example`). No `application.conf`, only `application.yaml` for Ktor static settings.
+- Two Gradle version catalogs: `libs` (project) and `ktorLibs` (from `io.ktor:ktor-version-catalog:3.4.3`).
+- Swagger docs served at `/docs` from a manually-maintained `documentation.yaml`.
+- CORS is intentionally wide open (`anyHost()`).
+
+## CI/CD
+
+- `.github/workflows/ci.yml` — runs on push to `main` and PRs. Builds, tests, pushes Docker image to GHCR on `main`.
+- `.github/workflows/deploy-hostinger-vps.yml` — deploys GHCR image to Hostinger VPS on CI success.
