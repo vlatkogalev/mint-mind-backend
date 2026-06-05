@@ -1,149 +1,137 @@
 package com.vlatkogalev.data.postgres.repository
 
+import com.vlatkogalev.data.postgres.tables.CoinSetsTable
+import com.vlatkogalev.data.postgres.tables.CoinsTable
 import com.vlatkogalev.domain.coin.model.CoinSet
 import com.vlatkogalev.domain.coin.repository.CoinSetRepository
-import com.vlatkogalev.platform.database.tables.CoinSetsTable
-import com.vlatkogalev.platform.database.tables.CoinsTable
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.update
+import com.vlatkogalev.platform.database.dbQuery
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.*
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 
-class CoinSetRepositoryImpl : CoinSetRepository {
+class CoinSetRepositoryImpl(
+    private val database: R2dbcDatabase,
+) : CoinSetRepository {
+
     override suspend fun create(set: CoinSet): CoinSet =
-        newSuspendedTransaction {
+        dbQuery(database) {
             CoinSetsTable.insert {
                 it[id] = set.id
                 it[userId] = set.userId
                 it[name] = set.name
                 it[description] = set.description
-                it[createdAt] = OffsetDateTime.ofInstant(set.createdAt, ZoneOffset.UTC)
             }
-            findCoinSetById(set.id) ?: error("Created set could not be loaded")
+            set
         }
 
-    override suspend fun findById(id: UUID): CoinSet? = newSuspendedTransaction { findCoinSetById(id) }
+    override suspend fun findById(id: UUID): CoinSet? =
+        dbQuery(database) {
+            val row = CoinSetsTable
+                .selectAll()
+                .where { CoinSetsTable.id eq id }
+                .firstOrNull()
+                ?: return@dbQuery null
+            row.toCoinSet()
+        }
 
     override suspend fun findByUserId(userId: UUID): List<CoinSet> =
-        newSuspendedTransaction {
-            val setRows = CoinSetsTable.selectAll()
+        dbQuery(database) {
+            CoinSetsTable
+                .selectAll()
                 .where { CoinSetsTable.userId eq userId }
                 .orderBy(CoinSetsTable.createdAt to SortOrder.DESC)
                 .toList()
-
-            if (setRows.isEmpty()) return@newSuspendedTransaction emptyList()
-
-            val setIds = setRows.map { it[CoinSetsTable.id] }
-
-            val coinIdsBySetId = CoinsTable
-                .select(CoinsTable.id, CoinsTable.setId)
-                .where { CoinsTable.setId inList setIds }
-                .groupBy { it[CoinsTable.setId]!! }
-                .mapValues { (_, rows) -> rows.map { it[CoinsTable.id] } }
-
-            val previewKeysBySetId = CoinsTable
-                .select(CoinsTable.setId, CoinsTable.obverseKey, CoinsTable.createdAt)
-                .where { CoinsTable.setId inList setIds }
-                .orderBy(CoinsTable.createdAt to SortOrder.DESC)
-                .groupBy { it[CoinsTable.setId]!! }
-                .mapValues { (_, rows) -> rows.take(5).map { it[CoinsTable.obverseKey] } }
-
-            setRows.map { row ->
-                val setId = row[CoinSetsTable.id]
-                CoinSet(
-                    id = setId,
-                    userId = row[CoinSetsTable.userId],
-                    name = row[CoinSetsTable.name],
-                    description = row[CoinSetsTable.description],
-                    coinIds = coinIdsBySetId[setId].orEmpty(),
-                    previewObverseKeys = previewKeysBySetId[setId].orEmpty(),
-                    createdAt = row[CoinSetsTable.createdAt].toInstant(),
-                )
-            }
+                .map { it.toCoinSet() }
         }
 
     override suspend fun addCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet? =
-        newSuspendedTransaction {
-            val set = findCoinSetById(setId) ?: return@newSuspendedTransaction null
-            if (set.userId != userId) return@newSuspendedTransaction null
-            if (coinIds.isNotEmpty()) {
-                CoinsTable.update(
-                    where = {
-                        (CoinsTable.id inList coinIds) and (CoinsTable.userId eq userId)
-                    },
-                    body = { it[CoinsTable.setId] = setId },
-                )
+        dbQuery(database) {
+            val set = CoinSetsTable
+                .selectAll()
+                .where { (CoinSetsTable.id eq setId) and (CoinSetsTable.userId eq userId) }
+                .firstOrNull()
+                ?: return@dbQuery null
+
+            coinIds.forEach { coinId ->
+                CoinsTable.update({
+                    (CoinsTable.id eq coinId) and (CoinsTable.userId eq userId)
+                }) {
+                    it[CoinsTable.setId] = setId
+                }
             }
-            findCoinSetById(setId)
+
+            set.toCoinSet()
         }
 
     override suspend fun removeCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet? =
-        newSuspendedTransaction {
-            val set = findCoinSetById(setId) ?: return@newSuspendedTransaction null
-            if (set.userId != userId) return@newSuspendedTransaction null
-            if (coinIds.isNotEmpty()) {
-                CoinsTable.update(
-                    where = {
-                        (CoinsTable.id inList coinIds) and (CoinsTable.setId eq setId)
-                    },
-                    body = { it[CoinsTable.setId] = null },
-                )
+        dbQuery(database) {
+            val set = CoinSetsTable
+                .selectAll()
+                .where { (CoinSetsTable.id eq setId) and (CoinSetsTable.userId eq userId) }
+                .firstOrNull()
+                ?: return@dbQuery null
+
+            coinIds.forEach { coinId ->
+                CoinsTable.update({
+                    (CoinsTable.id eq coinId) and (CoinsTable.userId eq userId) and (CoinsTable.setId eq setId)
+                }) {
+                    it[CoinsTable.setId] = null
+                }
             }
-            findCoinSetById(setId)
+
+            set.toCoinSet()
         }
 
     override suspend fun update(setId: UUID, userId: UUID, name: String, description: String?): CoinSet? =
-        newSuspendedTransaction {
-            val updated = CoinSetsTable.update(
-                where = { (CoinSetsTable.id eq setId) and (CoinSetsTable.userId eq userId) },
-                body = {
-                    it[CoinSetsTable.name] = name
-                    it[CoinSetsTable.description] = description
-                },
-            ) > 0
-            if (!updated) return@newSuspendedTransaction null
-            findCoinSetById(setId)
+        dbQuery(database) {
+            val updated = CoinSetsTable.update({
+                (CoinSetsTable.id eq setId) and (CoinSetsTable.userId eq userId)
+            }) {
+                it[CoinSetsTable.name] = name
+                it[CoinSetsTable.description] = description
+            }
+            if (updated == 0) return@dbQuery null
+            findById(setId)
         }
 
-    override suspend fun deleteById(id: UUID, userId: UUID): Boolean =
-        newSuspendedTransaction {
-            CoinSetsTable.deleteWhere { (CoinSetsTable.id eq id) and (CoinSetsTable.userId eq userId) } > 0
+    override suspend fun deleteById(setId: UUID, userId: UUID): Boolean =
+        dbQuery(database) {
+            CoinSetsTable.deleteWhere {
+                (CoinSetsTable.id eq setId) and (CoinSetsTable.userId eq userId)
+            } > 0
         }
 
-    private fun findCoinSetById(id: UUID): CoinSet? {
-        val row = CoinSetsTable.selectAll()
-            .where { CoinSetsTable.id eq id }
-            .singleOrNull() ?: return null
+    private suspend fun ResultRow.toCoinSet(): CoinSet =
+        dbQuery(database) {
+            val setId = this@toCoinSet[CoinSetsTable.id]
+            val coinIds = CoinsTable
+                .selectAll()
+                .where { CoinsTable.setId eq setId }
+                .orderBy(CoinsTable.createdAt to SortOrder.DESC)
+                .toList()
+                .map { it[CoinsTable.id] }
 
-        val coinIds = CoinsTable
-            .select(CoinsTable.id)
-            .where { CoinsTable.setId eq id }
-            .orderBy(CoinsTable.createdAt to SortOrder.DESC)
-            .map { it[CoinsTable.id] }
+            val previewObverseKeys = CoinsTable
+                .selectAll()
+                .where { CoinsTable.setId eq setId }
+                .orderBy(CoinsTable.createdAt to SortOrder.DESC)
+                .limit(5)
+                .toList()
+                .map { it[CoinsTable.obverseKey] }
 
-        val previewObverseKeys = CoinsTable
-            .select(CoinsTable.obverseKey)
-            .where { CoinsTable.setId eq id }
-            .orderBy(CoinsTable.createdAt to SortOrder.DESC)
-            .limit(5)
-            .map { it[CoinsTable.obverseKey] }
-
-        return CoinSet(
-            id = id,
-            userId = row[CoinSetsTable.userId],
-            name = row[CoinSetsTable.name],
-            description = row[CoinSetsTable.description],
-            coinIds = coinIds,
-            previewObverseKeys = previewObverseKeys,
-            createdAt = row[CoinSetsTable.createdAt].toInstant(),
-        )
-    }
+            CoinSet(
+                id = this@toCoinSet[CoinSetsTable.id],
+                userId = this@toCoinSet[CoinSetsTable.userId],
+                name = this@toCoinSet[CoinSetsTable.name],
+                description = this@toCoinSet[CoinSetsTable.description],
+                coinIds = coinIds,
+                previewObverseKeys = previewObverseKeys,
+                createdAt = this@toCoinSet[CoinSetsTable.createdAt].toInstant(),
+            )
+        }
 }

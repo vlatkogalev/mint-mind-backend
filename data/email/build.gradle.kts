@@ -10,4 +10,5 @@ dependencies {
     implementation(project(":platform:core"))
     implementation(project(":domain:user"))
     implementation(libs.resend)
+    implementation(libs.kotlinx.coroutines.core)
 }

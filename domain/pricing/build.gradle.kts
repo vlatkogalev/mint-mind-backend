@@ -1,4 +1,3 @@
-
 plugins {
     alias(libs.plugins.kotlin.jvm)
 }
@@ -10,5 +9,4 @@ kotlin {
 dependencies {
     implementation(project(":platform:core"))
     implementation(project(":domain:coin"))
-    testImplementation(kotlin("test"))
 }

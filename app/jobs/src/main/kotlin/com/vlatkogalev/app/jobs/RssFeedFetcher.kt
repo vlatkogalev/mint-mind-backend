@@ -2,163 +2,112 @@ package com.vlatkogalev.app.jobs
 
 import com.vlatkogalev.domain.news.model.NewsArticle
 import com.vlatkogalev.domain.news.repository.NewsRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
-import org.jsoup.parser.Parser
 import org.jsoup.safety.Safelist
-import org.slf4j.LoggerFactory
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Locale
 import java.util.UUID
 
 class RssFeedFetcher(
     private val newsRepository: NewsRepository,
     private val feedUrl: String = "https://coinweek.com/feed/",
+    private val userAgent: String = "MintMind-RssBot/1.0",
 ) {
-    private val log = LoggerFactory.getLogger(RssFeedFetcher::class.java)
-    private val http = HttpClient.newHttpClient()
-
-    private val rssDateFormatter: DateTimeFormatter =
-        DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.ENGLISH)
-
     private val excludedCategories = setOf(
         "dealers and companies",
         "bullion & precious metals",
         "paper money",
     )
 
-    private val contentSafelist: Safelist = Safelist.relaxed()
-        .removeTags("script", "iframe", "style", "form", "input", "button")
-        .removeAttributes(":all", "style", "onclick", "onload", "onerror")
-        .addAttributes("img", "src", "alt", "width", "height")
-        .addAttributes("a", "href")
-        .addAttributes("p", "class")
-        .addAttributes("h1", "class")
-        .addAttributes("h2", "class")
-        .addAttributes("h3", "class")
+    private val rssDateFormat = DateTimeFormatter.ofPattern(
+        "EEE, dd MMM yyyy HH:mm:ss Z",
+        Locale.ENGLISH,
+    )
 
     suspend fun run() {
-        log.info("RssFeedFetcher: fetching {}", feedUrl)
+        try {
+            val xml = Jsoup.connect(feedUrl)
+                .userAgent(userAgent)
+                .ignoreContentType(true)
+                .parser(org.jsoup.parser.Parser.xmlParser())
+                .get()
 
-        val xml = try {
-            withContext(Dispatchers.IO) { fetchXml() }
-        } catch (ex: Exception) {
-            log.error("RssFeedFetcher: failed to download feed", ex)
-            return
-        }
+            val items = xml.select("item").mapNotNull { item ->
+                try {
+                    val categories = item.select("category").map { it.text().lowercase() }
+                    if (categories.any { it in excludedCategories }) return@mapNotNull null
 
-        val items = try {
-            parseItems(xml)
-        } catch (ex: Exception) {
-            log.error("RssFeedFetcher: failed to parse feed", ex)
-            return
-        }
+                    val guid = item.select("guid").text().ifBlank { item.select("link").text() }
+                    if (guid.isBlank()) return@mapNotNull null
 
-        if (items.isEmpty()) {
-            log.info("RssFeedFetcher: no items after filtering")
-            return
-        }
+                    val descriptionHtml = item.select("description").text().ifBlank { "" }
+                    val contentEncoded = item.select("content|encoded").text()
+                    val contentHtml = if (contentEncoded.isNotBlank()) {
+                        sanitizeHtml(contentEncoded)
+                    } else {
+                        sanitizeHtml(item.select("description").html())
+                    }
 
-        val incomingGuids = items.map { it.guid }.toSet()
-        val existingGuids = newsRepository.existingGuids(incomingGuids)
-        val newItems = items.filter { it.guid !in existingGuids }
+                    val publishedAt = try {
+                        ZonedDateTime.parse(
+                            item.select("pubDate").text(),
+                            rssDateFormat,
+                        ).toInstant()
+                    } catch (e: DateTimeParseException) {
+                        Instant.now()
+                    }
 
-        if (newItems.isEmpty()) {
-            log.info("RssFeedFetcher: all {} items already present", items.size)
-            return
-        }
-
-        newsRepository.saveAll(newItems)
-        log.info(
-            "RssFeedFetcher: inserted {} new articles ({} skipped as duplicates)",
-            newItems.size, existingGuids.size,
-        )
-    }
-
-    private fun fetchXml(): String {
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(feedUrl))
-            .header("User-Agent", "MintMind-RssBot/1.0")
-            .GET()
-            .build()
-        val response = http.send(request, HttpResponse.BodyHandlers.ofString())
-        check(response.statusCode() in 200..299) {
-            "Unexpected HTTP ${response.statusCode()} from $feedUrl"
-        }
-        return response.body()
-    }
-
-    private fun parseItems(xml: String): List<NewsArticle> {
-        val doc: Document = Jsoup.parse(xml, feedUrl, Parser.xmlParser())
-        val now = Instant.now()
-
-        return doc.select("item").mapNotNull { item ->
-            try {
-                val categories = item.select("category")
-                    .map { it.text().trim().lowercase() }
-
-                if (categories.any { it in excludedCategories }) {
-                    log.debug(
-                        "RssFeedFetcher: skipping '{}' (excluded category: {})",
-                        item.selectFirst("title")?.text(),
-                        categories.filter { it in excludedCategories },
+                    NewsArticle(
+                        id = UUID.randomUUID(),
+                        guid = guid,
+                        title = item.select("title").text(),
+                        link = item.select("link").text(),
+                        description = Jsoup.parse(descriptionHtml).text(),
+                        content = contentHtml,
+                        author = item.select("dc|creator").text().ifBlank { null },
+                        imageUrl = extractImageUrl(contentHtml),
+                        publishedAt = publishedAt,
+                        fetchedAt = Instant.now(),
                     )
-                    return@mapNotNull null
+                } catch (e: Exception) {
+                    null
                 }
-
-                val guid = item.selectFirst("guid")?.text()?.trim()
-                    ?: item.selectFirst("link")?.text()?.trim()
-                    ?: return@mapNotNull null
-
-                val title = item.selectFirst("title")?.text()?.trim() ?: ""
-                val link = item.selectFirst("link")?.text()?.trim() ?: ""
-                val author = item.selectFirst("dc|creator")?.text()?.trim()
-
-                val descriptionRaw = item.selectFirst("description")?.text() ?: ""
-                val description = Jsoup.parse(descriptionRaw).text().trim()
-
-                val contentRaw = item.selectFirst("content|encoded")?.text()
-                    ?: item.selectFirst("description")?.text()
-                    ?: ""
-                val contentHtml = sanitizeHtml(contentRaw)
-
-                val imageUrl = Jsoup.parse(contentRaw)
-                    .selectFirst("img[src]")
-                    ?.attr("src")
-
-                val pubDateRaw = item.selectFirst("pubDate")?.text()?.trim()
-                val publishedAt = pubDateRaw?.let { parseRssDate(it) } ?: now
-
-                NewsArticle(
-                    id = UUID.randomUUID(),
-                    guid = guid,
-                    title = title,
-                    link = link,
-                    description = description,
-                    content = contentHtml,
-                    author = author,
-                    imageUrl = imageUrl,
-                    publishedAt = publishedAt,
-                    fetchedAt = now,
-                )
-            } catch (ex: Exception) {
-                log.warn("RssFeedFetcher: skipping item due to parse error", ex)
-                null
             }
+
+            val incomingGuids = items.map { it.guid }.toSet()
+            if (incomingGuids.isEmpty()) return
+
+            val existing = newsRepository.existingGuids(incomingGuids)
+            val newArticles = items.filter { it.guid !in existing }
+
+            if (newArticles.isNotEmpty()) {
+                newsRepository.saveAll(newArticles)
+            }
+
+            println("News fetch: ${newArticles.size} inserted, ${items.size - newArticles.size} skipped")
+        } catch (e: Exception) {
+            println("News fetch failed: ${e.message}")
         }
     }
 
-    private fun sanitizeHtml(rawHtml: String): String =
-        Jsoup.clean(rawHtml, feedUrl, contentSafelist)
+    private fun sanitizeHtml(html: String): String {
+        val safelist = Safelist.relaxed()
+            .removeTags("script", "iframe", "style", "form", "input", "button")
+            .removeAttributes("style", "onclick", "onload", "onerror")
+            .addTags("img[src,alt,width,height]", "a[href]", "p[class]", "h1[class]", "h2[class]", "h3[class]")
 
-    private fun parseRssDate(raw: String): Instant =
-        ZonedDateTime.parse(raw.trim(), rssDateFormatter).toInstant()
+        return Jsoup.clean(html, safelist)
+    }
+
+    private fun extractImageUrl(html: String): String? {
+        if (html.isBlank()) return null
+        return try {
+            Jsoup.parse(html).select("img").first()?.attr("src")?.ifBlank { null }
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

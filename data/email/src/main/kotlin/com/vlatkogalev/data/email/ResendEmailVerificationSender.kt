@@ -13,20 +13,19 @@ class ResendEmailVerificationSender(
 ) : EmailVerificationSender {
     private val client = Resend(apiKey)
 
-    override suspend fun sendVerificationEmail(email: String, verificationToken: String) {
-        withContext(Dispatchers.IO) {
-            val verifyLink = "$appBaseUrl/auth/verify-email?token=$verificationToken"
+    override suspend fun sendVerificationEmail(email: String, verificationToken: String) = withContext(Dispatchers.IO) {
+        val verifyLink = "$appBaseUrl/auth/verify-email?token=$verificationToken"
 
-            val params = CreateEmailOptions.builder()
-                .from(fromAddress)
-                .to(email)
-                .subject("[Action required] Verify your e-mail")
-                .html(htmlBody(verifyLink))
-                .text(textBody(verifyLink))
-                .build()
+        val params = CreateEmailOptions.builder()
+            .from(fromAddress)
+            .to(email)
+            .subject("[Action required] Verify your e-mail")
+            .html(htmlBody(verifyLink))
+            .text(textBody(verifyLink))
+            .build()
 
-            client.emails().send(params)
-        }
+        client.emails().send(params)
+        Unit
     }
 
     private fun htmlBody(link: String) = """
@@ -39,13 +38,13 @@ class ResendEmailVerificationSender(
             Verify Email
           </a>
           <p style="color:#888;font-size:12px;margin-top:24px">
-            If you didn't create a MintMind account, you can safely ignore this email.
+            If you didn't create an account, you can safely ignore this email.
           </p>
         </div>
     """.trimIndent()
 
     private fun textBody(link: String) = """
-        Welcome to MintMind!
+        Welcome to Ktor backend template project!
 
         Please verify your email by visiting the link below:
         $link

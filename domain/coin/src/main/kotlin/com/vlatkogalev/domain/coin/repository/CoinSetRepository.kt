@@ -10,5 +10,5 @@ interface CoinSetRepository {
     suspend fun addCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet?
     suspend fun removeCoins(setId: UUID, userId: UUID, coinIds: List<UUID>): CoinSet?
     suspend fun update(setId: UUID, userId: UUID, name: String, description: String?): CoinSet?
-    suspend fun deleteById(id: UUID, userId: UUID): Boolean
+    suspend fun deleteById(setId: UUID, userId: UUID): Boolean
 }

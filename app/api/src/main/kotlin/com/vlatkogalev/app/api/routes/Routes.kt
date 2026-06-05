@@ -1,43 +1,48 @@
-@file:OptIn(ExperimentalKtorApi::class)
-
 package com.vlatkogalev.app.api.routes
 
-import com.vlatkogalev.app.api.controllers.*
+import com.vlatkogalev.app.api.controllers.CoinController
+import com.vlatkogalev.app.api.controllers.CoinPricingController
+import com.vlatkogalev.app.api.controllers.CoinSetController
+import com.vlatkogalev.app.api.controllers.MarketplaceController
+import com.vlatkogalev.app.api.controllers.NewsController
+import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
+import com.vlatkogalev.app.api.controllers.StorageController
+import com.vlatkogalev.app.api.controllers.UserAuthController
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.plugins.swagger.*
 import io.ktor.server.routing.*
-import io.ktor.utils.io.*
 import org.koin.ktor.ext.inject
 
 object ApiTags {
     const val AUTH = "Auth"
+    const val COINS = "Coins"
+    const val COIN_SETS = "Coin Sets"
+    const val MARKETPLACE = "Marketplace"
+    const val NEWS = "News"
     const val STORAGE = "Storage"
     const val WEBHOOKS = "Webhooks"
-    const val COINS = "Coins"
-    const val SETS = "Sets"
-    const val NEWS = "News"
-    const val MARKETPLACE = "Marketplace"
 }
 
 fun Application.configureRoutes() {
     val userAuthController by inject<UserAuthController>()
-    val storageController by inject<StorageController>()
     val coinController by inject<CoinController>()
     val coinSetController by inject<CoinSetController>()
     val newsController by inject<NewsController>()
-    val revenueCatWebhookController by inject<RevenueCatWebhookController>()
-    val coinPricingController by inject<CoinPricingController>()
     val marketplaceController by inject<MarketplaceController>()
+    val coinPricingController by inject<CoinPricingController>()
+    val storageController by inject<StorageController>()
+    val revenueCatWebhookController by inject<RevenueCatWebhookController>()
 
     routing {
         authRoutes(userAuthController)
-        storageRoutes(storageController)
-        coinRoutes(coinController, coinPricingController)
+        coinRoutes(coinController)
         coinSetRoutes(coinSetController)
+        coinPricingRoutes(coinPricingController)
         newsRoutes(newsController)
-        webhookRoutes(revenueCatWebhookController)
         marketplaceRoutes(marketplaceController)
+        storageRoutes(storageController)
+        webhookRoutes(revenueCatWebhookController)
         docsRoutes()
     }
 }
@@ -62,6 +67,52 @@ fun Routing.authRoutes(controller: UserAuthController) {
     }
 }
 
+fun Routing.coinRoutes(controller: CoinController) {
+    route("/coins") {
+        authenticate("jwt-auth") {
+            controller.run {
+                registerRoutes()
+            }
+        }
+    }
+}
+
+fun Routing.coinSetRoutes(controller: CoinSetController) {
+    route("/sets") {
+        authenticate("jwt-auth") {
+            controller.run {
+                registerRoutes()
+            }
+        }
+    }
+}
+
+fun Routing.coinPricingRoutes(controller: CoinPricingController) {
+    route("/coins") {
+        authenticate("jwt-auth") {
+            controller.run {
+                registerRoutes()
+            }
+        }
+    }
+}
+
+fun Routing.newsRoutes(controller: NewsController) {
+    route("/news") {
+        controller.run {
+            registerRoutes()
+        }
+    }
+}
+
+fun Routing.marketplaceRoutes(controller: MarketplaceController) {
+    route("/marketplace") {
+        controller.run {
+            registerRoutes()
+        }
+    }
+}
+
 fun Routing.storageRoutes(controller: StorageController) {
     route("/storage") {
         authenticate("jwt-auth") {
@@ -72,48 +123,10 @@ fun Routing.storageRoutes(controller: StorageController) {
     }
 }
 
-fun Routing.coinRoutes(controller: CoinController, coinPricingController: CoinPricingController) {
-    route("/coins") {
-        authenticate("jwt-auth") {
-            controller.run {
-                registerProtectedRoutes()
-            }
-
-            coinPricingController.run {
-                registerProtectedRoutes()
-            }
-        }
-    }
-}
-
-fun Routing.coinSetRoutes(controller: CoinSetController) {
-    route("/sets") {
-        authenticate("jwt-auth") {
-            controller.run {
-                registerProtectedRoutes()
-            }
-        }
-    }
-}
-
-fun Routing.newsRoutes(controller: NewsController) {
-    route("/news") {
-        controller.run { registerPublicRoutes() }
-    }
-}
-
 fun Routing.webhookRoutes(controller: RevenueCatWebhookController) {
     route("/webhooks") {
         controller.run {
             registerRoutes()
-        }
-    }
-}
-
-fun Routing.marketplaceRoutes(controller: MarketplaceController) {
-    route("/marketplace") {
-        route("/listings") {
-            controller.run { registerPublicRoutes() }
         }
     }
 }

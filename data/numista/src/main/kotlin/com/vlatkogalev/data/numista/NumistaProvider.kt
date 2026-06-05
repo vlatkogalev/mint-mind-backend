@@ -1,134 +1,167 @@
 package com.vlatkogalev.data.numista
 
-import com.vlatkogalev.data.numista.dto.NumistaTypeDetail
-import com.vlatkogalev.data.numista.dto.NumistaTypesSearchResponse
 import com.vlatkogalev.domain.coin.model.CoinCatalogCandidate
 import com.vlatkogalev.domain.coin.model.CoinFingerprint
 import com.vlatkogalev.domain.coin.model.ExternalCoinReference
 import com.vlatkogalev.domain.coin.service.CoinCatalogProvider
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.NumistaConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
-import java.net.URI
-import java.net.URLEncoder
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.time.Duration
-import java.time.Instant
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
 class NumistaProvider(
     private val config: NumistaConfig,
 ) : CoinCatalogProvider {
+    override val providerName: String = "Numista"
 
-    override val providerName: String = "numista"
-
-    private val log = LoggerFactory.getLogger(NumistaProvider::class.java)
-    private val httpClient = HttpClient.newBuilder()
-        .connectTimeout(CONNECT_TIMEOUT)
-        .build()
-    private val json = Json { ignoreUnknownKeys = true }
-
-    override suspend fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>> {
-        if (!config.enabled) return Result.Success(emptyList())
-
-        val query = buildQuery(fingerprint)
-        if (query.isBlank()) return Result.Success(emptyList())
-
-        return try {
-            val searchBody = withContext(Dispatchers.IO) {
-                get("${config.apiBaseUrl}/v3/types?category=coin&q=${urlEncode(query)}&count=10")
-            }
-            val searchResponse = json.decodeFromString<NumistaTypesSearchResponse>(searchBody)
-            val candidates = coroutineScope {
-                searchResponse.types.map { type ->
-                    async(Dispatchers.IO) {
-                        val detail = fetchDetail(type.id)
-                        CoinCatalogCandidate(
-                            externalReference = ExternalCoinReference(
-                                id = UUID.randomUUID(),
-                                catalogCoinId = UNASSIGNED_CATALOG_COIN_ID,
-                                provider = providerName,
-                                externalId = type.id.toString(),
-                                externalUrl = detail?.url ?: "https://en.numista.com/catalogue/pieces${type.id}.html",
-                                lastSyncedAt = null,
-                                syncStatus = null,
-                                syncError = null,
-                                createdAt = Instant.now(),
-                            ),
-                            title = type.title,
-                            countryOrIssuer = type.country?.name ?: type.issuer?.name,
-                            denomination = type.type,
-                            yearStart = type.yearStart,
-                            yearEnd = type.yearEnd,
-                            composition = detail?.composition?.text,
-                            weightGrams = detail?.weight,
-                            diameterMm = detail?.size,
-                            obverseDescription = detail?.obverse?.description,
-                            reverseDescription = detail?.reverse?.description,
-                            historicalContext = detail?.comments,
-                            thumbnailUrl = detail?.obverseThumbnail,
-                            numistaUrl = detail?.url,
-                        )
-                    }
-                }.awaitAll()
-            }
-            Result.Success(candidates)
-        } catch (ex: Exception) {
-            log.warn("Numista lookup failed", ex)
-            Result.Failure(ex.message ?: "Failed to fetch Numista candidates", ex)
+    private val client = HttpClient(CIO) {
+        install(ContentNegotiation) {
+            json(Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            })
+        }
+        engine {
+            requestTimeout = 4000
         }
     }
 
-    private fun fetchDetail(typeId: Long): NumistaTypeDetail? =
+    override suspend fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>> =
         try {
-            val body = get("${config.apiBaseUrl}/v3/types/$typeId")
-            json.decodeFromString<NumistaTypeDetail>(body)
+            if (!config.enabled) {
+                return Result.Success(emptyList())
+            }
+
+            val query = buildQuery(fingerprint)
+            if (query.isBlank()) return Result.Success(emptyList())
+
+            val searchResponse: NumistaTypesSearchResponse = client
+                .get("${config.baseUrl}/v3/types") {
+                    parameter("category", "coin")
+                    parameter("q", query)
+                    parameter("count", 10)
+                    header("Numista-API-Key", config.apiKey)
+                }.body()
+
+            val summaries = searchResponse.types ?: emptyList()
+
+            coroutineScope {
+                summaries.map { summary ->
+                    async {
+                        try {
+                            val detail: NumistaTypeDetail = client
+                                .get("${config.baseUrl}/v3/types/${summary.id}") {
+                                    header("Numista-API-Key", config.apiKey)
+                                }.body()
+                            detail.toCandidate(summary.id)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                }.mapNotNull { it.await() }
+            }.let { Result.Success(it) }
         } catch (ex: Exception) {
-            log.debug("Numista detail fetch failed for type {}", typeId, ex)
-            null
+            Result.Failure(ex.message ?: "Numista API error", ex)
         }
-
-    private fun get(url: String): String {
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .timeout(REQUEST_TIMEOUT)
-            .header("Numista-API-Key", config.apiKey)
-            .header("Accept", "application/json")
-            .GET()
-            .build()
-
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-        check(response.statusCode() in 200..299) {
-            "Numista API error: ${response.statusCode()} ${response.body().take(400)}"
-        }
-        return response.body()
-    }
 
     private fun buildQuery(fingerprint: CoinFingerprint): String =
-        listOf(
+        listOfNotNull(
             fingerprint.countryOrIssuer,
             fingerprint.denomination,
-            fingerprint.title,
             fingerprint.seriesName,
+            fingerprint.title,
             fingerprint.year?.toString(),
             fingerprint.mintMark,
+        ).joinToString(" ").trim()
+
+    private fun NumistaTypeDetail.toCandidate(externalId: Int): CoinCatalogCandidate {
+        val ref = ExternalCoinReference(
+            id = UUID.randomUUID(),
+            catalogCoinId = UUID.randomUUID(),
+            provider = providerName,
+            externalId = externalId.toString(),
+            externalUrl = url,
+            lastSyncedAt = java.time.Instant.now(),
+            syncStatus = "synced",
+            syncError = null,
+            createdAt = java.time.Instant.now(),
         )
-            .mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }
-            .joinToString(" ")
-
-    private fun urlEncode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8)
-
-    private companion object {
-        val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(3)
-        val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(4)
-        val UNASSIGNED_CATALOG_COIN_ID: UUID = UUID(0L, 0L)
+        return CoinCatalogCandidate(
+            externalReference = ref,
+            title = title,
+            countryOrIssuer = country?.name ?: issuer?.name,
+            denomination = denomination,
+            yearStart = yearStart,
+            yearEnd = yearEnd,
+            composition = composition?.text,
+            weightGrams = weight,
+            diameterMm = size,
+            obverseDescription = obverse?.description,
+            reverseDescription = reverse?.description,
+            historicalContext = comments,
+            thumbnailUrl = obverseThumbnail,
+            numistaUrl = url,
+        )
     }
 }
+
+@Serializable
+data class NumistaTypesSearchResponse(
+    val types: List<NumistaTypeSummary>? = null,
+)
+
+@Serializable
+data class NumistaTypeSummary(
+    val id: Int,
+)
+
+@Serializable
+data class NumistaCountry(
+    val name: String? = null,
+)
+
+@Serializable
+data class NumistaIssuer(
+    val name: String? = null,
+)
+
+@Serializable
+data class NumistaComposition(
+    val text: String? = null,
+)
+
+@Serializable
+data class NumistaSide(
+    val description: String? = null,
+)
+
+@Serializable
+data class NumistaTypeDetail(
+    val id: Int,
+    val url: String? = null,
+    val title: String? = null,
+    val country: NumistaCountry? = null,
+    val issuer: NumistaIssuer? = null,
+    val denomination: String? = null,
+    val yearStart: Int? = null,
+    val yearEnd: Int? = null,
+    val composition: NumistaComposition? = null,
+    val weight: Double? = null,
+    val size: Double? = null,
+    val obverse: NumistaSide? = null,
+    val reverse: NumistaSide? = null,
+    val comments: String? = null,
+    val obverseThumbnail: String? = null,
+)

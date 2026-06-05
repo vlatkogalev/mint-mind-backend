@@ -7,7 +7,7 @@ import com.vlatkogalev.domain.billing.model.SubscriptionStatus
 import com.vlatkogalev.domain.billing.repository.SubscriptionRepository
 import com.vlatkogalev.platform.core.Result
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 
 class SubscriptionService(
     private val subscriptionRepository: SubscriptionRepository,
@@ -38,7 +38,8 @@ class SubscriptionService(
             RevenueCatEventType.INITIAL_PURCHASE,
             RevenueCatEventType.RENEWAL,
             RevenueCatEventType.UNCANCELLATION,
-            -> SubscriptionStatus.ACTIVE
+                -> SubscriptionStatus.ACTIVE
+
             RevenueCatEventType.CANCELLATION -> SubscriptionStatus.CANCELLED
             RevenueCatEventType.EXPIRATION -> SubscriptionStatus.EXPIRED
         }

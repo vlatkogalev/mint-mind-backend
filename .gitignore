@@ -2,6 +2,7 @@
 build/
 out/
 .idea/
+.opencode/
 *.iml
 local.properties
 .env

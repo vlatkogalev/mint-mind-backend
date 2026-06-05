@@ -27,8 +27,8 @@ include(
     ":platform:logging",
     ":domain:user",
     ":domain:image",
-    ":domain:coin",
     ":domain:billing",
+    ":domain:coin",
     ":domain:news",
     ":domain:marketplace",
     ":domain:pricing",
@@ -40,6 +40,3 @@ include(
     ":app:api",
     ":app:jobs",
 )
-
-include("data:ebay")
-include("domain:pricing")

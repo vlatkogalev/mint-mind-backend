@@ -1,6 +1,7 @@
 .gradle
 .git
 .idea
+.opencode
 build
 *.iml
 *.iws

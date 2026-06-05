@@ -2,23 +2,9 @@
 
 package com.vlatkogalev.app.api.controllers
 
-import com.vlatkogalev.app.api.dto.CatalogueNumberDto
-import com.vlatkogalev.app.api.dto.CatalogEnrichmentDto
-import com.vlatkogalev.app.api.dto.CoinImagesResponse
-import com.vlatkogalev.app.api.dto.CoinListResponse
-import com.vlatkogalev.app.api.dto.CoinDetailResponse
-import com.vlatkogalev.app.api.dto.CoinSummaryResponse
-import com.vlatkogalev.app.api.dto.RecognitionResultDto
-import com.vlatkogalev.app.api.dto.SaveCoinRequest
-import com.vlatkogalev.app.api.dto.UpdateCoinNotesRequest
+import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
-import com.vlatkogalev.domain.coin.model.CatalogueNumber
-import com.vlatkogalev.domain.coin.model.CatalogCoin
-import com.vlatkogalev.domain.coin.model.Coin
-import com.vlatkogalev.domain.coin.model.CoinSortField
-import com.vlatkogalev.domain.coin.model.Confidence
-import com.vlatkogalev.domain.coin.model.RecognitionResult
-import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
+import com.vlatkogalev.domain.coin.model.*
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
 import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.platform.auth.userIdOrNull
@@ -26,28 +12,22 @@ import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.storage.FileStorageService
 import com.vlatkogalev.platform.core.time.TimeProvider
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.auth.jwt.JWTPrincipal
-import io.ktor.server.auth.principal
-import io.ktor.server.request.receive
-import io.ktor.server.response.respond
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.delete
-import io.ktor.server.routing.get
-import io.ktor.server.routing.openapi.describe
-import io.ktor.server.routing.patch
-import io.ktor.server.routing.post
-import java.util.UUID
+import io.ktor.http.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.routing.openapi.*
+import java.util.*
 
 class CoinController(
     private val coinService: CoinService,
     private val enrichmentService: CoinEnrichmentService,
-    private val catalogCoinRepository: CatalogCoinRepository,
     private val fileStorageService: FileStorageService,
     private val timeProvider: TimeProvider,
 ) {
-    fun Route.registerProtectedRoutes() {
+    fun Route.registerRoutes() {
         post {
             val userId = call.userUuidOrNull()
             if (userId == null) {
@@ -60,28 +40,19 @@ class CoinController(
                 call.respond(HttpStatusCode.BadRequest, error(it))
                 return@post
             }
-            val recognitionResult = payload.recognitionResult.toDomainOrNull()
-            val catalogueNumbers = payload.catalogueNumbers.mapNotNull { it.toDomainOrNull() }
-            if (recognitionResult == null || catalogueNumbers.size != payload.catalogueNumbers.size) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid confidence value"))
-                return@post
-            }
 
-            when (
-                val result = coinService.saveCoin(
-                    userId = userId,
-                    obverseKey = payload.obverseKey,
-                    reverseKey = payload.reverseKey,
-                    recognitionResult = recognitionResult,
-                    catalogueNumbers = catalogueNumbers,
-                    notes = payload.notes,
-                )
-            ) {
-                is Result.Success -> {
-                    val coin = result.value
-                    val enrichment = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }?.toEnrichmentDto()
-                    call.respond(HttpStatusCode.Created, success(coin.toDetailResponse(enrichment)))
-                }
+            val recognitionResult = mapToRecognitionResult(payload.recognitionResult)
+            val catalogueNumbers = payload.catalogueNumbers.map { mapToCatalogueNumber(it) }
+
+            when (val result = coinService.saveCoin(
+                userId = userId,
+                obverseKey = payload.obverseKey,
+                reverseKey = payload.reverseKey,
+                recognitionResult = recognitionResult,
+                catalogueNumbers = catalogueNumbers,
+                notes = payload.notes,
+            )) {
+                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toDetailResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
@@ -96,21 +67,20 @@ class CoinController(
                 return@get
             }
 
+            val country = call.request.queryParameters["country"]
             val year = call.request.queryParameters["year"]?.toIntOrNull()
             val minValue = call.request.queryParameters["minValue"]?.toDoubleOrNull()
             val maxValue = call.request.queryParameters["maxValue"]?.toDoubleOrNull()
-            val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
-            val cursor = call.request.queryParameters["cursor"]?.toLongOrNull()
-            val setId = call.request.queryParameters["setId"]?.let {
-                runCatching { UUID.fromString(it) }.getOrNull()
-            }
+            val setId = call.request.queryParameters["setId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             val sortBy = call.request.queryParameters["sortBy"]
                 ?.let { runCatching { CoinSortField.valueOf(it.uppercase()) }.getOrNull() }
                 ?: CoinSortField.DATE_ADDED_NEW_TO_OLD
+            val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
+            val cursor = call.request.queryParameters["cursor"]?.toLongOrNull()
 
-            val coinsResult = coinService.listCoins(
+            when (val result = coinService.listCoins(
                 userId = userId,
-                country = call.request.queryParameters["country"],
+                country = country,
                 year = year,
                 minValue = minValue,
                 maxValue = maxValue,
@@ -118,75 +88,54 @@ class CoinController(
                 sortBy = sortBy,
                 limit = limit,
                 cursor = cursor,
-            )
-
-            if (coinsResult is Result.Failure) {
-                call.respond(HttpStatusCode.BadRequest, error(coinsResult.reason))
-                return@get
+            )) {
+                is Result.Success -> {
+                    val coins = result.value
+                    val nextCursor = if (coins.isNotEmpty() && coins.size >= limit) {
+                        coins.last().createdAt.toEpochMilli()
+                    } else null
+                    val summaries = coins.map { it.toSummaryResponse() }
+                    call.respond(success(CoinListResponse(coins = summaries, nextCursor = nextCursor)))
+                }
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
-
-            val coins = (coinsResult as Result.Success).value
-
-            val catalogCoinIds = coins.mapNotNull { it.catalogCoinId }.distinct()
-            val catalogCoinById = if (catalogCoinIds.isNotEmpty()) {
-                catalogCoinRepository.findByIds(catalogCoinIds).associateBy { it.id }
-            } else {
-                emptyMap()
-            }
-
-            val nextCursor = if (coins.size >= limit) {
-                coins.lastOrNull()?.createdAt?.toEpochMilli()
-            } else {
-                null
-            }
-
-            call.respond(
-                success(
-                    CoinListResponse(
-                        coins = coins.map { it.toSummaryResponse(catalogCoinById[it.catalogCoinId]?.toEnrichmentDto()) },
-                        nextCursor = nextCursor,
-                    ),
-                ),
-            )
         }.describe {
             tag(ApiTags.COINS)
-            summary = "List coins in the authenticated user's collection"
+            summary = "List user's coins"
         }
 
         get("/{id}") {
             val userId = call.userUuidOrNull()
-            val coinId = call.coinIdOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@get
             }
+
+            val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin id"))
+                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
                 return@get
             }
 
             when (val result = coinService.getCoin(coinId, userId)) {
-                is Result.Success -> {
-                    val coin = result.value
-                    val enrichment = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }?.toEnrichmentDto()
-                    call.respond(success(coin.toDetailResponse(enrichment)))
-                }
+                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
             tag(ApiTags.COINS)
-            summary = "Get a coin by id"
+            summary = "Get a single coin"
         }
 
         delete("/{id}") {
             val userId = call.userUuidOrNull()
-            val coinId = call.coinIdOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@delete
             }
+
+            val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin id"))
+                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
                 return@delete
             }
 
@@ -201,156 +150,191 @@ class CoinController(
 
         patch("/{id}/notes") {
             val userId = call.userUuidOrNull()
-            val coinId = call.coinIdOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@patch
             }
+
+            val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin id"))
+                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
                 return@patch
             }
 
             val payload = call.receive<UpdateCoinNotesRequest>()
+
             when (val result = coinService.updateNotes(coinId, userId, payload.notes)) {
-                is Result.Success -> {
-                    val coin = result.value
-                    val enrichment = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }?.toEnrichmentDto()
-                    call.respond(success(coin.toDetailResponse(enrichment)))
-                }
+                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
             tag(ApiTags.COINS)
-            summary = "Update notes for a coin"
+            summary = "Update coin notes"
         }
 
         get("/{id}/images") {
             val userId = call.userUuidOrNull()
-            val coinId = call.coinIdOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@get
             }
+
+            val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin id"))
+                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
                 return@get
             }
 
             when (val result = coinService.getCoin(coinId, userId)) {
                 is Result.Success -> {
                     val coin = result.value
-                    call.respond(
-                        success(
-                            CoinImagesResponse(
-                                obverseUrl = fileStorageService.createPresignedDownload(coin.obverseKey).toString(),
-                                reverseUrl = fileStorageService.createPresignedDownload(coin.reverseKey).toString(),
-                            ),
-                        ),
-                    )
+                    val obverseUrl = fileStorageService.createPresignedDownload(coin.obverseKey)
+                    val reverseUrl = fileStorageService.createPresignedDownload(coin.reverseKey)
+                    call.respond(success(CoinImagesResponse(
+                        obverseUrl = obverseUrl.toString(),
+                        reverseUrl = reverseUrl.toString(),
+                    )))
                 }
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
             tag(ApiTags.COINS)
-            summary = "Create presigned download URLs for a coin's images"
+            summary = "Get presigned download URLs for coin images"
         }
 
         post("/{id}/enrich") {
             val userId = call.userUuidOrNull()
-            val coinId = call.coinIdOrNull()
             if (userId == null) {
                 call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
                 return@post
             }
+
+            val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin id"))
+                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
                 return@post
             }
 
-            val coinResult = coinService.getCoin(coinId, userId)
-            if (coinResult is Result.Failure) {
-                call.respond(HttpStatusCode.NotFound, error(coinResult.reason))
-                return@post
-            }
-            val coin = (coinResult as Result.Success).value
-            val catalogCoinId = coin.catalogCoinId
-            if (catalogCoinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Coin has no catalog coin id"))
-                return@post
-            }
-
-            when (val result = enrichmentService.enrichById(catalogCoinId)) {
-                is Result.Success -> call.respond(
-                    success(
-                        mapOf(
-                            "message" to "Coin enrichment completed",
-                            "catalogCoinId" to result.value.id.toString(),
-                            "enrichedAt" to result.value.enrichedAt?.toString(),
-                            "lastEnrichmentFailedAt" to result.value.lastEnrichmentFailedAt?.toString(),
-                            "lastEnrichmentError" to result.value.lastEnrichmentError,
-                        ),
-                    ),
-                )
-
-                is Result.Failure -> {
-                    val status =
-                        if (result.reason == "Catalog coin not found") HttpStatusCode.NotFound
-                        else HttpStatusCode.ServiceUnavailable
-                    call.respond(status, error(result.reason))
+            when (val coinResult = coinService.getCoin(coinId, userId)) {
+                is Result.Success -> {
+                    val catalogCoinId = coinResult.value.catalogCoinId
+                    if (catalogCoinId == null) {
+                        call.respond(HttpStatusCode.BadRequest, error("Coin is not linked to a catalog entry"))
+                        return@post
+                    }
+                    when (val enrichResult = enrichmentService.enrichById(catalogCoinId)) {
+                        is Result.Success -> call.respond(success(mapOf("message" to "Enrichment completed")))
+                        is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, error(enrichResult.reason))
+                    }
                 }
+                is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(coinResult.reason))
             }
         }.describe {
             tag(ApiTags.COINS)
-            summary = "Manually trigger catalog enrichment for a coin"
+            summary = "Manually trigger catalog enrichment"
+        }
+
+        get("/stats") {
+            val userId = call.userUuidOrNull()
+            if (userId == null) {
+                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                return@get
+            }
+
+            val country = call.request.queryParameters["country"]
+            val year = call.request.queryParameters["year"]?.toIntOrNull()
+            val minValue = call.request.queryParameters["minValue"]?.toDoubleOrNull()
+            val maxValue = call.request.queryParameters["maxValue"]?.toDoubleOrNull()
+            val setId = call.request.queryParameters["setId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+
+            when (val result = coinService.getCollectionStats(
+                userId = userId,
+                country = country,
+                year = year,
+                minValue = minValue,
+                maxValue = maxValue,
+                setId = setId,
+            )) {
+                is Result.Success -> call.respond(success(result.value.toStatsResponse()))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+            }
+        }.describe {
+            tag(ApiTags.COINS)
+            summary = "Get collection statistics"
         }
     }
 
-    private fun ApplicationCall.userUuidOrNull(): UUID? =
+    private fun io.ktor.server.application.ApplicationCall.userUuidOrNull(): UUID? =
         principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
-    private fun ApplicationCall.coinIdOrNull(): UUID? =
-        parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-
-    private fun RecognitionResultDto.toDomainOrNull(): RecognitionResult? {
-        val confidence = overallConfidence.toConfidenceOrNull() ?: return null
-        return RecognitionResult(
-            overallConfidence = confidence,
-            countryOrIssuer = countryOrIssuer,
-            denomination = denomination,
-            seriesName = seriesName,
-            year = year,
-            mintMark = mintMark,
-            metalComposition = metalComposition,
-            estimatedGrade = estimatedGrade,
-            estimatedGradeValue = estimatedGradeValue,
-            rarityQualitative = rarityQualitative,
-            valueLow = valueLow,
-            valueHigh = valueHigh,
-            mintage = mintage,
-            obverseDescription = obverseDescription,
-            reverseDescription = reverseDescription,
-            historicalContext = historicalContext,
-            rawJson = rawJson,
+    private fun mapToRecognitionResult(dto: RecognitionResultDto): RecognitionResult =
+        RecognitionResult(
+            overallConfidence = runCatching { Confidence.valueOf(dto.overallConfidence.uppercase()) }.getOrDefault(Confidence.LOW),
+            countryOrIssuer = dto.countryOrIssuer,
+            denomination = dto.denomination,
+            seriesName = dto.seriesName,
+            year = dto.year,
+            mintMark = dto.mintMark,
+            metalComposition = dto.metalComposition,
+            estimatedGrade = dto.estimatedGrade,
+            estimatedGradeValue = dto.estimatedGradeValue,
+            rarityQualitative = dto.rarityQualitative,
+            valueLow = dto.valueLow,
+            valueHigh = dto.valueHigh,
+            mintage = dto.mintage,
+            obverseDescription = dto.obverseDescription,
+            reverseDescription = dto.reverseDescription,
+            historicalContext = dto.historicalContext,
+            rawJson = dto.rawJson,
         )
-    }
 
-    private fun CatalogueNumberDto.toDomainOrNull(): CatalogueNumber? {
-        val confidence = confidence.toConfidenceOrNull() ?: return null
-        return CatalogueNumber(
-            catalogueName = catalogueName,
-            number = number,
-            confidence = confidence,
+    private fun mapToCatalogueNumber(dto: CatalogueNumberDto): CatalogueNumber =
+        CatalogueNumber(
+            catalogueName = dto.catalogueName,
+            number = dto.number,
+            confidence = runCatching { Confidence.valueOf(dto.confidence.uppercase()) }.getOrDefault(Confidence.LOW),
         )
-    }
 
-    private fun String.toConfidenceOrNull(): Confidence? =
-        runCatching { Confidence.valueOf(uppercase()) }.getOrNull()
+    private fun Coin.toDetailResponse(): CoinDetailResponse =
+        CoinDetailResponse(
+            id = id.toString(),
+            userId = userId.toString(),
+            obverseKey = obverseKey,
+            reverseKey = reverseKey,
+            recognitionResult = RecognitionResultDto(
+                overallConfidence = recognitionResult.overallConfidence.name,
+                countryOrIssuer = recognitionResult.countryOrIssuer,
+                denomination = recognitionResult.denomination,
+                seriesName = recognitionResult.seriesName,
+                year = recognitionResult.year,
+                mintMark = recognitionResult.mintMark,
+                metalComposition = recognitionResult.metalComposition,
+                estimatedGrade = recognitionResult.estimatedGrade,
+                estimatedGradeValue = recognitionResult.estimatedGradeValue,
+                rarityQualitative = recognitionResult.rarityQualitative,
+                valueLow = recognitionResult.valueLow,
+                valueHigh = recognitionResult.valueHigh,
+                mintage = recognitionResult.mintage,
+                obverseDescription = recognitionResult.obverseDescription,
+                reverseDescription = recognitionResult.reverseDescription,
+                historicalContext = recognitionResult.historicalContext,
+                rawJson = recognitionResult.rawJson,
+            ),
+            catalogueNumbers = catalogueNumbers.map {
+                CatalogueNumberDto(catalogueName = it.catalogueName, number = it.number, confidence = it.confidence.name)
+            },
+            setId = setId?.toString(),
+            catalogCoinId = catalogCoinId?.toString(),
+            notes = notes,
+            createdAt = createdAt.toString(),
+        )
 
-    private fun Coin.toSummaryResponse(enrichment: CatalogEnrichmentDto? = null): CoinSummaryResponse {
-        val low = recognitionResult.valueLow
-        val high = recognitionResult.valueHigh
-        val meanValue = if (low != null && high != null) (low + high) / 2.0 else null
+    private fun Coin.toSummaryResponse(): CoinSummaryResponse {
+        val estimatedValueMean: Double? = run {
+            val low = recognitionResult.valueLow
+            val high = recognitionResult.valueHigh
+            if (low != null && high != null) (low + high) / 2.0 else null
+        }
         return CoinSummaryResponse(
             id = id.toString(),
             obverseKey = obverseKey,
@@ -360,52 +344,22 @@ class CoinController(
             year = recognitionResult.year,
             mintage = recognitionResult.mintage,
             estimatedGrade = recognitionResult.estimatedGrade,
-            estimatedValueMean = meanValue,
+            estimatedValueMean = estimatedValueMean,
             setId = setId?.toString(),
             createdAt = createdAt.toString(),
-            enrichment = enrichment,
         )
     }
 
-    private fun Coin.toDetailResponse(enrichment: CatalogEnrichmentDto? = null): CoinDetailResponse =
-        CoinDetailResponse(
-            id = id.toString(),
-            obverseKey = obverseKey,
-            reverseKey = reverseKey,
-            recognitionResult = recognitionResult.toDto(),
-            catalogueNumbers = catalogueNumbers.map { it.toDto() },
-            setId = setId?.toString(),
-            notes = notes,
-            createdAt = createdAt.toString(),
-            enrichment = enrichment,
-        )
-
-    private fun RecognitionResult.toDto(): RecognitionResultDto =
-        RecognitionResultDto(
-            overallConfidence = overallConfidence.name,
-            countryOrIssuer = countryOrIssuer,
-            denomination = denomination,
-            seriesName = seriesName,
-            year = year,
-            mintMark = mintMark,
-            metalComposition = metalComposition,
-            estimatedGrade = estimatedGrade,
-            estimatedGradeValue = estimatedGradeValue,
-            rarityQualitative = rarityQualitative,
-            valueLow = valueLow,
-            valueHigh = valueHigh,
-            mintage = mintage,
-            obverseDescription = obverseDescription,
-            reverseDescription = reverseDescription,
-            historicalContext = historicalContext,
-            rawJson = rawJson,
-        )
-
-    private fun CatalogueNumber.toDto(): CatalogueNumberDto =
-        CatalogueNumberDto(
-            catalogueName = catalogueName,
-            number = number,
-            confidence = confidence.name,
+    private fun CoinCollectionStats.toStatsResponse(): CoinCollectionStatsResponse =
+        CoinCollectionStatsResponse(
+            totalCoins = totalCoins,
+            totalIssuers = totalIssuers,
+            estimatedTotalValueMean = estimatedTotalValueMean,
+            highlights = CollectionHighlightsResponse(
+                mostValuable = highlights.mostValuable?.toDetailResponse(),
+                mostAncient = highlights.mostAncient?.toDetailResponse(),
+                rarest = highlights.rarest?.toDetailResponse(),
+            ),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =
@@ -420,17 +374,5 @@ class CoinController(
             success = false,
             error = message,
             timestampMillis = timeProvider.nowMillis(),
-        )
-
-    private fun CatalogCoin.toEnrichmentDto(): CatalogEnrichmentDto =
-        CatalogEnrichmentDto(
-            composition = composition,
-            weightGrams = weightGrams,
-            diameterMm = diameterMm,
-            obverseDescription = obverseDescription,
-            reverseDescription = reverseDescription,
-            historicalContext = historicalContext,
-            thumbnailUrl = thumbnailUrl,
-            numistaUrl = numistaUrl,
         )
 }

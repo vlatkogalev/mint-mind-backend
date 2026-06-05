@@ -1,5 +1,6 @@
 package com.vlatkogalev.data.ebay
 
+import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.pricing.model.ActiveListing
 import com.vlatkogalev.domain.pricing.model.CoinPricingResult
@@ -7,175 +8,146 @@ import com.vlatkogalev.domain.pricing.model.PriceRange
 import com.vlatkogalev.domain.pricing.service.CoinPricingService
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.EbayConfig
-import kotlinx.coroutines.Dispatchers
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
-import java.net.URI
-import java.net.URLEncoder
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.time.Instant
 
 class EbayCoinPricingService(
-    private val config: EbayConfig,
     private val tokenProvider: EbayTokenProvider,
+    private val config: EbayConfig,
 ) : CoinPricingService {
 
-    private val log = LoggerFactory.getLogger(EbayCoinPricingService::class.java)
-    private val http = HttpClient.newHttpClient()
-    private val json = Json { ignoreUnknownKeys = true }
+    private val client = HttpClient(CIO) {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
+    }
 
-    private val excludedTerms = "-lot -set -roll -collection -pair -group -album -box -boxes -coincard -collectible -note -banknote -bill -currency"
+    private val exclusions = "-lot -set -roll -collection -pair -group -album -box -boxes -coincard -collectible -note -banknote -bill -currency"
 
     override suspend fun getPricing(coin: Coin, minResults: Int): Result<CoinPricingResult> =
         try {
-            val token = withContext(Dispatchers.IO) { tokenProvider.getAccessToken() }
             val narrowQuery = buildQuery(coin, includeGrade = true)
             val broadQuery = buildQuery(coin, includeGrade = false)
 
-            val (query, listings) = coroutineScope {
-                val narrowDeferred = async(Dispatchers.IO) { fetchListings(narrowQuery, token) }
+            if (narrowQuery.isBlank() && broadQuery.isBlank()) {
+                return Result.Success(
+                    CoinPricingResult(
+                        query = "",
+                        listings = emptyList(),
+                        priceRange = null,
+                        source = "eBay",
+                        fetchedAt = Instant.now(),
+                    )
+                )
+            }
 
-                if (narrowQuery == broadQuery) {
-                    narrowQuery to narrowDeferred.await()
+            val result = coroutineScope {
+                val narrowDeferred = if (narrowQuery.isNotBlank()) {
+                    async { fetchListings(narrowQuery) }
+                } else null
+
+                val broadDeferred = if (broadQuery != narrowQuery && broadQuery.isNotBlank()) {
+                    async { fetchListings(broadQuery) }
+                } else null
+
+                val narrowResults = narrowDeferred?.await() ?: emptyList()
+
+                if (narrowResults.size >= minResults || broadDeferred == null) {
+                    narrowResults
                 } else {
-                    val broadDeferred = async(Dispatchers.IO) { fetchListings(broadQuery, token) }
-                    val narrow = narrowDeferred.await()
-                    if (narrow.size >= minResults) {
-                        broadDeferred.cancel()
-                        narrowQuery to narrow
-                    } else {
-                        log.debug(
-                            "EbayCoinPricingService: narrow query '{}' returned {} results, retrying broad",
-                            narrowQuery, narrow.size,
-                        )
-                        broadQuery to broadDeferred.await()
-                    }
+                    broadDeferred.await()
                 }
             }
 
+            val priceRange = if (result.isNotEmpty()) {
+                val prices = result.map { it.currentPrice }.sorted()
+                PriceRange(
+                    low = prices.first(),
+                    high = prices.last(),
+                    median = prices[prices.size / 2],
+                    mean = prices.sum() / prices.size,
+                    sampleSize = prices.size,
+                )
+            } else null
+
             Result.Success(
                 CoinPricingResult(
-                    query = query,
-                    listings = listings,
-                    priceRange = computePriceRange(listings),
+                    query = narrowQuery.ifBlank { broadQuery },
+                    listings = result,
+                    priceRange = priceRange,
                     source = "eBay",
                     fetchedAt = Instant.now(),
-                ),
+                )
             )
         } catch (ex: Exception) {
-            log.error("EbayCoinPricingService: failed to fetch pricing", ex)
-            Result.Failure(ex.message ?: "Failed to fetch eBay pricing", ex)
+            Result.Failure(ex.message ?: "Failed to get pricing", ex)
         }
 
-    internal fun buildQuery(coin: Coin, includeGrade: Boolean): String {
-        val r = coin.recognitionResult
-        val krause = coin.catalogueNumbers
-            .firstOrNull { it.catalogueName.contains("krause", ignoreCase = true) }
-            ?.number
+    private suspend fun fetchListings(query: String): List<ActiveListing> {
+        val token = tokenProvider.getAccessToken()
+        val baseUrl = config.environment.browseApiBaseUrl
 
-        return buildString {
-            if (krause != null) append("$krause ")
-            r.countryOrIssuer?.let { append("$it ") }
-            r.year?.let { append("$it ") }
-            r.denomination?.let { append("$it ") }
-            r.seriesName?.let { append("$it ") }
-            if (includeGrade) {
-                val grade = r.estimatedGradeValue ?: r.estimatedGrade
-                grade?.let { append("$it ") }
-            }
-        }.trim()
+        val fullQuery = if (query.isNotBlank()) "$query $exclusions" else ""
+
+        val response: EbaySearchResponse = client
+            .get("$baseUrl/item_summary/search") {
+                header("Authorization", "Bearer $token")
+                header("X-EBAY-C-MARKETPLACE-ID", config.marketplaceId)
+                parameter("q", fullQuery)
+                parameter("category_ids", "11116")
+                parameter("filter", "buyingOptions:{FIXED_PRICE|AUCTION}")
+                parameter("limit", config.maxResults)
+                parameter("sort", "newlyListed")
+            }.body()
+
+        return response.itemSummaries?.mapNotNull { it.toActiveListing() } ?: emptyList()
     }
 
-    private fun fetchListings(query: String, token: String): List<ActiveListing> {
-        if (query.isBlank()) return emptyList()
+    fun buildQuery(coin: Coin, includeGrade: Boolean = true): String {
+        val rr = coin.recognitionResult
+        val parts = mutableListOf<String>()
 
-        val fullQuery = "$query $excludedTerms"
-        val encodedQuery = URLEncoder.encode(fullQuery, Charsets.UTF_8)
+        val krauseNumber = coin.catalogueNumbers.firstOrNull {
+            it.catalogueName.contains("krause", ignoreCase = true) || it.catalogueName.contains("km#", ignoreCase = true)
+        }?.number
+        if (!krauseNumber.isNullOrBlank()) parts.add(krauseNumber)
 
-        val url = "${config.environment.browseApiBaseUrl}/item_summary/search" +
-                "?q=$encodedQuery" +
-                "&category_ids=11116" +
-                "&filter=buyingOptions:%7BFIXED_PRICE%7CAUCTION%7D" +
-                "&limit=${config.maxResultsPerQuery}" +
-                "&sort=newlyListed"
+        rr.countryOrIssuer?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        rr.year?.let { parts.add(it.toString()) }
+        rr.denomination?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        rr.seriesName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
 
-        log.debug("EbayCoinPricingService: GET {}", url)
-
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .header("Authorization", "Bearer $token")
-            .header("X-EBAY-C-MARKETPLACE-ID", config.marketplaceId)
-            .header("Content-Type", "application/json")
-            .GET()
-            .build()
-
-        val response = http.send(request, HttpResponse.BodyHandlers.ofString())
-
-        if (response.statusCode() !in 200..299) {
-            log.error(
-                "EbayCoinPricingService: Browse API returned HTTP {}: {}",
-                response.statusCode(), response.body().take(500),
-            )
-            check(false) { "eBay Browse API returned HTTP ${response.statusCode()}" }
+        if (includeGrade) {
+            rr.estimatedGradeValue?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+                ?: rr.estimatedGrade?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
         }
 
-        val searchResponse = json.decodeFromString<EbaySearchResponse>(response.body())
-        return searchResponse.itemSummaries.orEmpty().map { it.toActiveListing() }
+        return parts.joinToString(" ")
     }
 
-    private fun computePriceRange(listings: List<ActiveListing>): PriceRange? {
-        if (listings.isEmpty()) return null
-        val prices = listings.map { it.currentPrice }.sorted()
-        return PriceRange(
-            low = prices.first(),
-            high = prices.last(),
-            median = prices[prices.size / 2],
-            mean = prices.average(),
-            sampleSize = prices.size,
-        )
-    }
-
-    @Serializable
-    private data class EbaySearchResponse(
-        val itemSummaries: List<EbayItemSummary>? = null,
-    )
-
-    @Serializable
-    private data class EbayItemSummary(
-        val title: String,
-        val price: EbayPrice? = null,
-        val condition: String? = null,
-        val itemWebUrl: String = "",
-        val image: EbayImage? = null,
-        val itemEndDate: String? = null,
-        val buyingOptions: List<String> = emptyList(),
-    ) {
-        fun toActiveListing() = ActiveListing(
+    private fun EbayItemSummary.toActiveListing(): ActiveListing? {
+        val title = title ?: return null
+        return ActiveListing(
             title = title,
             currentPrice = price?.value?.toDoubleOrNull() ?: 0.0,
             currency = price?.currency ?: "USD",
             condition = condition,
-            listingUrl = itemWebUrl,
+            listingUrl = itemWebUrl ?: "",
             imageUrl = image?.imageUrl,
             listingEndDate = itemEndDate?.let { runCatching { Instant.parse(it) }.getOrNull() },
-            buyingOptions = buyingOptions,
+            buyingOptions = buyingOptions ?: emptyList(),
         )
     }
-
-    @Serializable
-    private data class EbayPrice(
-        val value: String,
-        val currency: String,
-    )
-
-    @Serializable
-    private data class EbayImage(
-        val imageUrl: String,
-    )
 }

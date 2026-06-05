@@ -6,5 +6,5 @@ data class RevenueCatConfig(
 
 fun loadRevenueCatConfig(env: Map<String, String> = System.getenv()): RevenueCatConfig =
     RevenueCatConfig(
-        webhookSecret = envValue(env, "REVENUECAT_WEBHOOK_SECRET") ?: "",
+        webhookSecret = env["REVENUECAT_WEBHOOK_SECRET"] ?: "",
     )

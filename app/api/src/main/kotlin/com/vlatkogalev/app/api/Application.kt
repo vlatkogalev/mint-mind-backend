@@ -46,10 +46,15 @@ fun Application.module() {
     configureRoutes()
 
     val newsJobScheduler by inject<NewsJobScheduler>()
-    monitor.subscribe(ApplicationStarted) { newsJobScheduler.start() }
-    monitor.subscribe(ApplicationStopped) { newsJobScheduler.stop() }
-
     val marketplaceJobScheduler by inject<MarketplaceJobScheduler>()
-    monitor.subscribe(ApplicationStarted) { marketplaceJobScheduler.start() }
-    monitor.subscribe(ApplicationStopped) { marketplaceJobScheduler.stop() }
+
+    monitor.subscribe(ApplicationStarted) {
+        newsJobScheduler.start()
+        marketplaceJobScheduler.start()
+    }
+
+    monitor.subscribe(ApplicationStopped) {
+        newsJobScheduler.stop()
+        marketplaceJobScheduler.stop()
+    }
 }

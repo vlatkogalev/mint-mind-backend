@@ -1,7 +1,7 @@
 package com.vlatkogalev.domain.coin.model
 
-import java.time.Instant
 import java.util.UUID
+import java.time.Instant
 
 data class Coin(
     val id: UUID,
@@ -11,7 +11,7 @@ data class Coin(
     val recognitionResult: RecognitionResult,
     val catalogueNumbers: List<CatalogueNumber>,
     val setId: UUID?,
-    val catalogCoinId: UUID? = null,
+    val catalogCoinId: UUID?,
     val notes: String?,
     val createdAt: Instant,
 )

@@ -1,45 +1,43 @@
 package com.vlatkogalev.app.jobs
 
 import com.vlatkogalev.data.ebay.EbayMarketplaceFetcher
+import com.vlatkogalev.data.ebay.EbayItemSummary
+import com.vlatkogalev.domain.marketplace.model.MarketplaceListing
 import com.vlatkogalev.domain.marketplace.repository.MarketplaceRepository
-import org.slf4j.LoggerFactory
 import java.time.Instant
+import java.util.UUID
 
 class EbayListingsJob(
     private val fetcher: EbayMarketplaceFetcher,
     private val repository: MarketplaceRepository,
     private val pagesToFetch: Int = 5,
 ) {
-    private val log = LoggerFactory.getLogger(EbayListingsJob::class.java)
-
     suspend fun run() {
-        log.info("EbayListingsJob: starting fetch of up to {} pages", pagesToFetch)
-
         val runStartedAt = Instant.now()
-        val listings = try {
-            fetcher.fetchListings(pagesToFetch)
-        } catch (ex: Exception) {
-            log.error("EbayListingsJob: fetch failed, skipping database update", ex)
-            return
-        }
+        val items = fetcher.fetchListings(pagesToFetch)
 
-        if (listings.isEmpty()) {
-            log.warn("EbayListingsJob: fetcher returned no listings")
-            return
-        }
+        if (items.isEmpty()) return
 
-        try {
-            repository.upsertAll(listings)
-            log.info("EbayListingsJob: upserted {} listings", listings.size)
-
-            try {
-                repository.deleteNotSeenSince(runStartedAt)
-                log.info("EbayListingsJob: deleted stale listings")
-            } catch (ex: Exception) {
-                log.warn("EbayListingsJob: failed to delete stale listings", ex)
-            }
-        } catch (ex: Exception) {
-            log.error("EbayListingsJob: database update failed", ex)
-        }
+        val listings = items.mapNotNull { it.toMarketplaceListing(runStartedAt) }
+        repository.upsertAll(listings)
+        repository.deleteNotSeenSince(runStartedAt)
     }
+}
+
+private fun EbayItemSummary.toMarketplaceListing(lastSeenAt: Instant): MarketplaceListing? {
+    val itemId = itemId ?: return null
+    val title = title ?: return null
+    return MarketplaceListing(
+        id = UUID.randomUUID(),
+        ebayItemId = itemId,
+        title = title,
+        price = price?.value ?: "0.00",
+        currency = price?.currency ?: "USD",
+        condition = condition,
+        listingUrl = itemWebUrl ?: "",
+        imageUrl = image?.imageUrl,
+        buyingOptions = buyingOptions ?: emptyList(),
+        expiresAt = itemEndDate?.let { runCatching { Instant.parse(it) }.getOrNull() },
+        lastSeenAt = lastSeenAt,
+    )
 }

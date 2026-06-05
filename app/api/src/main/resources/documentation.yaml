@@ -3,13 +3,14 @@ info:
   title: "Mint Mind Documentation"
   version: "1.0.0"
 tags:
+  - name: "Health"
   - name: "Auth"
-  - name: "Storage"
-  - name: "Webhooks"
   - name: "Coins"
-  - name: "Sets"
+  - name: "Coin Sets"
   - name: "News"
   - name: "Marketplace"
+  - name: "Storage"
+  - name: "Webhooks"
 paths:
   /auth/register:
     post:
@@ -101,7 +102,7 @@ paths:
 
   /auth/login:
     post:
-      tags: [ "Auth" ]
+      tags: ["Auth"]
       summary: "Authenticate a user and issue tokens"
       description: "Requires a verified email address. Returns a short-lived JWT access token and a long-lived refresh token."
       requestBody:
@@ -126,7 +127,7 @@ paths:
 
   /auth/refresh:
     post:
-      tags: [ "Auth" ]
+      tags: ["Auth"]
       summary: "Refresh an access token"
       description: "Validates the refresh token against the stored refresh token hash and rotates it."
       requestBody:
@@ -176,7 +177,7 @@ paths:
 
   /auth/resend-verification:
     post:
-      tags: [ "Auth" ]
+      tags: ["Auth"]
       summary: "Resend email verification link"
       description: "Always returns a generic success message to avoid account enumeration."
       requestBody:
@@ -207,7 +208,7 @@ paths:
 
   /auth/password-reset/request:
     post:
-      tags: [ "Auth" ]
+      tags: ["Auth"]
       summary: "Request a password reset"
       requestBody:
         required: true
@@ -231,7 +232,7 @@ paths:
 
   /auth/password-reset/confirm:
     post:
-      tags: [ "Auth" ]
+      tags: ["Auth"]
       summary: "Confirm password reset with token"
       requestBody:
         required: true
@@ -276,10 +277,10 @@ paths:
 
   /auth/me:
     get:
-      tags: [ "Auth" ]
+      tags: ["Auth"]
       summary: "Get the authenticated user's profile"
       security:
-        - bearerAuth: [ ]
+        - bearerAuth: []
       responses:
         "200":
           description: "OK"
@@ -301,10 +302,10 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
     patch:
-      tags: [ "Auth" ]
+      tags: ["Auth"]
       summary: "Update the authenticated user's profile"
       security:
-        - bearerAuth: [ ]
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -335,7 +336,7 @@ paths:
       tags: [ "Auth" ]
       summary: "Delete the authenticated user's account"
       security:
-        - bearerAuth: [ ]
+        - bearerAuth: []
       responses:
         "200":
           description: "OK"
@@ -356,80 +357,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /storage/upload-urls:
-    post:
-      tags: [ "Storage" ]
-      summary: "Create presigned S3 upload URLs"
-      security:
-        - bearerAuth: [ ]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateUploadUrlsRequest"
-      responses:
-        "200":
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UploadUrlsApiResponse"
-        "400":
-          description: "Bad request"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: "Unauthorized"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /storage/download-urls:
-    post:
-      tags: [ "Storage" ]
-      summary: "Create presigned S3 download URLs"
-      security:
-        - bearerAuth: [ ]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateDownloadUrlsRequest"
-      responses:
-        "200":
-          description: "OK"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DownloadUrlsApiResponse"
-        "400":
-          description: "Bad request"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: "Unauthorized"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: "Forbidden"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /coins:
     post:
       tags: [ "Coins" ]
       summary: "Save a recognized coin"
+      description: "Saves a coin with its AI recognition result, catalogue numbers, and triggers catalog enrichment asynchronously."
       security:
         - bearerAuth: [ ]
       requestBody:
@@ -444,7 +376,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinApiResponse"
+                $ref: "#/components/schemas/CoinDetailApiResponse"
         "400":
           description: "Bad request"
           content:
@@ -457,68 +389,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
     get:
       tags: [ "Coins" ]
-      summary: "List coins in the authenticated user's collection"
+      summary: "List user's coins"
+      description: "Returns a paginated, filterable list of the authenticated user's coins."
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "setId"
-          in: "query"
-          required: false
+        - name: country
+          in: query
+          schema:
+            type: string
+          description: "Filter by country or issuer."
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: "Filter by year."
+        - name: minValue
+          in: query
+          schema:
+            type: number
+          description: "Minimum estimated high value."
+        - name: maxValue
+          in: query
+          schema:
+            type: number
+          description: "Maximum estimated low value."
+        - name: setId
+          in: query
           schema:
             type: string
             format: uuid
-        - name: "country"
-          in: "query"
-          required: false
+          description: "Filter by coin set ID."
+        - name: sortBy
+          in: query
           schema:
             type: string
-        - name: "year"
-          in: "query"
-          required: false
+            enum: [VALUE_HIGH_TO_LOW, VALUE_LOW_TO_HIGH, RELEASE_YEAR_OLD_TO_NEW, RELEASE_YEAR_NEW_TO_OLD, DATE_ADDED_OLD_TO_NEW, DATE_ADDED_NEW_TO_OLD]
+          description: "Sort order. Default: DATE_ADDED_NEW_TO_OLD."
+        - name: limit
+          in: query
           schema:
             type: integer
-            format: int32
-        - name: "minValue"
-          in: "query"
-          required: false
-          schema:
-            type: number
-            format: double
-        - name: "maxValue"
-          in: "query"
-          required: false
-          schema:
-            type: number
-            format: double
-        - name: "limit"
-          in: "query"
-          required: false
-          schema:
-            type: integer
-            format: int32
+            minimum: 1
+            maximum: 100
             default: 20
-        - name: "cursor"
-          in: "query"
-          required: false
+          description: "Maximum number of coins to return."
+        - name: cursor
+          in: query
           schema:
             type: integer
             format: int64
-          description: "Cursor for pagination (the `createdAt` timestamp of the last item from the previous page in epoch milliseconds)."
-        - name: "sortBy"
-          in: "query"
-          required: false
-          schema:
-            type: string
-            enum:
-              - VALUE_HIGH_TO_LOW
-              - VALUE_LOW_TO_HIGH
-              - RELEASE_YEAR_OLD_TO_NEW
-              - RELEASE_YEAR_NEW_TO_OLD
-              - DATE_ADDED_OLD_TO_NEW
-              - DATE_ADDED_NEW_TO_OLD
-            default: DATE_ADDED_NEW_TO_OLD
+          description: "Epoch milliseconds of the last item's createdAt from the previous page."
       responses:
         "200":
           description: "OK"
@@ -539,15 +463,64 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /coins/{id}:
+  /coins/stats:
     get:
       tags: [ "Coins" ]
-      summary: "Get a coin by id"
+      summary: "Get collection statistics"
+      description: "Returns aggregate statistics for the authenticated user's coin collection, with the same filters as list coins."
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: country
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: minValue
+          in: query
+          schema:
+            type: number
+        - name: maxValue
+          in: query
+          schema:
+            type: number
+        - name: setId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoinCollectionStatsApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /coins/{id}:
+    get:
+      tags: [ "Coins" ]
+      summary: "Get a single coin"
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -558,9 +531,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinApiResponse"
+                $ref: "#/components/schemas/CoinDetailApiResponse"
         "400":
-          description: "Bad request"
+          description: "Bad request — invalid UUID"
           content:
             application/json:
               schema:
@@ -577,14 +550,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
     delete:
       tags: [ "Coins" ]
       summary: "Delete a coin"
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -596,12 +570,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: "Bad request"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -618,12 +586,12 @@ paths:
   /coins/{id}/notes:
     patch:
       tags: [ "Coins" ]
-      summary: "Update notes for a coin"
+      summary: "Update coin notes"
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -640,13 +608,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinApiResponse"
-        "400":
-          description: "Bad request"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/CoinDetailApiResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -663,12 +625,12 @@ paths:
   /coins/{id}/images:
     get:
       tags: [ "Coins" ]
-      summary: "Create presigned download URLs for a coin's images"
+      summary: "Get presigned download URLs for obverse and reverse images"
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -680,12 +642,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CoinImagesApiResponse"
-        "400":
-          description: "Bad request"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -702,25 +658,26 @@ paths:
   /coins/{id}/enrich:
     post:
       tags: [ "Coins" ]
-      summary: "Manually trigger catalog enrichment for a coin"
+      summary: "Manually trigger catalog enrichment"
+      description: "Forces a fresh enrichment attempt against all registered catalog providers (e.g. Numista) regardless of the retry window."
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
             format: uuid
       responses:
         "200":
-          description: "OK"
+          description: "Enrichment completed"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinEnrichmentApiResponse"
+                $ref: "#/components/schemas/MessageResponse"
         "400":
-          description: "Bad request"
+          description: "Coin not linked to a catalog entry"
           content:
             application/json:
               schema:
@@ -737,26 +694,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "503":
-          description: "Provider unavailable or no viable match"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
 
   /coins/{id}/pricing:
     get:
       tags: [ "Coins" ]
-      summary: "Get recent eBay sold listings and price estimate for a coin"
-      description: |
-        Queries eBay's Finding API for recently sold listings that match this coin.
-        Uses a two-pass strategy: first with grade (narrow), then without grade (broad)
-        if fewer than 3 results are returned. The coin must belong to the authenticated user.
+      summary: "Get active eBay listings and price estimate for a coin"
+      description: "Queries eBay in real-time using a two-pass query strategy (narrow + broad) to find matching active listings and compute a price range."
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -775,13 +723,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: "Coin not found"
+          description: "Not found"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: "eBay API unavailable"
+          description: "Service unavailable — eBay API error"
           content:
             application/json:
               schema:
@@ -789,7 +737,7 @@ paths:
 
   /sets:
     post:
-      tags: [ "Sets" ]
+      tags: [ "Coin Sets" ]
       summary: "Create a coin set"
       security:
         - bearerAuth: [ ]
@@ -818,8 +766,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
     get:
-      tags: [ "Sets" ]
+      tags: [ "Coin Sets" ]
       summary: "List all sets for the authenticated user"
       security:
         - bearerAuth: [ ]
@@ -839,13 +788,13 @@ paths:
 
   /sets/{id}:
     get:
-      tags: [ "Sets" ]
-      summary: "Get a set by id"
+      tags: [ "Coin Sets" ]
+      summary: "Get a set by ID"
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -857,6 +806,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CoinSetApiResponse"
+        "400":
+          description: "Bad request — invalid UUID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -869,14 +824,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
     patch:
-      tags: [ "Sets" ]
+      tags: [ "Coin Sets" ]
       summary: "Update a set's name and description"
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -894,12 +850,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CoinSetApiResponse"
-        "400":
-          description: "Bad request"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -912,15 +862,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
     delete:
-      tags: [ "Sets" ]
+      tags: [ "Coin Sets" ]
       summary: "Delete a set"
-      description: "Deletes the set. Coins that belonged to this set are not deleted — their set membership is cleared."
+      description: "Deletes the set. Coins in the set are NOT deleted — their set_id is set to NULL."
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -947,14 +898,14 @@ paths:
 
   /sets/{id}/coins:
     post:
-      tags: [ "Sets" ]
+      tags: [ "Coin Sets" ]
       summary: "Add coins to a set"
-      description: "Adds the specified coins to the set. If a coin already belongs to another set, it is moved to this set automatically."
+      description: "All coins must belong to the authenticated user. If a coin is already in another set, it moves to this set."
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -973,7 +924,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoinSetApiResponse"
         "400":
-          description: "Bad request — one or more coin IDs are invalid or do not belong to the user"
+          description: "Bad request"
           content:
             application/json:
               schema:
@@ -990,15 +941,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
     delete:
-      tags: [ "Sets" ]
+      tags: [ "Coin Sets" ]
       summary: "Remove coins from a set"
-      description: "Removes the specified coins from the set. The coins themselves are not deleted."
+      description: "Unlinks the specified coins from the set. Coins are not deleted."
       security:
         - bearerAuth: [ ]
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -1039,23 +991,21 @@ paths:
     get:
       tags: [ "News" ]
       summary: "List latest news articles"
+      description: "Returns paginated news articles fetched from the coin news RSS feed. Public — no authentication required."
       parameters:
-        - name: "limit"
-          in: "query"
-          required: false
+        - name: limit
+          in: query
           schema:
             type: integer
-            format: int32
             minimum: 1
             maximum: 100
             default: 20
-        - name: "cursor"
-          in: "query"
-          required: false
+        - name: cursor
+          in: query
           schema:
             type: integer
             format: int64
-          description: "Cursor for pagination (the `publishedAt` timestamp of the last article from the previous page in epoch milliseconds)."
+          description: "Epoch milliseconds of the last article's publishedAt from the previous page."
       responses:
         "200":
           description: "OK"
@@ -1067,10 +1017,10 @@ paths:
   /news/{id}:
     get:
       tags: [ "News" ]
-      summary: "Get a single news article by id"
+      summary: "Get a single news article by UUID"
       parameters:
-        - name: "id"
-          in: "path"
+        - name: id
+          in: path
           required: true
           schema:
             type: string
@@ -1083,7 +1033,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/NewsArticleApiResponse"
         "400":
-          description: "Bad request"
+          description: "Bad request — invalid UUID"
           content:
             application/json:
               schema:
@@ -1099,25 +1049,21 @@ paths:
     get:
       tags: [ "Marketplace" ]
       summary: "List live eBay coin listings"
-      description: "Paginated feed of live eBay coin listings, refreshed every 10 minutes."
+      description: "Returns paginated marketplace listings fetched periodically by the background eBay job. Public — no authentication required."
       parameters:
-        - name: "limit"
-          in: "query"
-          required: false
+        - name: limit
+          in: query
           schema:
             type: integer
-            format: int32
             minimum: 1
             maximum: 100
             default: 20
-          description: "Page size"
-        - name: "cursor"
-          in: "query"
-          required: false
+        - name: cursor
+          in: query
           schema:
             type: integer
             format: int64
-          description: "Cursor for pagination (the `timestamp` of the last item from the previous page)"
+          description: "Epoch milliseconds of the last listing's lastSeenAt from the previous page."
       responses:
         "200":
           description: "OK"
@@ -1125,8 +1071,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MarketplaceListingsApiResponse"
-        "500":
-          description: "Internal server error"
+
+  /storage/upload-urls:
+    post:
+      tags: ["Storage"]
+      summary: "Create presigned S3 upload URLs"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUploadUrlsRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlsApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /storage/download-urls:
+    post:
+      tags: ["Storage"]
+      summary: "Create presigned S3 download URLs"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDownloadUrlsRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadUrlsApiResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "Unauthorized"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: "Forbidden"
           content:
             application/json:
               schema:
@@ -1134,11 +1144,11 @@ paths:
 
   /webhooks/revenuecat:
     post:
-      tags: [ "Webhooks" ]
+      tags: ["Webhooks"]
       summary: "Handle RevenueCat subscription webhooks"
       description: "Updates mirrored subscription state from RevenueCat events. Requires Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>."
       security:
-        - revenueCatWebhookAuth: [ ]
+        - revenueCatWebhookAuth: []
       requestBody:
         required: true
         content:
@@ -1173,7 +1183,7 @@ components:
   schemas:
     ApiResponseBase:
       type: object
-      required: [ success, timestampMillis ]
+      required: [success, timestampMillis]
       properties:
         success:
           type: boolean
@@ -1184,16 +1194,32 @@ components:
           type: integer
           format: int64
 
+    HealthData:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: "ok"
+
+    AuthHealthData:
+      type: object
+      required: [auth]
+      properties:
+        auth:
+          type: string
+          example: "ready"
+
     MessageData:
       type: object
-      required: [ message ]
+      required: [message]
       properties:
         message:
           type: string
 
     RegisterRequest:
       type: object
-      required: [ email, password, firstName, lastName ]
+      required: [email, password, firstName, lastName]
       properties:
         email:
           type: string
@@ -1203,16 +1229,11 @@ components:
           type: string
           format: password
           minLength: 8
-          description: |
-            Must be at least 8 characters and contain at least one uppercase letter,
-            one lowercase letter, one digit, and one special character.
         firstName:
           type: string
-          maxLength: 50
           example: "Ada"
         lastName:
           type: string
-          maxLength: 50
           example: "Lovelace"
 
     AnonymousAuthRequest:
@@ -1236,7 +1257,7 @@ components:
 
     LoginRequest:
       type: object
-      required: [ email, password ]
+      required: [email, password]
       properties:
         email:
           type: string
@@ -1248,18 +1269,17 @@ components:
         installationId:
           type: string
           nullable: true
-          description: "If provided and an anonymous session exists for this installation, its coins are migrated to the authenticated account."
 
     RefreshTokenRequest:
       type: object
-      required: [ refreshToken ]
+      required: [refreshToken]
       properties:
         refreshToken:
           type: string
 
     RequestPasswordResetRequest:
       type: object
-      required: [ email ]
+      required: [email]
       properties:
         email:
           type: string
@@ -1267,7 +1287,7 @@ components:
 
     ResendVerificationRequest:
       type: object
-      required: [ email ]
+      required: [email]
       properties:
         email:
           type: string
@@ -1300,9 +1320,482 @@ components:
           maxLength: 50
           example: "Lovelace"
 
+    DeleteAccountRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: boolean
+
+    SaveCoinRequest:
+      type: object
+      required: [ obverseKey, reverseKey, recognitionResult, catalogueNumbers ]
+      properties:
+        obverseKey:
+          type: string
+          description: "S3 object key for the obverse image."
+        reverseKey:
+          type: string
+          description: "S3 object key for the reverse image."
+        recognitionResult:
+          $ref: "#/components/schemas/RecognitionResultDto"
+        catalogueNumbers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogueNumberDto"
+        notes:
+          type: string
+          nullable: true
+
+    RecognitionResultDto:
+      type: object
+      required: [ overallConfidence, rawJson ]
+      properties:
+        overallConfidence:
+          type: string
+          enum: [ HIGH, MEDIUM, LOW ]
+        countryOrIssuer:
+          type: string
+          nullable: true
+        denomination:
+          type: string
+          nullable: true
+        seriesName:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        mintMark:
+          type: string
+          nullable: true
+        metalComposition:
+          type: string
+          nullable: true
+        estimatedGrade:
+          type: string
+          nullable: true
+        estimatedGradeValue:
+          type: string
+          nullable: true
+        rarityQualitative:
+          type: string
+          nullable: true
+        valueLow:
+          type: number
+          format: double
+          nullable: true
+        valueHigh:
+          type: number
+          format: double
+          nullable: true
+        mintage:
+          type: integer
+          format: int64
+          nullable: true
+        obverseDescription:
+          type: string
+          nullable: true
+        reverseDescription:
+          type: string
+          nullable: true
+        historicalContext:
+          type: string
+          nullable: true
+        rawJson:
+          type: string
+          description: "The original JSON string from the AI recognition response."
+
+    CatalogueNumberDto:
+      type: object
+      required: [ catalogueName, confidence ]
+      properties:
+        catalogueName:
+          type: string
+          example: "Krause"
+        number:
+          type: string
+          nullable: true
+          example: "KM# 110"
+        confidence:
+          type: string
+          enum: [ HIGH, MEDIUM, LOW ]
+
+    UpdateCoinNotesRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          nullable: true
+
+    CoinDetailResponse:
+      type: object
+      required: [ id, userId, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        obverseKey:
+          type: string
+        reverseKey:
+          type: string
+        recognitionResult:
+          $ref: "#/components/schemas/RecognitionResultDto"
+        catalogueNumbers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogueNumberDto"
+        setId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogCoinId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CoinSummaryResponse:
+      type: object
+      required: [ id, obverseKey, reverseKey, createdAt ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        obverseKey:
+          type: string
+        reverseKey:
+          type: string
+        denomination:
+          type: string
+          nullable: true
+        countryOrIssuer:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        mintage:
+          type: integer
+          format: int64
+          nullable: true
+        estimatedGrade:
+          type: string
+          nullable: true
+        estimatedValueMean:
+          type: number
+          format: double
+          nullable: true
+          description: "Mean of valueLow and valueHigh."
+        setId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CoinListResponse:
+      type: object
+      required: [ coins ]
+      properties:
+        coins:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoinSummaryResponse"
+        nextCursor:
+          type: integer
+          format: int64
+          nullable: true
+          description: "Epoch milliseconds of the last item's createdAt. Null if no more pages."
+
+    CoinImagesResponse:
+      type: object
+      required: [ obverseUrl, reverseUrl ]
+      properties:
+        obverseUrl:
+          type: string
+          format: uri
+        reverseUrl:
+          type: string
+          format: uri
+
+    CoinCollectionStatsResponse:
+      type: object
+      required: [ totalCoins, totalIssuers, estimatedTotalValueMean, highlights ]
+      properties:
+        totalCoins:
+          type: integer
+        totalIssuers:
+          type: integer
+        estimatedTotalValueMean:
+          type: number
+          format: double
+        highlights:
+          $ref: "#/components/schemas/CollectionHighlightsResponse"
+
+    CollectionHighlightsResponse:
+      type: object
+      properties:
+        mostValuable:
+          $ref: "#/components/schemas/CoinDetailResponse"
+          nullable: true
+        mostAncient:
+          $ref: "#/components/schemas/CoinDetailResponse"
+          nullable: true
+        rarest:
+          $ref: "#/components/schemas/CoinDetailResponse"
+          nullable: true
+
+    CreateCoinSetRequest:
+      type: object
+      required: [ name ]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+
+    UpdateCoinSetRequest:
+      type: object
+      required: [ name ]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+
+    ModifySetCoinsRequest:
+      type: object
+      required: [ coinIds ]
+      properties:
+        coinIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+
+    CoinSetResponse:
+      type: object
+      required: [ id, name, coinCount, previewObverseKeys, createdAt ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        previewObverseKeys:
+          type: array
+          items:
+            type: string
+          description: "Up to 5 most-recently added coin obverse keys for UI thumbnails."
+        coinCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    NewsArticleSummaryResponse:
+      type: object
+      required: [ id, title, description, publishedAt ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+
+    NewsArticleResponse:
+      type: object
+      required: [ id, title, link, description, content, publishedAt ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        link:
+          type: string
+          format: uri
+        description:
+          type: string
+        content:
+          type: string
+          description: "Sanitized HTML of the full article body."
+        author:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+
+    NewsListResponse:
+      type: object
+      required: [ articles ]
+      properties:
+        articles:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsArticleSummaryResponse"
+        nextCursor:
+          type: integer
+          format: int64
+          nullable: true
+
+    MarketplaceListingResponse:
+      type: object
+      required: [ id, ebayItemId, title, price, currency, listingUrl, buyingOptions, timestamp ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ebayItemId:
+          type: string
+        title:
+          type: string
+        price:
+          type: string
+        currency:
+          type: string
+        condition:
+          type: string
+          nullable: true
+        listingUrl:
+          type: string
+          format: uri
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        buyingOptions:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Auction end time."
+        timestamp:
+          type: integer
+          format: int64
+          description: "Epoch milliseconds of lastSeenAt."
+
+    MarketplaceListingsResponse:
+      type: object
+      required: [ listings ]
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketplaceListingResponse"
+        nextCursor:
+          type: integer
+          format: int64
+          nullable: true
+
+    ActiveListingResponse:
+      type: object
+      required: [ title, currentPrice, currency, listingUrl, buyingOptions ]
+      properties:
+        title:
+          type: string
+        currentPrice:
+          type: number
+          format: double
+        currency:
+          type: string
+        condition:
+          type: string
+          nullable: true
+        listingUrl:
+          type: string
+          format: uri
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        listingEndDate:
+          type: string
+          format: date-time
+          nullable: true
+        buyingOptions:
+          type: array
+          items:
+            type: string
+
+    PriceRangeResponse:
+      type: object
+      required: [ low, high, median, mean, sampleSize ]
+      properties:
+        low:
+          type: number
+          format: double
+        high:
+          type: number
+          format: double
+        median:
+          type: number
+          format: double
+        mean:
+          type: number
+          format: double
+        sampleSize:
+          type: integer
+
+    CoinPricingResponse:
+      type: object
+      required: [ query, listings, source, fetchedAt ]
+      properties:
+        query:
+          type: string
+          description: "The actual search string sent to eBay."
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActiveListingResponse"
+        priceRange:
+          $ref: "#/components/schemas/PriceRangeResponse"
+          nullable: true
+        source:
+          type: string
+          example: "eBay"
+        fetchedAt:
+          type: string
+          format: date-time
+
     LoginSessionResponse:
       type: object
-      required: [ accessToken, refreshToken, accessTokenExpiresInSeconds, refreshTokenExpiresInSeconds ]
+      required: [accessToken, refreshToken, accessTokenExpiresInSeconds, refreshTokenExpiresInSeconds]
       properties:
         accessToken:
           type: string
@@ -1340,6 +1833,7 @@ components:
         user:
           $ref: "#/components/schemas/UserResponse"
 
+
     UserResponse:
       type: object
       required: [ id, firstName, lastName, emailVerified, isAnonymous ]
@@ -1370,25 +1864,25 @@ components:
 
     PasswordResetRequestResponse:
       type: object
-      required: [ message ]
+      required: [message]
       properties:
         message:
           type: string
 
     RevenueCatWebhookRequest:
       type: object
-      required: [ event ]
+      required: [event]
       properties:
         event:
           $ref: "#/components/schemas/RevenueCatWebhookEvent"
 
     RevenueCatWebhookEvent:
       type: object
-      required: [ type ]
+      required: [type]
       properties:
         type:
           type: string
-          enum: [ INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, UNCANCELLATION ]
+          enum: [INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, UNCANCELLATION]
         app_user_id:
           type: string
           description: "RevenueCat customer ID. This should match subscriptions.rc_customer_id."
@@ -1411,7 +1905,7 @@ components:
 
     CreateUploadUrlsRequest:
       type: object
-      required: [ fileCount ]
+      required: [fileCount]
       properties:
         fileCount:
           type: integer
@@ -1421,7 +1915,7 @@ components:
 
     PresignedUploadUrl:
       type: object
-      required: [ objectKey, uploadUrl ]
+      required: [objectKey, uploadUrl]
       properties:
         objectKey:
           type: string
@@ -1431,7 +1925,7 @@ components:
 
     CreateUploadUrlsResponse:
       type: object
-      required: [ sessionId, uploads ]
+      required: [sessionId, uploads]
       properties:
         sessionId:
           type: string
@@ -1442,7 +1936,7 @@ components:
 
     CreateDownloadUrlsRequest:
       type: object
-      required: [ objectKeys ]
+      required: [objectKeys]
       properties:
         objectKeys:
           type: array
@@ -1453,7 +1947,7 @@ components:
 
     PresignedDownloadUrl:
       type: object
-      required: [ objectKey, downloadUrl ]
+      required: [objectKey, downloadUrl]
       properties:
         objectKey:
           type: string
@@ -1463,429 +1957,28 @@ components:
 
     CreateDownloadUrlsResponse:
       type: object
-      required: [ downloads ]
+      required: [downloads]
       properties:
         downloads:
           type: array
           items:
             $ref: "#/components/schemas/PresignedDownloadUrl"
 
-    Confidence:
-      type: string
-      enum: [ HIGH, MEDIUM, LOW ]
+    HealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/HealthData"
 
-    CatalogueNumberDto:
-      type: object
-      required: [ catalogueName, confidence ]
-      properties:
-        catalogueName:
-          type: string
-        number:
-          type: string
-          nullable: true
-        confidence:
-          $ref: "#/components/schemas/Confidence"
-
-    RecognitionResultDto:
-      type: object
-      required: [ overallConfidence, rawJson ]
-      properties:
-        overallConfidence:
-          $ref: "#/components/schemas/Confidence"
-        countryOrIssuer:
-          type: string
-          nullable: true
-        denomination:
-          type: string
-          nullable: true
-        seriesName:
-          type: string
-          nullable: true
-        year:
-          type: integer
-          format: int32
-          nullable: true
-        mintMark:
-          type: string
-          nullable: true
-        metalComposition:
-          type: string
-          nullable: true
-        estimatedGrade:
-          type: string
-          nullable: true
-        estimatedGradeValue:
-          type: string
-          nullable: true
-        rarityQualitative:
-          type: string
-          nullable: true
-        valueLow:
-          type: number
-          format: double
-          nullable: true
-        valueHigh:
-          type: number
-          format: double
-          nullable: true
-        mintage:
-          type: integer
-          format: int64
-          nullable: true
-          description: "Total number of coins minted. Used to determine rarity."
-        obverseDescription:
-          type: string
-          nullable: true
-        reverseDescription:
-          type: string
-          nullable: true
-        historicalContext:
-          type: string
-          nullable: true
-        rawJson:
-          type: string
-
-    SaveCoinRequest:
-      type: object
-      required: [ obverseKey, reverseKey, recognitionResult ]
-      properties:
-        obverseKey:
-          type: string
-        reverseKey:
-          type: string
-        recognitionResult:
-          $ref: "#/components/schemas/RecognitionResultDto"
-        catalogueNumbers:
-          type: array
-          items:
-            $ref: "#/components/schemas/CatalogueNumberDto"
-        notes:
-          type: string
-          nullable: true
-
-    UpdateCoinNotesRequest:
-      type: object
-      properties:
-        notes:
-          type: string
-          nullable: true
-
-    CoinSummaryResponse:
-      type: object
-      required: [ id, obverseKey, reverseKey, createdAt ]
-      properties:
-        id:
-          type: string
-          format: uuid
-        obverseKey:
-          type: string
-        reverseKey:
-          type: string
-        denomination:
-          type: string
-          nullable: true
-        countryOrIssuer:
-          type: string
-          nullable: true
-        year:
-          type: integer
-          format: int32
-          nullable: true
-        estimatedGrade:
-          type: string
-          nullable: true
-        estimatedValueMean:
-          type: number
-          format: double
-          nullable: true
-          description: "Mean of valueLow and valueHigh. Null if either bound is absent."
-        setId:
-          type: string
-          format: uuid
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-
-    CoinListResponse:
-      type: object
-      required: [ coins, nextCursor ]
-      properties:
-        coins:
-          type: array
-          items:
-            $ref: "#/components/schemas/CoinSummaryResponse"
-        nextCursor:
-          type: integer
-          format: int64
-          nullable: true
-          description: "Cursor for the next page (epoch milliseconds of the last coin's createdAt). Null when there are no more pages."
-
-    CoinDetailResponse:
-      type: object
-      required: [ id, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt ]
-      properties:
-        id:
-          type: string
-          format: uuid
-        obverseKey:
-          type: string
-        reverseKey:
-          type: string
-        recognitionResult:
-          $ref: "#/components/schemas/RecognitionResultDto"
-        catalogueNumbers:
-          type: array
-          items:
-            $ref: "#/components/schemas/CatalogueNumberDto"
-        setId:
-          type: string
-          format: uuid
-          nullable: true
-        notes:
-          type: string
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-
-    CollectionHighlightsResponse:
-      type: object
-      required: [ mostValuable, mostAncient, rarest ]
-      properties:
-        mostValuable:
-          nullable: true
-          allOf:
-            - $ref: "#/components/schemas/CoinSummaryResponse"
-        mostAncient:
-          nullable: true
-          allOf:
-            - $ref: "#/components/schemas/CoinSummaryResponse"
-        rarest:
-          nullable: true
-          description: "Coin with the lowest mintage. Null if no coin has a mintage value."
-          allOf:
-            - $ref: "#/components/schemas/CoinSummaryResponse"
-
-    CreateCoinSetRequest:
-      type: object
-      required: [ name ]
-      properties:
-        name:
-          type: string
-          maxLength: 255
-        description:
-          type: string
-          nullable: true
-
-    UpdateCoinSetRequest:
-      type: object
-      required: [ name ]
-      properties:
-        name:
-          type: string
-          maxLength: 255
-        description:
-          type: string
-          nullable: true
-
-    ModifySetCoinsRequest:
-      type: object
-      required: [ coinIds ]
-      properties:
-        coinIds:
-          type: array
-          minItems: 1
-          items:
-            type: string
-            format: uuid
-
-    CoinSetResponse:
-      type: object
-      required: [ id, name, previewObverseKeys, createdAt ]
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        description:
-          type: string
-          nullable: true
-        previewObverseKeys:
-          type: array
-          description: "S3 object keys for the obverse images of the first 5 coins in this set."
-          items:
-            type: string
-        createdAt:
-          type: string
-          format: date-time
-
-    CoinImagesResponse:
-      type: object
-      required: [ obverseUrl, reverseUrl ]
-      properties:
-        obverseUrl:
-          type: string
-          format: uri
-        reverseUrl:
-          type: string
-          format: uri
-
-    CoinEnrichmentResponse:
-      type: object
-      required: [ message, catalogCoinId ]
-      properties:
-        message:
-          type: string
-        catalogCoinId:
-          type: string
-          format: uuid
-        enrichedAt:
-          type: string
-          format: date-time
-          nullable: true
-        lastEnrichmentFailedAt:
-          type: string
-          format: date-time
-          nullable: true
-        lastEnrichmentError:
-          type: string
-          nullable: true
-
-    NewsArticleResponse:
-      type: object
-      required: [ id, title, link, description, content, publishedAt ]
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: "2b8950ae-0376-49c8-9231-71824a6176f6"
-        title:
-          type: string
-          example: "CAC Coins Bring Strong Premiums in April 2026 Auctions"
-        link:
-          type: string
-          format: uri
-          description: "Canonical URL of the original article."
-          example: "https://coinweek.com/cac-coins-bring-strong-premiums-in-april-2026-auctions/"
-        description:
-          type: string
-          description: "Plain-text summary of the article, safe for list views and previews."
-          example: "CAC-approved and CACG-encapsulated coins performed well in April 2026 public sales."
-        content:
-          type: string
-          description: "Sanitized HTML body of the full article. Scripts, iframes, and inline styles have been removed."
-        author:
-          type: string
-          nullable: true
-          example: "CoinWeek"
-        imageUrl:
-          type: string
-          format: uri
-          nullable: true
-          description: "URL of the first image found in the article content. Use as a thumbnail in list views."
-          example: "https://coinweek.com/wp-content/uploads/2026/05/1933-Eagle-cac-1200.webp"
-        publishedAt:
-          type: string
-          format: date-time
-          description: "ISO-8601 UTC timestamp from the RSS feed's <pubDate>."
-          example: "2026-05-15T15:52:12Z"
-
-    NewsArticleSummaryResponse:
-      type: object
-      required: [ id, title, link, description, publishedAt ]
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        link:
-          type: string
-          format: uri
-          description: "URL to the original article source."
-        description:
-          type: string
-        imageUrl:
-          type: string
-          format: uri
-          nullable: true
-        publishedAt:
-          type: string
-          format: date-time
-
-    NewsListResponse:
-      type: object
-      required: [ articles, nextCursor ]
-      properties:
-        articles:
-          type: array
-          items:
-            $ref: "#/components/schemas/NewsArticleSummaryResponse"
-        nextCursor:
-          type: integer
-          format: int64
-          nullable: true
-          description: "Cursor for the next page (epoch milliseconds of the last article's publishedAt). Null when there are no more pages."
-
-    MarketplaceListingResponse:
-      type: object
-      required: [ id, title, price, currency, itemWebUrl, timestamp ]
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          description: "Listing title from eBay"
-        imageUrl:
-          type: string
-          format: uri
-          nullable: true
-          description: "First image from the listing, if available"
-        price:
-          type: string
-          description: "Price as returned by eBay (display only)"
-        currency:
-          type: string
-          example: "USD"
-        itemWebUrl:
-          type: string
-          format: uri
-          description: "Direct link to the listing on eBay"
-        condition:
-          type: string
-          nullable: true
-          example: "New"
-        buyingOptions:
-          type: array
-          items:
-            type: string
-          example: [ "BUY_IT_NOW", "AUCTION" ]
-        expiresAt:
-          type: integer
-          format: int64
-          nullable: true
-          description: "Auction end time (epoch milliseconds). Null for fixed-price listings."
-        timestamp:
-          type: integer
-          format: int64
-          description: "When this listing was last seen by our crawler (epoch milliseconds). Use as cursor for pagination."
-
-    MarketplaceListingsResponse:
-      type: object
-      required: [ listings, nextCursor ]
-      properties:
-        listings:
-          type: array
-          items:
-            $ref: "#/components/schemas/MarketplaceListingResponse"
-        nextCursor:
-          type: integer
-          format: int64
-          nullable: true
-          description: "Cursor for the next page. Pass this as the `cursor` query parameter in your next request. Null when there are no more pages."
+    AuthHealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AuthHealthData"
 
     MessageResponse:
       allOf:
@@ -1927,23 +2020,7 @@ components:
             data:
               $ref: "#/components/schemas/PasswordResetRequestResponse"
 
-    UploadUrlsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CreateUploadUrlsResponse"
-
-    DownloadUrlsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CreateDownloadUrlsResponse"
-
-    CoinApiResponse:
+    CoinDetailApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponseBase"
         - type: object
@@ -1958,6 +2035,22 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CoinListResponse"
+
+    CoinImagesApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CoinImagesResponse"
+
+    CoinCollectionStatsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CoinCollectionStatsResponse"
 
     CoinSetApiResponse:
       allOf:
@@ -1977,101 +2070,13 @@ components:
               items:
                 $ref: "#/components/schemas/CoinSetResponse"
 
-    CoinImagesApiResponse:
+    NewsListApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponseBase"
         - type: object
           properties:
             data:
-              $ref: "#/components/schemas/CoinImagesResponse"
-
-    CoinEnrichmentApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinEnrichmentResponse"
-
-    SoldListingResponse:
-      type: object
-      required: [ title, soldPrice, currency, soldAt, listingUrl ]
-      properties:
-        title:
-          type: string
-        soldPrice:
-          type: number
-          format: double
-        currency:
-          type: string
-          example: "USD"
-        soldAt:
-          type: string
-          format: date-time
-        condition:
-          type: string
-          nullable: true
-          example: "Very Good (VG)"
-        listingUrl:
-          type: string
-          format: uri
-        imageUrl:
-          type: string
-          format: uri
-          nullable: true
-
-    PriceRangeResponse:
-      type: object
-      required: [ low, high, median, mean, sampleSize ]
-      properties:
-        low:
-          type: number
-          format: double
-        high:
-          type: number
-          format: double
-        median:
-          type: number
-          format: double
-        mean:
-          type: number
-          format: double
-        sampleSize:
-          type: integer
-          format: int32
-          description: "Number of sold listings used to compute this range."
-
-    CoinPricingResponse:
-      type: object
-      required: [ query, recentSales, source, fetchedAt ]
-      properties:
-        query:
-          type: string
-          description: "The search query sent to eBay."
-          example: "KM# 110 United States 1921 1 Dollar Morgan Dollar VF-30"
-        recentSales:
-          type: array
-          items:
-            $ref: "#/components/schemas/SoldListingResponse"
-        priceRange:
-          nullable: true
-          description: "Null when no sold listings were found."
-          allOf:
-            - $ref: "#/components/schemas/PriceRangeResponse"
-        source:
-          type: string
-          example: "eBay"
-        fetchedAt:
-          type: string
-          format: date-time
-
-    CoinPricingApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinPricingResponse"
+              $ref: "#/components/schemas/NewsListResponse"
 
     NewsArticleApiResponse:
       allOf:
@@ -2081,14 +2086,6 @@ components:
             data:
               $ref: "#/components/schemas/NewsArticleResponse"
 
-    NewsListApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/NewsListResponse"
-
     MarketplaceListingsApiResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponseBase"
@@ -2096,6 +2093,30 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/MarketplaceListingsResponse"
+
+    CoinPricingApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CoinPricingResponse"
+
+    UploadUrlsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreateUploadUrlsResponse"
+
+    DownloadUrlsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreateDownloadUrlsResponse"
 
     ErrorResponse:
       allOf:

@@ -1,72 +1,70 @@
 package com.vlatkogalev.data.ebay
 
 import com.vlatkogalev.platform.core.config.EbayConfig
-import kotlinx.serialization.SerialName
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.forms.FormDataContent
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.net.URI
-import java.net.URLEncoder
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Thread-safe shared token provider for eBay API access.
- */
+private data class CachedToken(
+    val token: String,
+    val expiresAt: Instant,
+)
+
 class EbayTokenProvider(
     private val config: EbayConfig,
 ) {
-    private val cachedToken = AtomicReference<CachedToken?>(null)
-    private val httpClient = HttpClient.newHttpClient()
-    private val json = Json { ignoreUnknownKeys = true }
+    private val mutex = Mutex()
+    private var cachedToken: CachedToken? = null
 
-    fun getAccessToken(): String {
-        val existing = cachedToken.get()
-        if (existing != null && !existing.isExpired()) {
-            return existing.token
+    private val client = HttpClient(CIO) {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
+    }
+
+    suspend fun getAccessToken(): String = mutex.withLock {
+        cachedToken?.let {
+            if (Instant.now().isBefore(it.expiresAt)) return@withLock it.token
         }
 
-        val fresh = fetchNewToken()
-        cachedToken.set(fresh)
-        return fresh.token
+        val response: EbayTokenResponse =
+            client.post(config.oauthEndpoint) {
+                header("Authorization", "Basic ${config.authHeaderValue}")
+                header("Content-Type", "application/x-www-form-urlencoded")
+                setBody(
+                    FormDataContent(
+                        io.ktor.http.Parameters.build {
+                            append("grant_type", "client_credentials")
+                            append("scope", config.oauthScope)
+                        }
+                    )
+                )
+            }.body()
+
+        val expiresAt = Instant.now().plusSeconds(response.expiresIn - 60)
+        cachedToken = CachedToken(response.accessToken, expiresAt)
+        response.accessToken
     }
-
-    private fun fetchNewToken(): CachedToken {
-        val body = "grant_type=client_credentials&scope=${
-            URLEncoder.encode(config.oauthScope, Charsets.UTF_8)
-        }"
-
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(config.oauthEndpoint))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("Authorization", "Basic ${config.authHeaderValue}")
-            .POST(HttpRequest.BodyPublishers.ofString(body))
-            .build()
-
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-        check(response.statusCode() in 200..299) {
-            "eBay token request failed: ${response.statusCode()} ${response.body()}"
-        }
-
-        val tokenResponse = json.decodeFromString<TokenResponse>(response.body())
-        return CachedToken(
-            token = tokenResponse.accessToken,
-            expiresAt = Instant.now().plusSeconds(tokenResponse.expiresIn - 60),
-        )
-    }
-
-    data class CachedToken(
-        val token: String,
-        val expiresAt: Instant,
-    ) {
-        fun isExpired(): Boolean = Instant.now().isAfter(expiresAt)
-    }
-
-    @Serializable
-    private data class TokenResponse(
-        @SerialName("access_token") val accessToken: String,
-        @SerialName("expires_in") val expiresIn: Long,
-    )
 }
+
+@Serializable
+private data class EbayTokenResponse(
+    val accessToken: String,
+    val expiresIn: Long,
+)

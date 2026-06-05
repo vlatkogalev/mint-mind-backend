@@ -56,7 +56,7 @@ class S3FileStorageService(
             ).url()
         }
 
-    override suspend fun createUploadSession(prefix: String): UploadSession =
+    override fun createUploadSession(prefix: String): UploadSession =
         UploadSession(
             sessionId = UUID.randomUUID().toString(),
             objectPrefix = prefix,

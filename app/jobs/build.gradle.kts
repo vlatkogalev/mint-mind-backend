@@ -13,6 +13,9 @@ dependencies {
     implementation(project(":domain:marketplace"))
     implementation(project(":data:postgres"))
     implementation(project(":data:ebay"))
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.jsoup)
     implementation(libs.slf4j.api)
+
+    testImplementation(kotlin("test"))
 }

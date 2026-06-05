@@ -1,45 +1,41 @@
 package com.vlatkogalev.app.jobs
 
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.slf4j.LoggerFactory
+import kotlin.time.Duration.Companion.seconds
 
 class MarketplaceJobScheduler(
-    private val job: EbayListingsJob,
+    private val listingsJob: EbayListingsJob,
     private val initialDelaySeconds: Long = 15,
     private val intervalSeconds: Long = 600,
 ) {
-    private val log = LoggerFactory.getLogger(MarketplaceJobScheduler::class.java)
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var scheduledJob: Job? = null
+    private val handler = CoroutineExceptionHandler { _, e ->
+        println("MarketplaceJobScheduler fatal error: ${e.message}")
+    }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)
+    private var job: Job? = null
 
     fun start() {
-        log.info(
-            "MarketplaceJobScheduler: scheduling eBay listings fetch every {}s (first run in {}s)",
-            intervalSeconds, initialDelaySeconds,
-        )
-        scheduledJob = scope.launch {
-            delay(initialDelaySeconds * 1000L)
+        job = scope.launch {
+            delay(initialDelaySeconds.seconds)
             while (isActive) {
                 try {
-                    job.run()
-                } catch (ex: Exception) {
-                    log.error("MarketplaceJobScheduler: unhandled error in listings job", ex)
+                    listingsJob.run()
+                } catch (e: Exception) {
+                    println("MarketplaceJobScheduler error: ${e.message}")
                 }
-                delay(intervalSeconds * 1000L)
+                delay(intervalSeconds.seconds)
             }
         }
     }
 
     fun stop() {
-        log.info("MarketplaceJobScheduler: shutting down")
-        scheduledJob?.cancel()
-        scope.cancel()
+        job?.cancel()
     }
 }

@@ -1,94 +1,77 @@
 package com.vlatkogalev.data.postgres.repository
 
+import com.vlatkogalev.data.postgres.tables.CatalogCoinsTable
+import com.vlatkogalev.data.postgres.tables.ExternalCoinReferencesTable
 import com.vlatkogalev.domain.coin.model.CatalogCoin
 import com.vlatkogalev.domain.coin.model.CoinCatalogCandidate
 import com.vlatkogalev.domain.coin.model.CoinFingerprint
 import com.vlatkogalev.domain.coin.model.ExternalCoinReference
-import com.vlatkogalev.domain.coin.model.normalized
 import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
-import com.vlatkogalev.platform.database.tables.CatalogCoinsTable
-import com.vlatkogalev.platform.database.tables.ExternalCoinReferencesTable
-import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.innerJoin
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.update
-import org.jetbrains.exposed.sql.upsert
-import java.math.BigDecimal
+import com.vlatkogalev.platform.database.dbQuery
+import kotlinx.coroutines.flow.firstOrNull
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.*
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
-import java.util.*
+import java.util.UUID
 
-class CatalogCoinRepositoryImpl : CatalogCoinRepository {
+class CatalogCoinRepositoryImpl(
+    private val database: R2dbcDatabase,
+) : CatalogCoinRepository {
+
     override suspend fun findByFingerprint(fingerprint: CoinFingerprint): CatalogCoin? =
-        newSuspendedTransaction {
-            CatalogCoinsTable.selectAll()
+        dbQuery(database) {
+            val normalized = fingerprint.normalized()
+            CatalogCoinsTable
+                .selectAll()
                 .where {
-                    val conditions = buildList {
-                        if (!fingerprint.countryOrIssuer.isNullOrBlank()) {
-                            add(CatalogCoinsTable.countryOrIssuer eq fingerprint.countryOrIssuer)
-                        }
-                        if (!fingerprint.denomination.isNullOrBlank()) {
-                            add(CatalogCoinsTable.denomination eq fingerprint.denomination)
-                        }
-                        if (!fingerprint.title.isNullOrBlank()) {
-                            add(CatalogCoinsTable.title eq fingerprint.title)
-                        }
-                        if (fingerprint.year != null) {
-                            add(CatalogCoinsTable.year eq fingerprint.year)
-                        }
-                    }
-                    conditions.fold(Op.TRUE as Op<Boolean>) { acc, op -> acc and op }
+                    CatalogCoinsTable.countryOrIssuer eq normalized.countryOrIssuer
+                }.andWhere {
+                    CatalogCoinsTable.denomination eq normalized.denomination
+                }.andWhere {
+                    CatalogCoinsTable.seriesName eq normalized.seriesName
+                }.andWhere {
+                    CatalogCoinsTable.title eq normalized.title
+                }.andWhere {
+                    CatalogCoinsTable.year eq normalized.year
+                }.andWhere {
+                    CatalogCoinsTable.mintMark eq normalized.mintMark
                 }
-                .orderBy(CatalogCoinsTable.updatedAt to SortOrder.DESC)
-                .limit(1)
-                .singleOrNull()
+                .firstOrNull()
                 ?.toCatalogCoin()
         }
 
     override suspend fun findById(id: UUID): CatalogCoin? =
-        newSuspendedTransaction {
-            CatalogCoinsTable.selectAll()
+        dbQuery(database) {
+            CatalogCoinsTable
+                .selectAll()
                 .where { CatalogCoinsTable.id eq id }
-                .singleOrNull()
+                .firstOrNull()
                 ?.toCatalogCoin()
         }
 
-    override suspend fun findByIds(ids: List<UUID>): List<CatalogCoin> =
-        if (ids.isEmpty()) emptyList()
-        else newSuspendedTransaction {
-            CatalogCoinsTable.selectAll()
-                .where { CatalogCoinsTable.id inList ids }
-                .map { it.toCatalogCoin() }
-        }
-
     override suspend fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin? =
-        newSuspendedTransaction {
-            ExternalCoinReferencesTable
-                .innerJoin(CatalogCoinsTable, { ExternalCoinReferencesTable.catalogCoinId }, { CatalogCoinsTable.id })
+        dbQuery(database) {
+            val ref = ExternalCoinReferencesTable
                 .selectAll()
                 .where {
-                    (ExternalCoinReferencesTable.provider eq provider) and (ExternalCoinReferencesTable.externalId eq externalId)
+                    (ExternalCoinReferencesTable.provider eq provider) and
+                        (ExternalCoinReferencesTable.externalId eq externalId)
                 }
-                .limit(1)
-                .singleOrNull()
+                .firstOrNull()
+                ?: return@dbQuery null
+            CatalogCoinsTable
+                .selectAll()
+                .where { CatalogCoinsTable.id eq ref[ExternalCoinReferencesTable.catalogCoinId] }
+                .firstOrNull()
                 ?.toCatalogCoin()
         }
 
     override suspend fun save(catalogCoin: CatalogCoin): CatalogCoin =
-        newSuspendedTransaction {
-            val result = CatalogCoinsTable.upsert(
-                CatalogCoinsTable.countryOrIssuer,
-                CatalogCoinsTable.denomination,
-                CatalogCoinsTable.seriesName,
-                CatalogCoinsTable.title,
-                CatalogCoinsTable.year,
-                CatalogCoinsTable.mintMark,
-            ) {
+        dbQuery(database) {
+            CatalogCoinsTable.insert {
                 it[id] = catalogCoin.id
                 it[countryOrIssuer] = catalogCoin.fingerprint.countryOrIssuer
                 it[denomination] = catalogCoin.fingerprint.denomination
@@ -97,98 +80,82 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                 it[year] = catalogCoin.fingerprint.year
                 it[mintMark] = catalogCoin.fingerprint.mintMark
                 it[composition] = catalogCoin.composition
-                it[weightGrams] = catalogCoin.weightGrams?.toBigDecimal()
-                it[diameterMm] = catalogCoin.diameterMm?.toBigDecimal()
+                it[weightGrams] = catalogCoin.weightGrams
+                it[diameterMm] = catalogCoin.diameterMm
                 it[obverseDescription] = catalogCoin.obverseDescription
                 it[reverseDescription] = catalogCoin.reverseDescription
                 it[historicalContext] = catalogCoin.historicalContext
                 it[thumbnailUrl] = catalogCoin.thumbnailUrl
                 it[numistaUrl] = catalogCoin.numistaUrl
-                it[enrichedAt] = catalogCoin.enrichedAt?.toOffsetDateTimeUtc()
-                it[lastEnrichmentAttemptAt] = catalogCoin.lastEnrichmentAttemptAt?.toOffsetDateTimeUtc()
-                it[lastEnrichmentFailedAt] = catalogCoin.lastEnrichmentFailedAt?.toOffsetDateTimeUtc()
+                it[enrichedAt] = catalogCoin.enrichedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                it[lastEnrichmentAttemptAt] = catalogCoin.lastEnrichmentAttemptAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                it[lastEnrichmentFailedAt] = catalogCoin.lastEnrichmentFailedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
                 it[lastEnrichmentError] = catalogCoin.lastEnrichmentError
-                it[createdAt] = catalogCoin.createdAt.toOffsetDateTimeUtc()
-                it[updatedAt] = catalogCoin.updatedAt.toOffsetDateTimeUtc()
             }
-            result.resultedValues?.singleOrNull()?.toCatalogCoin()
-                ?: CatalogCoinsTable.selectAll().where { CatalogCoinsTable.id eq catalogCoin.id }.single()
-                    .toCatalogCoin()
+            catalogCoin
         }
 
-    override suspend fun markEnrichmentSuccess(catalogCoinId: UUID, now: Instant, candidate: CoinCatalogCandidate): CatalogCoin? =
-        newSuspendedTransaction {
-            CatalogCoinsTable.update(
-                where = { CatalogCoinsTable.id eq catalogCoinId },
-                body = {
-                    it[enrichedAt] = now.toOffsetDateTimeUtc()
-                    it[lastEnrichmentAttemptAt] = now.toOffsetDateTimeUtc()
-                    it[lastEnrichmentFailedAt] = null
-                    it[lastEnrichmentError] = null
-                    it[composition] = candidate.composition
-                    it[weightGrams] = candidate.weightGrams?.toBigDecimal()
-                    it[diameterMm] = candidate.diameterMm?.toBigDecimal()
-                    it[obverseDescription] = candidate.obverseDescription
-                    it[reverseDescription] = candidate.reverseDescription
-                    it[historicalContext] = candidate.historicalContext
-                    it[thumbnailUrl] = candidate.thumbnailUrl
-                    it[numistaUrl] = candidate.numistaUrl
-                },
-            )
-            CatalogCoinsTable.selectAll().where { CatalogCoinsTable.id eq catalogCoinId }.singleOrNull()
-                ?.toCatalogCoin()
+    override suspend fun markEnrichmentSuccess(
+        catalogCoinId: UUID,
+        now: Instant,
+        candidate: CoinCatalogCandidate?,
+    ): CatalogCoin? =
+        dbQuery(database) {
+            CatalogCoinsTable.update({ CatalogCoinsTable.id eq catalogCoinId }) {
+                it[enrichedAt] = OffsetDateTime.ofInstant(now, ZoneOffset.UTC)
+                it[lastEnrichmentAttemptAt] = OffsetDateTime.ofInstant(now, ZoneOffset.UTC)
+                it[lastEnrichmentFailedAt] = null
+                it[lastEnrichmentError] = null
+                candidate?.let { c ->
+                    it[composition] = c.composition
+                    it[weightGrams] = c.weightGrams
+                    it[diameterMm] = c.diameterMm
+                    it[obverseDescription] = c.obverseDescription
+                    it[reverseDescription] = c.reverseDescription
+                    it[historicalContext] = c.historicalContext
+                    it[thumbnailUrl] = c.thumbnailUrl
+                    it[numistaUrl] = c.numistaUrl
+                }
+            }
+            findById(catalogCoinId)
         }
 
     override suspend fun markEnrichmentFailed(catalogCoinId: UUID, now: Instant, error: String?): CatalogCoin? =
-        newSuspendedTransaction {
-            CatalogCoinsTable.update(
-                where = { CatalogCoinsTable.id eq catalogCoinId },
-                body = {
-                    it[lastEnrichmentAttemptAt] = now.toOffsetDateTimeUtc()
-                    it[lastEnrichmentFailedAt] = now.toOffsetDateTimeUtc()
-                    it[lastEnrichmentError] = error
-                },
-            )
-            CatalogCoinsTable.selectAll().where { CatalogCoinsTable.id eq catalogCoinId }.singleOrNull()
-                ?.toCatalogCoin()
+        dbQuery(database) {
+            CatalogCoinsTable.update({ CatalogCoinsTable.id eq catalogCoinId }) {
+                it[lastEnrichmentAttemptAt] = OffsetDateTime.ofInstant(now, ZoneOffset.UTC)
+                it[lastEnrichmentFailedAt] = OffsetDateTime.ofInstant(now, ZoneOffset.UTC)
+                it[lastEnrichmentError] = error
+            }
+            findById(catalogCoinId)
         }
 
     override suspend fun saveExternalReference(reference: ExternalCoinReference): ExternalCoinReference =
-        newSuspendedTransaction {
-            val result = ExternalCoinReferencesTable.upsert(
-                ExternalCoinReferencesTable.catalogCoinId,
-                ExternalCoinReferencesTable.provider,
-            ) {
+        dbQuery(database) {
+            ExternalCoinReferencesTable.insert {
                 it[id] = reference.id
                 it[catalogCoinId] = reference.catalogCoinId
                 it[provider] = reference.provider
                 it[externalId] = reference.externalId
                 it[externalUrl] = reference.externalUrl
-                it[lastSyncedAt] = reference.lastSyncedAt?.toOffsetDateTimeUtc()
+                it[lastSyncedAt] = reference.lastSyncedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
                 it[syncStatus] = reference.syncStatus
                 it[syncError] = reference.syncError
-                it[createdAt] = reference.createdAt.toOffsetDateTimeUtc()
             }
-            result.resultedValues?.singleOrNull()?.toExternalCoinReference()
-                ?: findExternalReferenceById(reference.id) ?: error("Failed to upsert external reference")
+            reference
         }
 
     override suspend fun findExternalReference(catalogCoinId: UUID, provider: String): ExternalCoinReference? =
-        newSuspendedTransaction {
-            ExternalCoinReferencesTable.selectAll()
+        dbQuery(database) {
+            ExternalCoinReferencesTable
+                .selectAll()
                 .where {
                     (ExternalCoinReferencesTable.catalogCoinId eq catalogCoinId) and
-                            (ExternalCoinReferencesTable.provider eq provider)
+                        (ExternalCoinReferencesTable.provider eq provider)
                 }
-                .singleOrNull()
+                .firstOrNull()
                 ?.toExternalCoinReference()
         }
-
-    private fun findExternalReferenceById(id: UUID): ExternalCoinReference? =
-        ExternalCoinReferencesTable.selectAll()
-            .where { ExternalCoinReferencesTable.id eq id }
-            .singleOrNull()
-            ?.toExternalCoinReference()
 
     private fun ResultRow.toCatalogCoin(): CatalogCoin =
         CatalogCoin(
@@ -200,21 +167,21 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
                 title = this[CatalogCoinsTable.title],
                 year = this[CatalogCoinsTable.year],
                 mintMark = this[CatalogCoinsTable.mintMark],
-            ).normalized(),
+            ),
             composition = this[CatalogCoinsTable.composition],
-            weightGrams = this[CatalogCoinsTable.weightGrams]?.toDouble(),
-            diameterMm = this[CatalogCoinsTable.diameterMm]?.toDouble(),
+            weightGrams = this[CatalogCoinsTable.weightGrams],
+            diameterMm = this[CatalogCoinsTable.diameterMm],
             obverseDescription = this[CatalogCoinsTable.obverseDescription],
             reverseDescription = this[CatalogCoinsTable.reverseDescription],
             historicalContext = this[CatalogCoinsTable.historicalContext],
             thumbnailUrl = this[CatalogCoinsTable.thumbnailUrl],
             numistaUrl = this[CatalogCoinsTable.numistaUrl],
-            enrichedAt = this[CatalogCoinsTable.enrichedAt]?.toInstantUtc(),
-            lastEnrichmentAttemptAt = this[CatalogCoinsTable.lastEnrichmentAttemptAt]?.toInstantUtcOrNull(),
-            lastEnrichmentFailedAt = this[CatalogCoinsTable.lastEnrichmentFailedAt]?.toInstantUtcOrNull(),
+            enrichedAt = this[CatalogCoinsTable.enrichedAt]?.toInstant(),
+            lastEnrichmentAttemptAt = this[CatalogCoinsTable.lastEnrichmentAttemptAt]?.toInstant(),
+            lastEnrichmentFailedAt = this[CatalogCoinsTable.lastEnrichmentFailedAt]?.toInstant(),
             lastEnrichmentError = this[CatalogCoinsTable.lastEnrichmentError],
-            createdAt = this[CatalogCoinsTable.createdAt].toInstantUtc(),
-            updatedAt = this[CatalogCoinsTable.updatedAt].toInstantUtc(),
+            createdAt = this[CatalogCoinsTable.createdAt].toInstant(),
+            updatedAt = this[CatalogCoinsTable.updatedAt].toInstant(),
         )
 
     private fun ResultRow.toExternalCoinReference(): ExternalCoinReference =
@@ -224,13 +191,9 @@ class CatalogCoinRepositoryImpl : CatalogCoinRepository {
             provider = this[ExternalCoinReferencesTable.provider],
             externalId = this[ExternalCoinReferencesTable.externalId],
             externalUrl = this[ExternalCoinReferencesTable.externalUrl],
-            lastSyncedAt = this[ExternalCoinReferencesTable.lastSyncedAt]?.toInstantUtcOrNull(),
+            lastSyncedAt = this[ExternalCoinReferencesTable.lastSyncedAt]?.toInstant(),
             syncStatus = this[ExternalCoinReferencesTable.syncStatus],
             syncError = this[ExternalCoinReferencesTable.syncError],
-            createdAt = this[ExternalCoinReferencesTable.createdAt].toInstantUtc(),
+            createdAt = this[ExternalCoinReferencesTable.createdAt].toInstant(),
         )
-
-    private fun OffsetDateTime?.toInstantUtcOrNull(): Instant? = this?.toInstant()
-    private fun OffsetDateTime.toInstantUtc(): Instant = this.toInstant()
-    private fun Instant.toOffsetDateTimeUtc(): OffsetDateTime = OffsetDateTime.ofInstant(this, ZoneOffset.UTC)
 }

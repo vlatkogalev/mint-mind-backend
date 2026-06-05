@@ -5,8 +5,8 @@ import com.vlatkogalev.platform.core.config.loadDatabaseConfig
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
-import org.jetbrains.exposed.sql.Database as ExposedDatabase
-import java.sql.Connection
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import javax.sql.DataSource
 
 fun createDataSource(config: DatabaseConfig = loadDatabaseConfig()): DataSource {
@@ -30,22 +30,13 @@ fun runMigrations(dataSource: DataSource) {
         .migrate()
 }
 
-fun configureExposed(dataSource: DataSource) {
-    ExposedDatabase.connect(dataSource)
-}
+fun connectDatabase(config: DatabaseConfig = loadDatabaseConfig()): R2dbcDatabase =
+    R2dbcDatabase.connect(
+        url = config.r2dbcUrl,
+        driver = "postgresql",
+        user = config.user,
+        password = config.password,
+    )
 
-fun <T> DataSource.withTransaction(block: (Connection) -> T): T =
-    connection.use { conn ->
-        val originalAutoCommit = conn.autoCommit
-        conn.autoCommit = false
-        try {
-            val result = block(conn)
-            conn.commit()
-            result
-        } catch (ex: Exception) {
-            conn.rollback()
-            throw ex
-        } finally {
-            conn.autoCommit = originalAutoCommit
-        }
-    }
+suspend fun <T> dbQuery(database: R2dbcDatabase, block: suspend () -> T): T =
+    suspendTransaction(db = database) { block() }

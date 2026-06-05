@@ -1,7 +1,7 @@
 services:
   app:
     image: ${APP_IMAGE}:${IMAGE_TAG:-latest}
-    container_name: ${HOSTINGER_PROJECT_NAME:-ktor_backend_template}_app
+    container_name: ${HOSTINGER_PROJECT_NAME:-mint-mind-backend}_app
     ports:
       - "${APP_PORT:-8081}:8080"
     environment:
@@ -25,6 +25,7 @@ services:
       - AWS_DOWNLOAD_URL_TTL_SECONDS=${AWS_DOWNLOAD_URL_TTL_SECONDS}
       - RESEND_API_KEY=${RESEND_API_KEY}
       - EMAIL_FROM=${EMAIL_FROM}
+      - REVENUECAT_WEBHOOK_SECRET=${REVENUECAT_WEBHOOK_SECRET}
       - EBAY_CLIENT_ID=${EBAY_CLIENT_ID}
       - EBAY_CLIENT_SECRET=${EBAY_CLIENT_SECRET}
       - EBAY_OAUTH_ENDPOINT=${EBAY_OAUTH_ENDPOINT:-https://api.ebay.com/identity/v1/oauth2/token}
@@ -35,6 +36,7 @@ services:
       - EBAY_FEED_PAGES=${EBAY_FEED_PAGES:-5}
       - EBAY_FEED_REFRESH_INTERVAL_SECONDS=${EBAY_FEED_REFRESH_INTERVAL_SECONDS:-600}
       - NUMISTA_API_KEY=${NUMISTA_API_KEY}
+      - NUMISTA_BASE_URL=${NUMISTA_BASE_URL:-https://api.numista.com}
     depends_on:
       db:
         condition: service_healthy
@@ -44,7 +46,7 @@ services:
 
   db:
     image: postgres:15
-    container_name: ${HOSTINGER_PROJECT_NAME:-ktor_backend_template}_db
+    container_name: ${HOSTINGER_PROJECT_NAME:-mint-mind-backend}_db
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

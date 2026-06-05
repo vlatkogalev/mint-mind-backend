@@ -13,7 +13,7 @@ class JwtTokenProvider(
 ) : UserTokenProvider {
     private val algorithm = Algorithm.HMAC256(config.secret)
 
-    override suspend fun createAccessToken(userId: UUID, isAnonymous: Boolean): String {
+    override fun createAccessToken(userId: UUID, isAnonymous: Boolean): String {
         val nowMillis = System.currentTimeMillis()
         val expiryMillis = nowMillis + config.accessTokenTtlSeconds * 1000
 
@@ -28,9 +28,9 @@ class JwtTokenProvider(
             .sign(algorithm)
     }
 
-    override suspend fun generateRefreshToken(userId: UUID): String = "$userId:${UUID.randomUUID()}"
+    override fun generateRefreshToken(userId: UUID): String = "$userId:${UUID.randomUUID()}"
 
-    override suspend fun accessTokenExpiresInSeconds(): Long = config.accessTokenTtlSeconds
+    override fun accessTokenExpiresInSeconds(): Long = config.accessTokenTtlSeconds
 
-    override suspend fun refreshTokenExpiresInSeconds(): Long = config.refreshTokenTtlSeconds
+    override fun refreshTokenExpiresInSeconds(): Long = config.refreshTokenTtlSeconds
 }

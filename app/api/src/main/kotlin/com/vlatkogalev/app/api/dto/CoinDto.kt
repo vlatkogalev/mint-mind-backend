@@ -3,11 +3,21 @@ package com.vlatkogalev.app.api.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class CatalogueNumberDto(
-    val catalogueName: String,
-    val number: String?,
-    val confidence: String,
-)
+data class SaveCoinRequest(
+    val obverseKey: String,
+    val reverseKey: String,
+    val recognitionResult: RecognitionResultDto,
+    val catalogueNumbers: List<CatalogueNumberDto>,
+    val notes: String? = null,
+) {
+    fun validate(): String? {
+        if (obverseKey.isBlank()) return "obverseKey is required"
+        if (reverseKey.isBlank()) return "reverseKey is required"
+        if (recognitionResult.rawJson.isBlank()) return "recognitionResult.rawJson is required"
+        if (catalogueNumbers.any { it.catalogueName.isBlank() }) return "catalogueNumbers catalogueName must not be blank"
+        return null
+    }
+}
 
 @Serializable
 data class RecognitionResultDto(
@@ -31,25 +41,29 @@ data class RecognitionResultDto(
 )
 
 @Serializable
-data class SaveCoinRequest(
-    val obverseKey: String,
-    val reverseKey: String,
-    val recognitionResult: RecognitionResultDto,
-    val catalogueNumbers: List<CatalogueNumberDto> = emptyList(),
-    val notes: String? = null,
-) {
-    fun validate(): String? {
-        if (obverseKey.isBlank()) return "obverseKey is required"
-        if (reverseKey.isBlank()) return "reverseKey is required"
-        if (recognitionResult.rawJson.isBlank()) return "recognitionResult.rawJson is required"
-        if (catalogueNumbers.any { it.catalogueName.isBlank() }) return "catalogueName must not be blank"
-        return null
-    }
-}
+data class CatalogueNumberDto(
+    val catalogueName: String,
+    val number: String? = null,
+    val confidence: String,
+)
 
 @Serializable
 data class UpdateCoinNotesRequest(
+    val notes: String? = null,
+)
+
+@Serializable
+data class CoinDetailResponse(
+    val id: String,
+    val userId: String,
+    val obverseKey: String,
+    val reverseKey: String,
+    val recognitionResult: RecognitionResultDto,
+    val catalogueNumbers: List<CatalogueNumberDto>,
+    val setId: String?,
+    val catalogCoinId: String?,
     val notes: String?,
+    val createdAt: String,
 )
 
 @Serializable
@@ -65,39 +79,6 @@ data class CoinSummaryResponse(
     val estimatedValueMean: Double?,
     val setId: String?,
     val createdAt: String,
-    val enrichment: CatalogEnrichmentDto? = null,
-)
-
-@Serializable
-data class CoinDetailResponse(
-    val id: String,
-    val obverseKey: String,
-    val reverseKey: String,
-    val recognitionResult: RecognitionResultDto,
-    val catalogueNumbers: List<CatalogueNumberDto>,
-    val setId: String?,
-    val notes: String?,
-    val createdAt: String,
-    val enrichment: CatalogEnrichmentDto? = null,
-)
-
-@Serializable
-data class CatalogEnrichmentDto(
-    val composition: String? = null,
-    val weightGrams: Double? = null,
-    val diameterMm: Double? = null,
-    val obverseDescription: String? = null,
-    val reverseDescription: String? = null,
-    val historicalContext: String? = null,
-    val thumbnailUrl: String? = null,
-    val numistaUrl: String? = null,
-)
-
-@Serializable
-data class CollectionHighlightsResponse(
-    val mostValuable: CoinSummaryResponse?,
-    val mostAncient: CoinSummaryResponse?,
-    val rarest: CoinSummaryResponse?,
 )
 
 @Serializable
@@ -110,4 +91,63 @@ data class CoinListResponse(
 data class CoinImagesResponse(
     val obverseUrl: String,
     val reverseUrl: String,
+)
+
+@Serializable
+data class CreateCoinSetRequest(
+    val name: String,
+    val description: String? = null,
+) {
+    fun validate(): String? {
+        if (name.isBlank()) return "name is required"
+        if (name.length > 255) return "name must be 255 characters or fewer"
+        return null
+    }
+}
+
+@Serializable
+data class UpdateCoinSetRequest(
+    val name: String,
+    val description: String? = null,
+) {
+    fun validate(): String? {
+        if (name.isBlank()) return "name is required"
+        if (name.length > 255) return "name must be 255 characters or fewer"
+        return null
+    }
+}
+
+@Serializable
+data class ModifySetCoinsRequest(
+    val coinIds: List<String>,
+) {
+    fun validate(): String? {
+        if (coinIds.isEmpty()) return "coinIds must not be empty"
+        return null
+    }
+}
+
+@Serializable
+data class CoinCollectionStatsResponse(
+    val totalCoins: Int,
+    val totalIssuers: Int,
+    val estimatedTotalValueMean: Double,
+    val highlights: CollectionHighlightsResponse,
+)
+
+@Serializable
+data class CollectionHighlightsResponse(
+    val mostValuable: CoinDetailResponse?,
+    val mostAncient: CoinDetailResponse?,
+    val rarest: CoinDetailResponse?,
+)
+
+@Serializable
+data class CoinSetResponse(
+    val id: String,
+    val name: String,
+    val description: String?,
+    val previewObverseKeys: List<String>,
+    val coinCount: Int,
+    val createdAt: String,
 )

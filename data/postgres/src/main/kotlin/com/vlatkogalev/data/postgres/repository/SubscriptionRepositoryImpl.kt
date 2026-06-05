@@ -1,33 +1,38 @@
 package com.vlatkogalev.data.postgres.repository
 
+import com.vlatkogalev.data.postgres.tables.SubscriptionsTable
 import com.vlatkogalev.domain.billing.model.Subscription
 import com.vlatkogalev.domain.billing.model.SubscriptionPlan
 import com.vlatkogalev.domain.billing.model.SubscriptionStatus
 import com.vlatkogalev.domain.billing.repository.SubscriptionRepository
-import com.vlatkogalev.platform.database.tables.SubscriptionsTable
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.update
+import com.vlatkogalev.platform.database.dbQuery
+import kotlinx.coroutines.flow.firstOrNull
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.*
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 
-class SubscriptionRepositoryImpl : SubscriptionRepository {
+class SubscriptionRepositoryImpl(
+    private val database: R2dbcDatabase,
+) : SubscriptionRepository {
     override suspend fun findByRevenueCatCustomerId(revenueCatCustomerId: String): Subscription? =
-        newSuspendedTransaction {
-            SubscriptionsTable.selectAll()
+        dbQuery(database) {
+            SubscriptionsTable
+                .selectAll()
                 .where { SubscriptionsTable.rcCustomerId eq revenueCatCustomerId }
-                .singleOrNull()
+                .firstOrNull()
                 ?.toSubscription()
         }
 
     override suspend fun findByUserId(userId: UUID): Subscription? =
-        newSuspendedTransaction {
-            SubscriptionsTable.selectAll()
+        dbQuery(database) {
+            SubscriptionsTable
+                .selectAll()
                 .where { SubscriptionsTable.userId eq userId }
-                .singleOrNull()
+                .firstOrNull()
                 ?.toSubscription()
         }
 
@@ -37,16 +42,15 @@ class SubscriptionRepositoryImpl : SubscriptionRepository {
         expiresAt: Instant?,
         plan: SubscriptionPlan?,
     ): Boolean =
-        newSuspendedTransaction {
-            SubscriptionsTable.update(
-                where = { SubscriptionsTable.rcCustomerId eq revenueCatCustomerId },
-                body = {
-                    it[SubscriptionsTable.status] = status.name.lowercase()
-                    if (expiresAt != null) it[SubscriptionsTable.expiresAt] =
-                        OffsetDateTime.ofInstant(expiresAt, ZoneOffset.UTC)
-                    if (plan != null) it[SubscriptionsTable.plan] = plan.name.lowercase()
-                },
-            ) > 0
+        dbQuery(database) {
+            val updated = SubscriptionsTable.update({ SubscriptionsTable.rcCustomerId eq revenueCatCustomerId }) {
+                it[SubscriptionsTable.status] = status.name.lowercase()
+                it[SubscriptionsTable.expiresAt] = expiresAt?.let { OffsetDateTime.ofInstant(it, ZoneOffset.UTC) }
+                if (plan != null) {
+                    it[SubscriptionsTable.plan] = plan.name.lowercase()
+                }
+            }
+            updated > 0
         }
 
     private fun ResultRow.toSubscription(): Subscription =

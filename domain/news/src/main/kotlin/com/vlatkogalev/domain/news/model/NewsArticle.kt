@@ -1,7 +1,7 @@
 package com.vlatkogalev.domain.news.model
 
-import java.time.Instant
 import java.util.UUID
+import java.time.Instant
 
 data class NewsArticle(
     val id: UUID,

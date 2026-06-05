@@ -9,43 +9,37 @@ import com.vlatkogalev.domain.marketplace.model.MarketplaceListing
 import com.vlatkogalev.domain.marketplace.repository.MarketplaceRepository
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.time.TimeProvider
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.response.respond
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
-import io.ktor.server.routing.openapi.describe
+import io.ktor.http.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.routing.openapi.*
 
 class MarketplaceController(
     private val marketplaceRepository: MarketplaceRepository,
     private val timeProvider: TimeProvider,
 ) {
-    fun Route.registerPublicRoutes() {
-        get {
-            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 20)
-                .coerceIn(1, 100)
+    fun Route.registerRoutes() {
+        get("/listings") {
+            val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
             val cursor = call.request.queryParameters["cursor"]?.toLongOrNull()
 
-            val listings = try {
-                marketplaceRepository.findPage(limit, cursor)
-            } catch (_: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, error("Failed to fetch listings"))
-                return@get
-            }
+            try {
+                val listings = marketplaceRepository.findPage(limit = limit, beforeTimestamp = cursor)
+                val nextCursor = if (listings.isNotEmpty() && listings.size >= limit) {
+                    listings.last().lastSeenAt.toEpochMilli()
+                } else null
 
-            val nextCursor = if (listings.size >= limit) {
-                listings.lastOrNull()?.lastSeenAt?.toEpochMilli()
-            } else {
-                null
-            }
-
-            call.respond(
-                success(
-                    MarketplaceListingsResponse(
-                        listings = listings.map { it.toResponse() },
-                        nextCursor = nextCursor,
+                call.respond(
+                    success(
+                        MarketplaceListingsResponse(
+                            listings = listings.map { it.toResponse() },
+                            nextCursor = nextCursor,
+                        ),
                     ),
-                ),
-            )
+                )
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, error(e.message ?: "Failed to fetch listings"))
+            }
         }.describe {
             tag(ApiTags.MARKETPLACE)
             summary = "List live eBay coin listings"
@@ -55,14 +49,15 @@ class MarketplaceController(
     private fun MarketplaceListing.toResponse(): MarketplaceListingResponse =
         MarketplaceListingResponse(
             id = id.toString(),
+            ebayItemId = ebayItemId,
             title = title,
-            imageUrl = imageUrl,
             price = price,
             currency = currency,
-            itemWebUrl = listingUrl,
             condition = condition,
+            listingUrl = listingUrl,
+            imageUrl = imageUrl,
             buyingOptions = buyingOptions,
-            expiresAt = expiresAt?.toEpochMilli(),
+            expiresAt = expiresAt?.toString(),
             timestamp = lastSeenAt.toEpochMilli(),
         )
 

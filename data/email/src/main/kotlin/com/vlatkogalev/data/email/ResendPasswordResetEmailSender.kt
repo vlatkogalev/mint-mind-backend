@@ -13,20 +13,19 @@ class ResendPasswordResetEmailSender(
 ) : PasswordResetEmailSender {
     private val client = Resend(apiKey)
 
-    override suspend fun sendPasswordResetEmail(email: String, resetToken: String) {
-        withContext(Dispatchers.IO) {
-            val resetLink = "$appBaseUrl/auth/reset-password?token=$resetToken"
+    override suspend fun sendPasswordResetEmail(email: String, resetToken: String) = withContext(Dispatchers.IO) {
+        val resetLink = "$appBaseUrl/auth/reset-password?token=$resetToken"
 
-            val params = CreateEmailOptions.builder()
-                .from(fromAddress)
-                .to(email)
-                .subject("[Action required] Reset your password")
-                .html(htmlBody(resetLink))
-                .text(textBody(resetLink))
-                .build()
+        val params = CreateEmailOptions.builder()
+            .from(fromAddress)
+            .to(email)
+            .subject("[Action required] Reset your password")
+            .html(htmlBody(resetLink))
+            .text(textBody(resetLink))
+            .build()
 
-            client.emails().send(params)
-        }
+        client.emails().send(params)
+        Unit
     }
 
     private fun htmlBody(link: String) = """

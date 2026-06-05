@@ -3,22 +3,22 @@ package com.vlatkogalev.app.api.di
 import com.vlatkogalev.app.api.controllers.CoinController
 import com.vlatkogalev.app.api.controllers.CoinPricingController
 import com.vlatkogalev.app.api.controllers.CoinSetController
-import com.vlatkogalev.app.api.controllers.NewsController
 import com.vlatkogalev.app.api.controllers.MarketplaceController
+import com.vlatkogalev.app.api.controllers.NewsController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
 import com.vlatkogalev.app.api.controllers.UserAuthController
+import com.vlatkogalev.app.api.service.SessionMergeService
 import com.vlatkogalev.app.jobs.EbayListingsJob
 import com.vlatkogalev.app.jobs.MarketplaceJobScheduler
-import com.vlatkogalev.app.api.service.SessionMergeService
 import com.vlatkogalev.app.jobs.NewsJobScheduler
 import com.vlatkogalev.app.jobs.RssFeedFetcher
 import com.vlatkogalev.data.ebay.EbayCoinPricingService
 import com.vlatkogalev.data.ebay.EbayMarketplaceFetcher
 import com.vlatkogalev.data.ebay.EbayTokenProvider
 import com.vlatkogalev.data.email.ResendEmailVerificationSender
-import com.vlatkogalev.data.numista.NumistaProvider
 import com.vlatkogalev.data.email.ResendPasswordResetEmailSender
+import com.vlatkogalev.data.numista.NumistaProvider
 import com.vlatkogalev.data.postgres.repository.CatalogCoinRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.CoinRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.CoinSetRepositoryImpl
@@ -51,31 +51,37 @@ import com.vlatkogalev.domain.user.service.UserPasswordHasher
 import com.vlatkogalev.domain.user.service.UserTokenProvider
 import com.vlatkogalev.platform.auth.JwtTokenProvider
 import com.vlatkogalev.platform.auth.PasswordHasher
-import com.vlatkogalev.platform.core.config.EbayConfig
 import com.vlatkogalev.platform.core.config.EmailConfig
+import com.vlatkogalev.platform.core.config.EbayConfig
 import com.vlatkogalev.platform.core.config.NumistaConfig
 import com.vlatkogalev.platform.core.config.loadEbayConfig
 import com.vlatkogalev.platform.core.config.loadEmailConfig
 import com.vlatkogalev.platform.core.config.loadNumistaConfig
 import com.vlatkogalev.platform.core.storage.FileStorageService
 import com.vlatkogalev.platform.core.time.TimeProvider
-import com.vlatkogalev.platform.database.configureExposed
+import com.vlatkogalev.platform.database.connectDatabase
 import com.vlatkogalev.platform.database.createDataSource
 import com.vlatkogalev.platform.database.runMigrations
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.koin.dsl.module
-import javax.sql.DataSource
 
 val appModule = module {
-    single(createdAtStart = true) {
-        val dataSource = createDataSource()
-        runMigrations(dataSource)
-        configureExposed(dataSource)
-        dataSource
+    single<R2dbcDatabase>(createdAtStart = true) {
+        runBlocking<Unit>(Dispatchers.IO) {
+            val jdbcDataSource: javax.sql.DataSource = createDataSource()
+            runMigrations(jdbcDataSource)
+            (jdbcDataSource as java.io.Closeable).close()
+        }
+        connectDatabase()
     }
 
     single<UserPasswordHasher> { PasswordHasher() }
     single<UserTokenProvider> { JwtTokenProvider() }
     single<EmailConfig> { loadEmailConfig() }
+    single<NumistaConfig> { loadNumistaConfig() }
+    single<EbayConfig> { loadEbayConfig() }
     single<EmailVerificationSender> {
         val config = get<EmailConfig>()
         ResendEmailVerificationSender(
@@ -84,6 +90,55 @@ val appModule = module {
             appBaseUrl = config.appBaseUrl,
         )
     }
+    single<TimeProvider> { TimeProvider.System }
+
+    single<UserRepository> { UserRepositoryImpl(get()) }
+    single<SubscriptionRepository> { SubscriptionRepositoryImpl(get()) }
+    single { SubscriptionService(get()) }
+
+    single<CoinRepository> { CoinRepositoryImpl(get()) }
+    single<CoinSetRepository> { CoinSetRepositoryImpl(get()) }
+    single<CatalogCoinRepository> { CatalogCoinRepositoryImpl(get()) }
+
+    single<CoinCatalogProvider> {
+        NumistaProvider(get<NumistaConfig>())
+    }
+
+    single<CoinEnrichmentService> {
+        CoinEnrichmentServiceImpl(
+            catalogCoinRepository = get<CatalogCoinRepository>(),
+            providers = listOf(get<CoinCatalogProvider>()),
+        )
+    }
+
+    single<CoinService> {
+        CoinServiceImpl(
+            coinRepository = get<CoinRepository>(),
+            enrichmentService = get<CoinEnrichmentService>(),
+        )
+    }
+
+    single<CoinSetService> {
+        CoinSetServiceImpl(
+            coinSetRepository = get<CoinSetRepository>(),
+            coinRepository = get<CoinRepository>(),
+        )
+    }
+
+    single<NewsRepository> { NewsRepositoryImpl(get()) }
+    single<MarketplaceRepository> { MarketplaceRepositoryImpl(get()) }
+
+    single<RssFeedFetcher> { RssFeedFetcher(get()) }
+    single<NewsJobScheduler> { NewsJobScheduler(get()) }
+
+    single<EbayTokenProvider> { EbayTokenProvider(get<EbayConfig>()) }
+    single<EbayMarketplaceFetcher> { EbayMarketplaceFetcher(get(), get<EbayConfig>()) }
+    single<EbayListingsJob> { EbayListingsJob(get(), get(), get<EbayConfig>().feedPages) }
+    single<MarketplaceJobScheduler> {
+        MarketplaceJobScheduler(get(), intervalSeconds = get<EbayConfig>().feedRefreshIntervalSeconds.toLong())
+    }
+    single<CoinPricingService> { EbayCoinPricingService(get(), get<EbayConfig>()) }
+
     single<PasswordResetEmailSender> {
         val config = get<EmailConfig>()
         ResendPasswordResetEmailSender(
@@ -92,26 +147,7 @@ val appModule = module {
             appBaseUrl = config.appBaseUrl,
         )
     }
-    single<EbayConfig> { loadEbayConfig() }
-    single<NumistaConfig> { loadNumistaConfig() }
-    single<TimeProvider> { TimeProvider.System }
-    single { RssFeedFetcher(get()) }
-    single { NewsJobScheduler(get()) }
 
-    single<UserRepository> { UserRepositoryImpl() }
-    single<SubscriptionRepository> { SubscriptionRepositoryImpl() }
-    single<CoinRepository> { CoinRepositoryImpl() }
-    single<CatalogCoinRepository> { CatalogCoinRepositoryImpl() }
-    single<CoinSetRepository> { CoinSetRepositoryImpl() }
-    single<NewsRepository> { NewsRepositoryImpl() }
-    single<MarketplaceRepository> { MarketplaceRepositoryImpl() }
-
-    single { SubscriptionService(get()) }
-    single<CoinCatalogProvider> { NumistaProvider(get()) }
-    single<List<CoinCatalogProvider>> { listOf(get<CoinCatalogProvider>()) }
-    single<CoinEnrichmentService> { CoinEnrichmentServiceImpl(get(), get()) }
-    single<CoinService> { CoinServiceImpl(get(), get()) }
-    single<CoinSetService> { CoinSetServiceImpl(get(), get()) }
     single<UserAuthService> {
         UserAuthServiceImpl(
             userRepository = get<UserRepository>(),
@@ -124,29 +160,13 @@ val appModule = module {
     }
     single { SessionMergeService(get(), get()) }
     single<FileStorageService> { S3FileStorageService() }
-    single { EbayTokenProvider(get()) }
-    single<CoinPricingService> { EbayCoinPricingService(get(), get()) }
-    single { EbayMarketplaceFetcher(get(), get()) }
-    single {
-        EbayListingsJob(
-            fetcher = get(),
-            repository = get(),
-            pagesToFetch = get<EbayConfig>().feedPagesToFetch,
-        )
-    }
-    single {
-        MarketplaceJobScheduler(
-            job = get(),
-            intervalSeconds = get<EbayConfig>().feedRefreshIntervalSeconds,
-        )
-    }
 
     single { UserAuthController(get(), get(), get()) }
-    single { RevenueCatWebhookController(get(), get()) }
-    single { StorageController(get(), get()) }
-    single { CoinController(get(), get(), get(), get(), get()) }
+    single { CoinController(get(), get(), get(), get()) }
     single { CoinSetController(get(), get()) }
     single { CoinPricingController(get(), get(), get()) }
     single { NewsController(get(), get()) }
     single { MarketplaceController(get(), get()) }
+    single { RevenueCatWebhookController(get(), get()) }
+    single { StorageController(get(), get()) }
 }

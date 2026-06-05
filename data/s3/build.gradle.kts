@@ -11,4 +11,5 @@ dependencies {
     implementation(ktorLibs.server.core)
     implementation(libs.aws.s3)
     implementation(libs.aws.auth)
+    implementation(libs.kotlinx.coroutines.core)
 }

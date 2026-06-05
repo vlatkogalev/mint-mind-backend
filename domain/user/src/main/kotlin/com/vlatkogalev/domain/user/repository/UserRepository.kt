@@ -40,8 +40,6 @@ interface UserRepository {
     suspend fun upgradeAnonymousUser(
         userId: UUID,
         email: String,
-        firstName: String,
-        lastName: String,
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,

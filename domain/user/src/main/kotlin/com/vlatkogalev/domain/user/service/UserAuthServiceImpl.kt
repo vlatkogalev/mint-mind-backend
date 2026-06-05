@@ -3,10 +3,6 @@ package com.vlatkogalev.domain.user.service
 import com.vlatkogalev.domain.user.model.*
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -22,7 +18,6 @@ class UserAuthServiceImpl(
     private val skipEmailVerification: Boolean,
     private val emailVerificationSender: EmailVerificationSender,
     private val passwordResetEmailSender: PasswordResetEmailSender,
-    private val emailScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
 ) : UserAuthService {
 
     override suspend fun authenticateAnonymous(installationId: String): Result<AuthSession> {
@@ -39,6 +34,9 @@ class UserAuthServiceImpl(
                 userRepository.createAnonymousUser(normalizedInstallationId)
             }
 
+            // Intentional: always rotate the refresh token on anonymous auth.
+            // This means calling this while an existing session is active will
+            // invalidate it. Clients should only call this when no valid session exists.
             val refreshToken = jwtTokenProvider.generateRefreshToken(user.id)
             userRepository.saveRefreshTokenHash(user.id, hashToken(refreshToken))
             Result.Success(user.toAuthSession(refreshToken))
@@ -87,7 +85,7 @@ class UserAuthServiceImpl(
             if (skipEmailVerification) {
                 userRepository.verifyEmail(verificationToken)
             } else {
-                emailScope.launch { emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken) }
+                emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
             }
 
             Result.Success(user.toUser())
@@ -96,15 +94,9 @@ class UserAuthServiceImpl(
         }
     }
 
-    override suspend fun signup(email: String, password: String, firstName: String, lastName: String, currentUserId: UUID): Result<AuthSession> {
+    override suspend fun signup(email: String, password: String, currentUserId: UUID): Result<AuthSession> {
         val normalizedEmail = email.trim().lowercase()
         if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
-        if (firstName.isNotBlank()) {
-            if (firstName.trim().length > 50) return Result.Failure("First name must be 50 characters or fewer")
-        }
-        if (lastName.isNotBlank()) {
-            if (lastName.trim().length > 50) return Result.Failure("Last name must be 50 characters or fewer")
-        }
         validatePassword(password)?.let { return it }
 
         return try {
@@ -118,8 +110,6 @@ class UserAuthServiceImpl(
             val user = when (val result = userRepository.upgradeAnonymousUser(
                 userId = currentUserId,
                 email = normalizedEmail,
-                firstName = firstName.trim(),
-                lastName = lastName.trim(),
                 passwordHash = passwordHash,
                 verificationToken = verificationToken,
                 markVerified = skipEmailVerification,
@@ -132,7 +122,7 @@ class UserAuthServiceImpl(
             if (skipEmailVerification) {
                 userRepository.verifyEmail(verificationToken)
             } else {
-                emailScope.launch { emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken) }
+                emailVerificationSender.sendVerificationEmail(normalizedEmail, verificationToken)
             }
 
             val refreshedUser = userRepository.findById(user.id) ?: user
@@ -172,31 +162,33 @@ class UserAuthServiceImpl(
         }
     }
 
-    override suspend fun refresh(refreshToken: String): Result<LoginSession> = try {
-        val parsedUserId = runCatching { UUID.fromString(refreshToken.substringBefore(':')) }.getOrNull()
-            ?: return Result.Failure("Invalid refresh token")
-        val rawToken = refreshToken.substringAfter(':', missingDelimiterValue = "")
-        if (rawToken.isBlank()) return Result.Failure("Invalid refresh token")
+    override suspend fun refresh(refreshToken: String): Result<LoginSession> =
+        try {
+            val parsedUserId = runCatching { UUID.fromString(refreshToken.substringBefore(':')) }.getOrNull()
+                ?: return Result.Failure("Invalid refresh token")
+            val rawToken = refreshToken.substringAfter(':', missingDelimiterValue = "")
+            if (rawToken.isBlank()) return Result.Failure("Invalid refresh token")
 
-        val user = userRepository.findById(parsedUserId) ?: return Result.Failure("Invalid refresh token")
-        val storedTokenHash = user.refreshTokenHash ?: return Result.Failure("Invalid refresh token")
-        if (!constantTimeEquals(hashToken(refreshToken), storedTokenHash)) {
-            return Result.Failure("Invalid refresh token")
+            val user = userRepository.findById(parsedUserId) ?: return Result.Failure("Invalid refresh token")
+            val storedTokenHash = user.refreshTokenHash ?: return Result.Failure("Invalid refresh token")
+            if (!constantTimeEquals(hashToken(refreshToken), storedTokenHash)) {
+                return Result.Failure("Invalid refresh token")
+            }
+
+            val rotatedRefreshToken = jwtTokenProvider.generateRefreshToken(user.id)
+            userRepository.saveRefreshTokenHash(user.id, hashToken(rotatedRefreshToken))
+            Result.Success(user.toLoginSession(rotatedRefreshToken))
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to refresh token", ex)
         }
 
-        val rotatedRefreshToken = jwtTokenProvider.generateRefreshToken(user.id)
-        userRepository.saveRefreshTokenHash(user.id, hashToken(rotatedRefreshToken))
-        Result.Success(user.toLoginSession(rotatedRefreshToken))
-    } catch (ex: Exception) {
-        Result.Failure(ex.message ?: "Failed to refresh token", ex)
-    }
-
-    override suspend fun verifyEmail(token: String): Result<Unit> = try {
-        if (token.isBlank()) return Result.Failure("Verification token is required")
-        if (userRepository.verifyEmail(token)) Result.Success(Unit) else Result.Failure("Invalid verification token")
-    } catch (ex: Exception) {
-        Result.Failure(ex.message ?: "Failed to verify email", ex)
-    }
+    override suspend fun verifyEmail(token: String): Result<Unit> =
+        try {
+            if (token.isBlank()) return Result.Failure("Verification token is required")
+            if (userRepository.verifyEmail(token)) Result.Success(Unit) else Result.Failure("Invalid verification token")
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to verify email", ex)
+        }
 
     override suspend fun resendVerification(email: String): Result<Unit> {
         val normalizedEmail = email.trim().lowercase()
@@ -219,7 +211,7 @@ class UserAuthServiceImpl(
 
             val newToken = UUID.randomUUID().toString()
             userRepository.updateVerificationToken(user.id, newToken)
-            emailScope.launch { emailVerificationSender.sendVerificationEmail(normalizedEmail, newToken) }
+            emailVerificationSender.sendVerificationEmail(normalizedEmail, newToken)
 
             Result.Success(Unit)
         } catch (ex: Exception) {
@@ -227,12 +219,13 @@ class UserAuthServiceImpl(
         }
     }
 
-    override suspend fun getUserProfile(userId: UUID): Result<User> = try {
-        val user = userRepository.findById(userId) ?: return Result.Failure("User not found")
-        Result.Success(user.toUser())
-    } catch (ex: Exception) {
-        Result.Failure(ex.message ?: "Failed to fetch user profile", ex)
-    }
+    override suspend fun getUserProfile(userId: UUID): Result<User> =
+        try {
+            val user = userRepository.findById(userId) ?: return Result.Failure("User not found")
+            Result.Success(user.toUser())
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to fetch user profile", ex)
+        }
 
     override suspend fun updateProfile(userId: UUID, firstName: String, lastName: String): Result<User> {
         if (firstName.isBlank()) return Result.Failure("First name is required")
@@ -261,7 +254,7 @@ class UserAuthServiceImpl(
                     token = token,
                     expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES),
                 )
-                emailScope.launch { passwordResetEmailSender.sendPasswordResetEmail(normalizedEmail, token) }
+                passwordResetEmailSender.sendPasswordResetEmail(normalizedEmail, token)
             }
 
             Result.Success(Unit)
@@ -291,11 +284,12 @@ class UserAuthServiceImpl(
         }
     }
 
-    override suspend fun deleteAccount(userId: UUID): Result<Unit> = try {
-        if (userRepository.deleteById(userId)) Result.Success(Unit) else Result.Failure("User not found")
-    } catch (ex: Exception) {
-        Result.Failure(ex.message ?: "Failed to delete account", ex)
-    }
+    override suspend fun deleteAccount(userId: UUID): Result<Unit> =
+        try {
+            if (userRepository.deleteById(userId)) Result.Success(Unit) else Result.Failure("User not found")
+        } catch (ex: Exception) {
+            Result.Failure(ex.message ?: "Failed to delete account", ex)
+        }
 
     override suspend fun logout(userId: UUID): Result<Unit> = try {
         userRepository.clearRefreshTokenHash(userId)
@@ -303,23 +297,6 @@ class UserAuthServiceImpl(
     } catch (ex: Exception) {
         Result.Failure(ex.message ?: "Failed to logout", ex)
     }
-
-    private suspend fun UserAccount.toAuthSession(refreshToken: String): AuthSession =
-        AuthSession(
-            accessToken = jwtTokenProvider.createAccessToken(id, isAnonymous),
-            refreshToken = refreshToken,
-            accessTokenExpiresInSeconds = jwtTokenProvider.accessTokenExpiresInSeconds(),
-            refreshTokenExpiresInSeconds = jwtTokenProvider.refreshTokenExpiresInSeconds(),
-            user = toUser(),
-        )
-
-    private suspend fun UserAccount.toLoginSession(refreshToken: String): LoginSession =
-        LoginSession(
-            accessToken = jwtTokenProvider.createAccessToken(id, isAnonymous),
-            refreshToken = refreshToken,
-            accessTokenExpiresInSeconds = jwtTokenProvider.accessTokenExpiresInSeconds(),
-            refreshTokenExpiresInSeconds = jwtTokenProvider.refreshTokenExpiresInSeconds(),
-        )
 
     private fun UserAccount.toUser(): User {
         val profile = profile ?: error("User profile is missing")
@@ -334,6 +311,23 @@ class UserAuthServiceImpl(
             upgradedAt = upgradedAt,
         )
     }
+
+    private fun UserAccount.toLoginSession(refreshToken: String): LoginSession =
+        LoginSession(
+            accessToken = jwtTokenProvider.createAccessToken(id, isAnonymous),
+            refreshToken = refreshToken,
+            accessTokenExpiresInSeconds = jwtTokenProvider.accessTokenExpiresInSeconds(),
+            refreshTokenExpiresInSeconds = jwtTokenProvider.refreshTokenExpiresInSeconds(),
+        )
+
+    private fun UserAccount.toAuthSession(refreshToken: String): AuthSession =
+        AuthSession(
+            accessToken = jwtTokenProvider.createAccessToken(id, isAnonymous),
+            refreshToken = refreshToken,
+            accessTokenExpiresInSeconds = jwtTokenProvider.accessTokenExpiresInSeconds(),
+            refreshTokenExpiresInSeconds = jwtTokenProvider.refreshTokenExpiresInSeconds(),
+            user = toUser(),
+        )
 
     private fun hashToken(token: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(token.toByteArray(Charsets.UTF_8))

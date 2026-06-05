@@ -1,8 +1,7 @@
 package com.vlatkogalev.data.postgres.repository
 
 import com.vlatkogalev.platform.database.PostgresTestContainer
-import com.vlatkogalev.platform.database.configureExposed
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -10,30 +9,31 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class UserRepositoryImplTest {
-    private val dataSource = PostgresTestContainer.dataSource.also { configureExposed(it) }
-    private val repo = UserRepositoryImpl()
+    private val database = PostgresTestContainer.r2dbcDatabase
+    private val repo = UserRepositoryImpl(database)
 
     @BeforeTest
     fun cleanUp() {
-        dataSource.connection.use { connection ->
+        PostgresTestContainer.dataSource.connection.use { connection ->
             connection.createStatement().use { statement ->
-                statement.executeUpdate("DELETE FROM coin_catalogue_numbers")
-                statement.executeUpdate("DELETE FROM coins")
-                statement.executeUpdate("DELETE FROM coin_sets")
-                statement.executeUpdate("DELETE FROM marketplace_listings")
-                statement.executeUpdate("DELETE FROM news_articles")
-                statement.executeUpdate("DELETE FROM user_auth_identities")
-                statement.executeUpdate("DELETE FROM password_reset_tokens")
-                statement.executeUpdate("DELETE FROM anonymous_installations")
-                statement.executeUpdate("DELETE FROM subscriptions")
-                statement.executeUpdate("DELETE FROM profiles")
-                statement.executeUpdate("DELETE FROM users")
+                statement.executeUpdate(
+                    """
+                    TRUNCATE TABLE
+                        user_auth_identities,
+                        password_reset_tokens,
+                        anonymous_installations,
+                        subscriptions,
+                        profiles,
+                        users
+                    CASCADE
+                    """.trimIndent()
+                )
             }
         }
     }
 
     @Test
-    fun `create and findById round-trip`() = runBlocking {
+    fun `create and findById round-trip`() = runTest {
         val created = repo.create(
             email = "alice@example.com",
             firstName = "Alice",

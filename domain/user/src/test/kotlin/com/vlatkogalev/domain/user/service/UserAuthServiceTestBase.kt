@@ -9,9 +9,6 @@ import com.vlatkogalev.domain.user.model.UserProfile
 import com.vlatkogalev.domain.user.model.UpgradeAnonymousResult
 import com.vlatkogalev.domain.user.repository.UserRepository
 import com.vlatkogalev.platform.core.Result
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Base64
@@ -196,8 +193,6 @@ class FakeUserRepository : UserRepository {
     override suspend fun upgradeAnonymousUser(
         userId: UUID,
         email: String,
-        firstName: String,
-        lastName: String,
         passwordHash: String,
         verificationToken: String,
         markVerified: Boolean,
@@ -212,13 +207,6 @@ class FakeUserRepository : UserRepository {
             verificationEmailSentAt = if (markVerified) user.verificationEmailSentAt else Instant.now(),
             isAnonymous = false,
             upgradedAt = Instant.now(),
-            profile = (user.profile ?: UserProfile(
-                id = UUID.randomUUID(),
-                userId = userId,
-                firstName = firstName,
-                lastName = lastName,
-                avatarUrl = null,
-            )).copy(firstName = firstName, lastName = lastName),
         )
         users[userId] = upgraded
         createAuthIdentity(
@@ -314,23 +302,23 @@ class FakeUserRepository : UserRepository {
 }
 
 class FakePasswordHasher : UserPasswordHasher {
-    override suspend fun hash(password: String): String = "hashed:$password"
-    override suspend fun verify(password: String, encodedHash: String): Boolean = encodedHash == "hashed:$password"
+    override fun hash(password: String): String = "hashed:$password"
+    override fun verify(password: String, encodedHash: String): Boolean = encodedHash == "hashed:$password"
 }
 
 class FakeTokenProvider : UserTokenProvider {
     private val refreshCounts = mutableMapOf<UUID, Int>()
 
-    override suspend fun createAccessToken(userId: UUID, isAnonymous: Boolean): String = "access:$userId"
+    override fun createAccessToken(userId: UUID, isAnonymous: Boolean): String = "access:$userId"
 
-    override suspend fun generateRefreshToken(userId: UUID): String {
+    override fun generateRefreshToken(userId: UUID): String {
         val nextCount = (refreshCounts[userId] ?: 0) + 1
         refreshCounts[userId] = nextCount
         return "$userId:refresh-token-$nextCount"
     }
 
-    override suspend fun accessTokenExpiresInSeconds(): Long = 3600L
-    override suspend fun refreshTokenExpiresInSeconds(): Long = 86400L
+    override fun accessTokenExpiresInSeconds(): Long = 3600L
+    override fun refreshTokenExpiresInSeconds(): Long = 86400L
 }
 
 class RecordingEmailSender : EmailVerificationSender {
@@ -394,8 +382,6 @@ abstract class UserAuthServiceTestBase {
     protected val passwordResetEmailSender = RecordingPasswordResetEmailSender()
     protected val skipVerificationDefault = false
 
-    protected val testEmailScope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
-
     protected lateinit var service: UserAuthServiceImpl
 
     @BeforeTest
@@ -410,7 +396,6 @@ abstract class UserAuthServiceTestBase {
             skipEmailVerification = skipVerificationDefault,
             emailVerificationSender = emailSender,
             passwordResetEmailSender = passwordResetEmailSender,
-            emailScope = testEmailScope,
         )
     }
 
@@ -429,7 +414,6 @@ abstract class UserAuthServiceTestBase {
         skipEmailVerification = true,
         emailVerificationSender = emailSender,
         passwordResetEmailSender = passwordResetEmailSender,
-        emailScope = testEmailScope,
     )
 
     protected fun hashToken(token: String): String {

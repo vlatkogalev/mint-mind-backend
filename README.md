@@ -1,64 +1,171 @@
-# ktor-backend-template
+# MintMind Backend v2
 
-Modular Ktor backend template (Kotlin/JVM) with clean separation between app layers and reusable platform modules.
+Kotlin/Ktor backend for the MintMind coin collection app — AI-powered coin recognition storage, catalog enrichment, news aggregation, eBay marketplace pricing, and S3 image management.
 
-## Tech stack
-- Kotlin 2.3
-- Ktor 3.4
-- Koin 4.2
-- JWT auth
-- Flyway + HikariCP
-- H2 (default local DB) / PostgreSQL
-- AWS S3 SDK (storage module)
-- Gradle multi-module build
+## Tech Stack
 
-## Project structure
-- `app:api` - runnable Ktor app (entry point, routes, DI wiring)
-- `app:domain` - domain models and service contracts
-- `app:data` - service implementations and repositories
-- `app:jobs` - background/business job orchestration
-- `platform:core` - shared core utilities/config/result types
-- `platform:auth` - JWT auth plugin + token provider
-- `platform:database` - DB integration/migrations dependencies
-- `platform:storage` - S3-backed storage service
-- `platform:logging` - call logging setup
-- `platform:billing` - billing domain placeholder module
+| Concern | Technology |
+|---------|------------|
+| Language | Kotlin 2.3, JDK 21 |
+| HTTP Framework | Ktor 3.4 (Netty) |
+| DI | Koin 4.2 |
+| Database | PostgreSQL 15 via Exposed 1.3 (R2DBC) |
+| Migrations | Flyway 10 |
+| Connection Pool | HikariCP 6 |
+| Auth | JWT (HMAC-256) + bcrypt |
+| Email | Resend Java SDK |
+| Object Storage | AWS S3 SDK v2 (presigned URLs) |
+| Serialization | kotlinx.serialization |
+| Build | Gradle 9.5, Kotlin DSL |
+| Containerization | Docker (multi-stage), Docker Compose |
+| CI/CD | GitHub Actions → GHCR → Hostinger VPS |
+
+## Features
+
+- **Auth** — Anonymous sessions, email/password registration, JWT access + refresh tokens, email verification, password reset, session merging
+- **Coins & Sets** — Save AI-recognized coins with full metadata and catalogue numbers, organize into named sets, filter/sort/paginate
+- **Catalog Enrichment** — Automatic matching against Numista coin catalog with a scoring algorithm, manual re-enrichment endpoint
+- **News Feed** — Background RSS fetcher from CoinWeek with HTML sanitization, category filtering, deduplication
+- **eBay Marketplace** — Background job fetching live high-value certified coin listings, on-demand coin pricing via two-pass eBay Browse API query
+- **Billing** — RevenueCat webhook handler mirroring subscription state (Free/Pro/Enterprise)
+- **S3 Storage** — Presigned upload/download URL generation scoped to authenticated users
+
+## Project Structure
+
+```
+├── app/
+│   ├── api/          # Ktor entry point, routing, controllers, DI wiring
+│   └── jobs/         # Background schedulers (RSS news, eBay marketplace)
+├── domain/
+│   ├── billing/      # Subscription models, service, repository interface
+│   ├── coin/         # Coin, set, catalog models, services, enrichment logic
+│   ├── marketplace/  # Marketplace listing model and repository interface
+│   ├── news/         # News article model and repository interface
+│   ├── pricing/      # Active listing, price range, pricing service interface
+│   └── user/         # User account, auth service, repository interface
+├── data/
+│   ├── ebay/         # eBay OAuth token provider, marketplace fetcher, pricing service
+│   ├── email/        # Resend email sender implementations
+│   ├── numista/      # Numista catalog provider
+│   ├── postgres/     # PostgreSQL repository implementations (Exposed R2DBC)
+│   └── s3/           # S3 presigned URL generation
+└── platform/
+    ├── auth/         # Ktor JWT plugin, token provider, password hasher
+    ├── core/         # Result<T>, ApiResponse<T>, TimeProvider, config loaders
+    ├── database/     # HikariCP, Flyway, Exposed setup, dbQuery helper
+    └── logging/      # Call logging and structured logger
+```
+
+### Architecture Rules
+
+- `domain:*` modules contain only interfaces, models, and service implementations. They depend **only** on `platform:core`. No DB code, no HTTP code, no I/O.
+- `data:*` modules implement domain interfaces using DB, HTTP clients, and external SDKs.
+- `app:api` wires everything via Koin and exposes HTTP endpoints via Ktor controllers.
+- Services return `Result<T>` (never throw). Controllers map failures to HTTP status codes.
 
 ## Requirements
+
 - JDK 21
+- PostgreSQL 15
 - Gradle Wrapper (included)
 
-## Hostinger VPS deployment (template-ready)
-This template includes:
-- `.github/workflows/deploy-hostinger-vps.yml`
-- `docker-compose.yml`
-- `.env.example`
+## Quick Start
 
-### 1) One-time setup in each new repository
-In GitHub repository settings (`Settings -> Secrets and variables -> Actions`), add:
+```bash
+# 1. Clone and set up environment
+cp .env.example .env
+# Edit .env with your values
 
-- **Secret** `HOSTINGER_API_KEY`: Hostinger API key
-- **Variable** `HOSTINGER_VM_ID`: Hostinger VPS ID
-- **Variable** `HOSTINGER_PROJECT_NAME`: optional project name shown in Hostinger (can be same as repo name)
+# 2. Create the database
+createdb mint_mind
 
-Add DB/runtime values as **Secrets**:
-- `DB_URL`
-- `DB_USER`
-- `DB_PASSWORD`
-- `POSTGRES_DB`
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
+# 3. Run
+./gradlew :app:api:run
 
-### 2) Private repository requirement (Hostinger Docker Manager)
-For private repos, configure SSH Deploy Key on Hostinger VPS and add it to the GitHub repo deploy keys, per Hostinger guide:
-- [Deploy from private GitHub repo on Hostinger Docker Manager](https://www.hostinger.com/support/how-to-deploy-from-private-github-repository-on-hostinger-docker-manager/)
+# API available at http://localhost:8080
+# Swagger docs at http://localhost:8080/docs
+```
 
-### 3) Trigger deployment
-Push to `main` (or run the workflow manually). The workflow uses:
-- `hostinger/deploy-on-vps@v2`
-- `docker-compose.yml`
+### Required Environment Variables
 
-### 4) Minimal changes you usually need for a new project
-- Optionally adjust `APP_PORT` in `docker-compose.yml`
-- Confirm DB values/secrets for target environment
-- If needed, adapt service/container names in `docker-compose.yml`
+| Variable | Description |
+|----------|-------------|
+| `DB_URL` | JDBC URL (e.g. `jdbc:postgresql://localhost:5432/mint_mind`) |
+| `DB_USER` | Database user |
+| `DB_PASSWORD` | Database password |
+| `AUTH_SECRET` | HMAC-256 secret for JWT signing |
+| `RESEND_API_KEY` | Resend API key for transactional email |
+| `EMAIL_FROM` | From address for emails |
+| `APP_BASE_URL` | Base URL for email links |
+
+See `.env.example` for all variables including optional eBay, Numista, S3, and RevenueCat config.
+
+## API Endpoints
+
+All responses wrapped in `{ success, data, error, timestampMillis }`.
+
+### Auth (`/auth`) — mixed public/protected
+- `POST /auth/anonymous` — bootstrap anonymous session
+- `POST /auth/register` — create registered account
+- `POST /auth/login` — login with email/password
+- `POST /auth/refresh` — rotate refresh token
+- `GET /auth/verify-email` — verify email (returns HTML)
+- `POST /auth/resend-verification` — resend verification email
+- `POST /auth/password-reset/request` — request reset email
+- `POST /auth/password-reset/confirm` — confirm with token
+- `POST /auth/upgrade-account` — anonymous → registered (optional auth)
+- `GET /auth/me` — get profile (protected)
+- `PATCH /auth/me` — update profile (protected)
+- `DELETE /auth/me` — delete account (protected)
+
+### Coins (`/coins`) — protected
+- `POST /coins` — save recognized coin
+- `GET /coins` — list coins (filterable, paginated)
+- `GET /coins/stats` — collection statistics
+- `GET /coins/{id}` — get coin
+- `DELETE /coins/{id}` — delete coin
+- `PATCH /coins/{id}/notes` — update notes
+- `GET /coins/{id}/images` — presigned image URLs
+- `POST /coins/{id}/enrich` — manual catalog enrichment
+- `GET /coins/{id}/pricing` — eBay pricing estimate
+
+### Sets (`/sets`) — protected
+- `POST /sets` — create set
+- `GET /sets` — list sets
+- `GET /sets/{id}` — get set
+- `PATCH /sets/{id}` — update set
+- `DELETE /sets/{id}` — delete set
+- `POST /sets/{id}/coins` — add coins to set
+- `DELETE /sets/{id}/coins` — remove coins from set
+
+### News (`/news`) — public
+- `GET /news` — list articles (paginated)
+- `GET /news/{id}` — get article
+
+### Marketplace (`/marketplace`) — public
+- `GET /marketplace/listings` — list eBay listings (paginated)
+
+### Storage (`/storage`) — protected
+- `POST /storage/upload-urls` — presigned S3 upload URLs
+- `POST /storage/download-urls` — presigned S3 download URLs
+
+### Webhooks (`/webhooks`) — secret auth
+- `POST /webhooks/revenuecat` — RevenueCat subscription events
+
+## Testing
+
+```bash
+./gradlew test                    # all tests
+./gradlew :domain:user:test       # auth domain unit tests
+```
+
+- Domain tests use in-memory fakes — no database required
+- Database integration tests use Testcontainers (PostgreSQL)
+
+## Deployment
+
+CI/CD via GitHub Actions:
+1. `ci.yml` — builds and runs tests on push to `main` and PRs; on `main`, also builds and pushes Docker image to GHCR
+2. `deploy-hostinger-vps.yml` — deploys to Hostinger VPS using `docker-compose.yml`
+
+See `.github/workflows/` for details. Required GitHub secrets: `HOSTINGER_API_KEY`, `HOSTINGER_VM_ID`, plus all DB and runtime environment variables.
