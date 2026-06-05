@@ -14,6 +14,7 @@ object MarketplaceListingsTable : Table("marketplace_listings") {
     val condition = text("condition").nullable()
     val listingUrl = text("listing_url")
     val imageUrl = text("image_url").nullable()
+    val thumbnailUrl = text("thumbnail_url").nullable()
     val buyingOptions = registerColumn("buying_options", PostgresTextArrayColumnType())
     val expiresAt = timestampWithTimeZone("expires_at").nullable()
     val lastSeenAt = timestampWithTimeZone("last_seen_at")

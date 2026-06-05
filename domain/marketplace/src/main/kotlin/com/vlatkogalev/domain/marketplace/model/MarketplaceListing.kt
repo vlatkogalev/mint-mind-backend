@@ -12,6 +12,7 @@ data class MarketplaceListing(
     val condition: String?,
     val listingUrl: String,
     val imageUrl: String?,
+    val thumbnailUrl: String?,
     val buyingOptions: List<String>,
     val expiresAt: Instant?,
     val lastSeenAt: Instant,

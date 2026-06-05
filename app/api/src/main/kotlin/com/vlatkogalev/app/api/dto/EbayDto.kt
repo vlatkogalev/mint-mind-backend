@@ -12,6 +12,7 @@ data class MarketplaceListingResponse(
     val condition: String?,
     val listingUrl: String,
     val imageUrl: String?,
+    val thumbnailUrl: String?,
     val buyingOptions: List<String>,
     val expiresAt: String?,
     val timestamp: Long,
@@ -31,6 +32,7 @@ data class ActiveListingResponse(
     val condition: String?,
     val listingUrl: String,
     val imageUrl: String?,
+    val thumbnailUrl: String?,
     val listingEndDate: String?,
     val buyingOptions: List<String>,
 )

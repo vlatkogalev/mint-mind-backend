@@ -77,6 +77,7 @@ class CoinPricingController(
             condition = condition,
             listingUrl = listingUrl,
             imageUrl = imageUrl,
+            thumbnailUrl = thumbnailUrl,
             listingEndDate = listingEndDate?.toString(),
             buyingOptions = buyingOptions,
         )

@@ -36,6 +36,7 @@ private fun EbayItemSummary.toMarketplaceListing(lastSeenAt: Instant): Marketpla
         condition = condition,
         listingUrl = itemWebUrl ?: "",
         imageUrl = image?.imageUrl,
+        thumbnailUrl = thumbnailImages?.firstOrNull()?.imageUrl,
         buyingOptions = buyingOptions ?: emptyList(),
         expiresAt = itemEndDate?.let { runCatching { Instant.parse(it) }.getOrNull() },
         lastSeenAt = lastSeenAt,

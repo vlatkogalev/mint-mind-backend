@@ -1,16 +1,13 @@
 package com.vlatkogalev.data.ebay
 
 import com.vlatkogalev.platform.core.config.EbayConfig
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.parameter
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -46,7 +43,7 @@ class EbayMarketplaceFetcher(
                                 parameter("offset", page * 200)
                             }.body()
                         response.itemSummaries ?: emptyList()
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         emptyList()
                     }
                 }
@@ -83,6 +80,7 @@ data class EbayItemSummary(
     val condition: String? = null,
     val itemWebUrl: String? = null,
     val image: EbayImage? = null,
+    val thumbnailImages: List<EbayImage>? = null,
     val buyingOptions: List<String>? = null,
     val itemEndDate: String? = null,
 )

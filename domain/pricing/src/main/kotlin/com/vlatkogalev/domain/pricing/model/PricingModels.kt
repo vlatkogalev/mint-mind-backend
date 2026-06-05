@@ -9,6 +9,7 @@ data class ActiveListing(
     val condition: String?,
     val listingUrl: String,
     val imageUrl: String?,
+    val thumbnailUrl: String?,
     val listingEndDate: Instant?,
     val buyingOptions: List<String>,
 )

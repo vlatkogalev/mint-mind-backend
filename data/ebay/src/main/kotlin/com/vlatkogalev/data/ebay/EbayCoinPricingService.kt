@@ -1,6 +1,5 @@
 package com.vlatkogalev.data.ebay
 
-import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.Coin
 import com.vlatkogalev.domain.pricing.model.ActiveListing
 import com.vlatkogalev.domain.pricing.model.CoinPricingResult
@@ -8,18 +7,14 @@ import com.vlatkogalev.domain.pricing.model.PriceRange
 import com.vlatkogalev.domain.pricing.service.CoinPricingService
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.EbayConfig
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.parameter
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.Instant
 
@@ -146,6 +141,7 @@ class EbayCoinPricingService(
             condition = condition,
             listingUrl = itemWebUrl ?: "",
             imageUrl = image?.imageUrl,
+            thumbnailUrl = thumbnailImages?.firstOrNull()?.imageUrl,
             listingEndDate = itemEndDate?.let { runCatching { Instant.parse(it) }.getOrNull() },
             buyingOptions = buyingOptions ?: emptyList(),
         )

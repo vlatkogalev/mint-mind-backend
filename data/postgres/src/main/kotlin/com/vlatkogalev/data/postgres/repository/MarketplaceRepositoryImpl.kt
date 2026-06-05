@@ -30,6 +30,7 @@ class MarketplaceRepositoryImpl(
                     it[condition] = listing.condition
                     it[listingUrl] = listing.listingUrl
                     it[imageUrl] = listing.imageUrl
+                    it[thumbnailUrl] = listing.thumbnailUrl
                     it[buyingOptions] = listing.buyingOptions
                     it[expiresAt] = listing.expiresAt?.let { e -> OffsetDateTime.ofInstant(e, ZoneOffset.UTC) }
                     it[lastSeenAt] = OffsetDateTime.ofInstant(listing.lastSeenAt, ZoneOffset.UTC)
@@ -44,6 +45,7 @@ class MarketplaceRepositoryImpl(
                         it[condition] = listing.condition
                         it[listingUrl] = listing.listingUrl
                         it[imageUrl] = listing.imageUrl
+                        it[thumbnailUrl] = listing.thumbnailUrl
                         it[buyingOptions] = listing.buyingOptions
                         it[expiresAt] = listing.expiresAt?.let { e -> OffsetDateTime.ofInstant(e, ZoneOffset.UTC) }
                         it[lastSeenAt] = OffsetDateTime.ofInstant(listing.lastSeenAt, ZoneOffset.UTC)
@@ -98,6 +100,7 @@ class MarketplaceRepositoryImpl(
             condition = this[MarketplaceListingsTable.condition],
             listingUrl = this[MarketplaceListingsTable.listingUrl],
             imageUrl = this[MarketplaceListingsTable.imageUrl],
+            thumbnailUrl = this[MarketplaceListingsTable.thumbnailUrl],
             buyingOptions = this[MarketplaceListingsTable.buyingOptions],
             expiresAt = this[MarketplaceListingsTable.expiresAt]?.toInstant(),
             lastSeenAt = this[MarketplaceListingsTable.lastSeenAt].toInstant(),

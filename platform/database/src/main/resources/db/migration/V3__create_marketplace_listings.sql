@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS marketplace_listings (
     condition TEXT,
     listing_url TEXT NOT NULL,
     image_url TEXT,
+    thumbnail_url TEXT,
     buying_options TEXT[] NOT NULL DEFAULT '{}',
     expires_at TIMESTAMP WITH TIME ZONE,
     last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
