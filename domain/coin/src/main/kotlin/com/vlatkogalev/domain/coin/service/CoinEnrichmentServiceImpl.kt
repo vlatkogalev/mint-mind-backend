@@ -14,6 +14,7 @@ private const val RETRY_HOURS = 24L
 class CoinEnrichmentServiceImpl(
     private val catalogCoinRepository: CatalogCoinRepository,
     private val providers: List<CoinCatalogProvider>,
+    private val nowProvider: () -> Instant = { Instant.now() },
 ) : CoinEnrichmentService {
 
     override suspend fun getOrEnrich(fingerprint: CoinFingerprint): CatalogCoin? {
@@ -21,6 +22,7 @@ class CoinEnrichmentServiceImpl(
         val existing = catalogCoinRepository.findByFingerprint(normalized)
 
         val catalogCoin = existing ?: run {
+            val now = nowProvider()
             val stub = CatalogCoin(
                 id = UUID.randomUUID(),
                 fingerprint = normalized,
@@ -28,8 +30,8 @@ class CoinEnrichmentServiceImpl(
                 lastEnrichmentAttemptAt = null,
                 lastEnrichmentFailedAt = null,
                 lastEnrichmentError = null,
-                createdAt = Instant.now(),
-                updatedAt = Instant.now(),
+                createdAt = now,
+                updatedAt = now,
             )
             catalogCoinRepository.save(stub)
         }
@@ -38,11 +40,11 @@ class CoinEnrichmentServiceImpl(
 
         val failedAt = catalogCoin.lastEnrichmentFailedAt
         if (failedAt != null) {
-            val hoursSinceFail = Duration.between(failedAt, Instant.now()).toHours()
+            val hoursSinceFail = Duration.between(failedAt, nowProvider()).toHours()
             if (hoursSinceFail < RETRY_HOURS) return catalogCoin
         }
 
-        return enrich(catalogCoin, normalized, Instant.now())
+        return enrich(catalogCoin, normalized, nowProvider())
     }
 
     override suspend fun enrichById(catalogCoinId: UUID): Result<CatalogCoin> =
@@ -50,7 +52,7 @@ class CoinEnrichmentServiceImpl(
             val catalogCoin = catalogCoinRepository.findById(catalogCoinId)
                 ?: return Result.Failure("Catalog coin not found")
 
-            val enriched = enrich(catalogCoin, catalogCoin.fingerprint, Instant.now())
+            val enriched = enrich(catalogCoin, catalogCoin.fingerprint, nowProvider())
             if (enriched != null && enriched.enrichedAt != null) {
                 Result.Success(enriched)
             } else {
@@ -97,7 +99,7 @@ class CoinEnrichmentServiceImpl(
                 }
             }
 
-            if (bestCandidate != null && bestScore > 0) {
+            val enrichmentResult = if (bestCandidate != null && bestScore > 0) {
                 catalogCoinRepository.saveExternalReference(bestCandidate.externalReference)
                 catalogCoinRepository.markEnrichmentSuccess(catalogCoin.id, now, bestCandidate)
             } else {
@@ -107,6 +109,7 @@ class CoinEnrichmentServiceImpl(
                     errors.joinToString("; ").ifBlank { "No matching candidates found" },
                 )
             }
+            enrichmentResult
         }
     }
 
