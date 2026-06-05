@@ -3,7 +3,6 @@ info:
   title: "Mint Mind Documentation"
   version: "1.0.0"
 tags:
-  - name: "Health"
   - name: "Auth"
   - name: "Coins"
   - name: "Coin Sets"
