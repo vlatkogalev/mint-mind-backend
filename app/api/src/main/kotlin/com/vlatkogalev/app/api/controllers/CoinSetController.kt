@@ -213,7 +213,7 @@ class CoinSetController(
             description = description,
             previewObverseKeys = previewObverseKeys,
             coinCount = coinIds.size,
-            createdAt = createdAt.toString(),
+            createdAt = createdAt.toEpochMilli(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

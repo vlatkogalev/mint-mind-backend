@@ -262,7 +262,7 @@ class UserAuthController(
             avatarUrl = avatarUrl,
             emailVerified = emailVerified,
             isAnonymous = isAnonymous,
-            upgradedAt = upgradedAt?.toString(),
+            upgradedAt = upgradedAt?.toEpochMilli(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

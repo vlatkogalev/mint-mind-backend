@@ -1364,6 +1364,7 @@ components:
           nullable: true
         year:
           type: integer
+          format: int32
           nullable: true
         mintMark:
           type: string
@@ -1459,8 +1460,9 @@ components:
           type: string
           nullable: true
         createdAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
+          description: "Epoch milliseconds."
 
     CoinSummaryResponse:
       type: object
@@ -1481,6 +1483,7 @@ components:
           nullable: true
         year:
           type: integer
+          format: int32
           nullable: true
         mintage:
           type: integer
@@ -1499,8 +1502,9 @@ components:
           format: uuid
           nullable: true
         createdAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
+          description: "Epoch milliseconds."
 
     CoinListResponse:
       type: object
@@ -1533,8 +1537,10 @@ components:
       properties:
         totalCoins:
           type: integer
+          format: int32
         totalIssuers:
           type: integer
+          format: int32
         estimatedTotalValueMean:
           type: number
           format: double
@@ -1545,14 +1551,17 @@ components:
       type: object
       properties:
         mostValuable:
-          $ref: "#/components/schemas/CoinDetailResponse"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/CoinDetailResponse"
+            - type: 'null'
         mostAncient:
-          $ref: "#/components/schemas/CoinDetailResponse"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/CoinDetailResponse"
+            - type: 'null'
         rarest:
-          $ref: "#/components/schemas/CoinDetailResponse"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/CoinDetailResponse"
+            - type: 'null'
 
     CreateCoinSetRequest:
       type: object
@@ -1606,9 +1615,11 @@ components:
           description: "Up to 5 most-recently added coin obverse keys for UI thumbnails."
         coinCount:
           type: integer
+          format: int32
         createdAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
+          description: "Epoch milliseconds."
 
     NewsArticleSummaryResponse:
       type: object
@@ -1626,8 +1637,9 @@ components:
           format: uri
           nullable: true
         publishedAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
+          description: "Epoch milliseconds."
 
     NewsArticleResponse:
       type: object
@@ -1654,8 +1666,9 @@ components:
           format: uri
           nullable: true
         publishedAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
+          description: "Epoch milliseconds."
 
     NewsListResponse:
       type: object
@@ -1700,10 +1713,10 @@ components:
           items:
             type: string
         expiresAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
           nullable: true
-          description: "Auction end time."
+          description: "Auction end time, epoch milliseconds."
         timestamp:
           type: integer
           format: int64
@@ -1744,9 +1757,10 @@ components:
           format: uri
           nullable: true
         listingEndDate:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
           nullable: true
+          description: "Epoch milliseconds."
         buyingOptions:
           type: array
           items:
@@ -1770,6 +1784,7 @@ components:
           format: double
         sampleSize:
           type: integer
+          format: int32
 
     CoinPricingResponse:
       type: object
@@ -1783,14 +1798,16 @@ components:
           items:
             $ref: "#/components/schemas/ActiveListingResponse"
         priceRange:
-          $ref: "#/components/schemas/PriceRangeResponse"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/PriceRangeResponse"
+            - type: 'null'
         source:
           type: string
           example: "eBay"
         fetchedAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
+          description: "Epoch milliseconds."
 
     LoginSessionResponse:
       type: object
@@ -1857,9 +1874,10 @@ components:
         isAnonymous:
           type: boolean
         upgradedAt:
-          type: string
-          format: date-time
+          type: integer
+          format: int64
           nullable: true
+          description: "Epoch milliseconds. Non-null when an anonymous user upgraded to a registered account."
 
     PasswordResetRequestResponse:
       type: object

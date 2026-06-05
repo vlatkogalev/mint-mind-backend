@@ -66,7 +66,7 @@ class CoinPricingController(
             listings = listings.map { it.toResponse() },
             priceRange = priceRange?.toResponse(),
             source = source,
-            fetchedAt = fetchedAt.toString(),
+            fetchedAt = fetchedAt.toEpochMilli(),
         )
 
     private fun ActiveListing.toResponse(): ActiveListingResponse =
@@ -78,7 +78,7 @@ class CoinPricingController(
             listingUrl = listingUrl,
             imageUrl = imageUrl,
             thumbnailUrl = thumbnailUrl,
-            listingEndDate = listingEndDate?.toString(),
+            listingEndDate = listingEndDate?.toEpochMilli(),
             buyingOptions = buyingOptions,
         )
 

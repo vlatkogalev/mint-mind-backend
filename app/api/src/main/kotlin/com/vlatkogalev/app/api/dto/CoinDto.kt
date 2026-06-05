@@ -63,7 +63,7 @@ data class CoinDetailResponse(
     val setId: String?,
     val catalogCoinId: String?,
     val notes: String?,
-    val createdAt: String,
+    val createdAt: Long,
 )
 
 @Serializable
@@ -78,7 +78,7 @@ data class CoinSummaryResponse(
     val estimatedGrade: String?,
     val estimatedValueMean: Double?,
     val setId: String?,
-    val createdAt: String,
+    val createdAt: Long,
 )
 
 @Serializable
@@ -149,5 +149,5 @@ data class CoinSetResponse(
     val description: String?,
     val previewObverseKeys: List<String>,
     val coinCount: Int,
-    val createdAt: String,
+    val createdAt: Long,
 )

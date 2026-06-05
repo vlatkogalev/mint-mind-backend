@@ -326,7 +326,7 @@ class CoinController(
             setId = setId?.toString(),
             catalogCoinId = catalogCoinId?.toString(),
             notes = notes,
-            createdAt = createdAt.toString(),
+            createdAt = createdAt.toEpochMilli(),
         )
 
     private fun Coin.toSummaryResponse(): CoinSummaryResponse {
@@ -346,7 +346,7 @@ class CoinController(
             estimatedGrade = recognitionResult.estimatedGrade,
             estimatedValueMean = estimatedValueMean,
             setId = setId?.toString(),
-            createdAt = createdAt.toString(),
+            createdAt = createdAt.toEpochMilli(),
         )
     }
 

@@ -82,7 +82,7 @@ class NewsController(
             link = link,
             description = description,
             imageUrl = imageUrl,
-            publishedAt = publishedAt.toString(),
+            publishedAt = publishedAt.toEpochMilli(),
         )
 
     private fun NewsArticle.toResponse(): NewsArticleResponse =
@@ -94,7 +94,7 @@ class NewsController(
             content = content,
             author = author,
             imageUrl = imageUrl,
-            publishedAt = publishedAt.toString(),
+            publishedAt = publishedAt.toEpochMilli(),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

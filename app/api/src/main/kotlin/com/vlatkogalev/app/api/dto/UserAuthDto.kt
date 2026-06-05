@@ -109,7 +109,7 @@ data class UserResponse(
     val avatarUrl: String?,
     val emailVerified: Boolean,
     val isAnonymous: Boolean,
-    val upgradedAt: String?,
+    val upgradedAt: Long?,
 )
 
 @Serializable

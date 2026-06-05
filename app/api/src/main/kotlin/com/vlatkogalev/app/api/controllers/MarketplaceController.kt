@@ -58,7 +58,7 @@ class MarketplaceController(
             imageUrl = imageUrl,
             thumbnailUrl = thumbnailUrl,
             buyingOptions = buyingOptions,
-            expiresAt = expiresAt?.toString(),
+            expiresAt = expiresAt?.toEpochMilli(),
             timestamp = lastSeenAt.toEpochMilli(),
         )
 

@@ -30,6 +30,22 @@ Services return `Result<T>` (`Success` / `Failure`). Use `resultOf { }` to wrap 
 
 All API responses are wrapped in `ApiResponse<T>`: `{ success, data, error, timestampMillis }`. This is enforced by `configureCore()`.
 
+### Timestamps: epoch millis (`Long`), never ISO-8601 strings
+
+All timestamp fields in API response DTOs (`app/api/src/main/kotlin/.../dto/`) must use `Long` (epoch milliseconds), never `String` with ISO-8601. When mapping from domain models (which use `java.time.Instant`):
+
+```kotlin
+// Correct
+createdAt = createdAt.toEpochMilli()
+upgradedAt = upgradedAt?.toEpochMilli()
+
+// Wrong — do not use
+createdAt = createdAt.toString()
+upgradedAt = upgradedAt?.toString()
+```
+
+The `documentation.yaml` must declare these as `type: integer, format: int64` with `description: "Epoch milliseconds."` (and `nullable: true` where applicable). The pattern is already established by `ApiResponse.timestampMillis`, pagination cursors (`nextCursor`), and `MarketplaceListingResponse.timestamp` — all new timestamp fields must follow it.
+
 ### Exposed R2DBC, not JDBC
 
 All queries use `suspendTransaction` / `dbQuery` with `R2dbcDatabase`. The `r2dbcUrl` is derived by `"jdbc:" → "r2dbc:"` string replace on the JDBC URL. **Always use the `R2dbcDatabase` singleton, never create a JDBC connection for queries.**

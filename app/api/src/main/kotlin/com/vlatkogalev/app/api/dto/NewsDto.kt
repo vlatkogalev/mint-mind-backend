@@ -9,7 +9,7 @@ data class NewsArticleSummaryResponse(
     val link: String,
     val description: String,
     val imageUrl: String?,
-    val publishedAt: String,
+    val publishedAt: Long,
 )
 
 @Serializable
@@ -21,7 +21,7 @@ data class NewsArticleResponse(
     val content: String,
     val author: String?,
     val imageUrl: String?,
-    val publishedAt: String,
+    val publishedAt: Long,
 )
 
 @Serializable
