@@ -6,12 +6,10 @@ import com.vlatkogalev.domain.marketplace.repository.MarketplaceRepository
 import com.vlatkogalev.platform.database.dbQuery
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
-import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.*
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
-import java.util.UUID
 
 class MarketplaceRepositoryImpl(
     private val database: R2dbcDatabase,
@@ -19,30 +17,24 @@ class MarketplaceRepositoryImpl(
 
     override suspend fun upsertAll(listings: List<MarketplaceListing>) =
         dbQuery(database) {
-            val incomingIds = listings.map { it.ebayItemId }
-            val existingIds = MarketplaceListingsTable
-                .select(MarketplaceListingsTable.ebayItemId)
-                .where { MarketplaceListingsTable.ebayItemId inList incomingIds }
-                .toList()
-                .map { it[MarketplaceListingsTable.ebayItemId] }
-                .toSet()
+            val deduplicated = listings.groupBy { it.ebayItemId }
+                .mapValues { (_, v) -> v.last() }.values.toList()
 
-            listings.forEach { listing ->
-                if (listing.ebayItemId in existingIds) {
-                    MarketplaceListingsTable.update({
-                        MarketplaceListingsTable.ebayItemId eq listing.ebayItemId
-                    }) {
-                        it[title] = listing.title
-                        it[price] = listing.price
-                        it[currency] = listing.currency
-                        it[condition] = listing.condition
-                        it[listingUrl] = listing.listingUrl
-                        it[imageUrl] = listing.imageUrl
-                        it[buyingOptions] = listing.buyingOptions
-                        it[expiresAt] = listing.expiresAt?.let { e -> OffsetDateTime.ofInstant(e, ZoneOffset.UTC) }
-                        it[lastSeenAt] = OffsetDateTime.ofInstant(listing.lastSeenAt, ZoneOffset.UTC)
-                    }
-                } else {
+            deduplicated.forEach { listing ->
+                val updated = MarketplaceListingsTable.update({
+                    MarketplaceListingsTable.ebayItemId eq listing.ebayItemId
+                }) {
+                    it[title] = listing.title
+                    it[price] = listing.price
+                    it[currency] = listing.currency
+                    it[condition] = listing.condition
+                    it[listingUrl] = listing.listingUrl
+                    it[imageUrl] = listing.imageUrl
+                    it[buyingOptions] = listing.buyingOptions
+                    it[expiresAt] = listing.expiresAt?.let { e -> OffsetDateTime.ofInstant(e, ZoneOffset.UTC) }
+                    it[lastSeenAt] = OffsetDateTime.ofInstant(listing.lastSeenAt, ZoneOffset.UTC)
+                }
+                if (updated == 0) {
                     MarketplaceListingsTable.insert {
                         it[id] = listing.id
                         it[ebayItemId] = listing.ebayItemId
