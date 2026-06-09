@@ -1253,6 +1253,16 @@ components:
         password:
           type: string
           format: password
+        firstName:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: "Optional. If provided, lastName must also be provided."
+        lastName:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: "Optional. If provided, firstName must also be provided."
 
     LoginRequest:
       type: object

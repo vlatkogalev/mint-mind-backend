@@ -69,4 +69,36 @@ class AnonymousAuthTest : UserAuthServiceTestBase() {
 
         assertEquals("Email already registered", assertFailure(result).reason)
     }
+
+    @Test
+    fun signup_withNames_updatesProfile() = runTest {
+        val anonymous = assertSuccess(service.authenticateAnonymous("install-6")).value
+
+        val upgraded = assertSuccess(
+            service.signup(
+                "named@example.com",
+                TestFixtures.VALID_PASSWORD,
+                anonymous.user.id,
+                firstName = "Alice",
+                lastName = "Smith",
+            ),
+        ).value
+
+        assertEquals("Alice", upgraded.user.firstName)
+        assertEquals("Smith", upgraded.user.lastName)
+    }
+
+    @Test
+    fun signup_withFirstNameOnly_returnsFailure() = runTest {
+        val anonymous = assertSuccess(service.authenticateAnonymous("install-7")).value
+
+        val result = service.signup(
+            "half@example.com",
+            TestFixtures.VALID_PASSWORD,
+            anonymous.user.id,
+            firstName = "Alice",
+        )
+
+        assertEquals("Last name is required", assertFailure(result).reason)
+    }
 }

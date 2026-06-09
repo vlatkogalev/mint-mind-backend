@@ -159,7 +159,7 @@ class UserAuthController(
                 call.respond(HttpStatusCode.BadRequest, error(it))
                 return@post
             }
-            when (val result = userAuthService.signup(payload.email, payload.password, currentUserId)) {
+            when (val result = userAuthService.signup(payload.email, payload.password, currentUserId, payload.firstName, payload.lastName)) {
                 is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toResponse()))
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }

@@ -31,6 +31,11 @@ class UserAuthRequestValidationTest {
     }
 
     @Test
+    fun signupRequest_withNames_valid_returnsNull() {
+        assertNull(SignupRequest(email = "user@example.com", password = "password", firstName = "John", lastName = "Doe").validate())
+    }
+
+    @Test
     fun loginRequest_blankEmail_returnsError() {
         assertEquals("email is required", LoginRequest(email = " ", password = "password").validate())
     }

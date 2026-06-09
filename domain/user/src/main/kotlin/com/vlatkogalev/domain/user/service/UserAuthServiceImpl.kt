@@ -94,10 +94,20 @@ class UserAuthServiceImpl(
         }
     }
 
-    override suspend fun signup(email: String, password: String, currentUserId: UUID): Result<AuthSession> {
+    override suspend fun signup(email: String, password: String, currentUserId: UUID, firstName: String?, lastName: String?): Result<AuthSession> {
         val normalizedEmail = email.trim().lowercase()
         if (!isValidEmail(normalizedEmail)) return Result.Failure("Invalid email")
         validatePassword(password)?.let { return it }
+
+        val fName = firstName?.trim()
+        val lName = lastName?.trim()
+
+        if (fName != null || lName != null) {
+            if (fName.isNullOrBlank()) return Result.Failure("First name is required")
+            if (lName.isNullOrBlank()) return Result.Failure("Last name is required")
+            if (fName.length > 50) return Result.Failure("First name must be 50 characters or fewer")
+            if (lName.length > 50) return Result.Failure("Last name must be 50 characters or fewer")
+        }
 
         return try {
             if (userRepository.findAuthIdentityByEmail(normalizedEmail) != null) {
@@ -117,6 +127,10 @@ class UserAuthServiceImpl(
                 is UpgradeAnonymousResult.NotFound -> return Result.Failure("User not found")
                 is UpgradeAnonymousResult.NotAnonymous -> return Result.Failure("Signup upgrade requires anonymous account")
                 is UpgradeAnonymousResult.Success -> result.user
+            }
+
+            if (fName != null && lName != null) {
+                userRepository.updateProfile(user.id, fName, lName)
             }
 
             if (skipEmailVerification) {

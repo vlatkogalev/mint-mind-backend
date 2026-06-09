@@ -11,7 +11,7 @@ interface UserAuthService {
 
     suspend fun authenticateAnonymous(installationId: String): Result<AuthSession>
 
-    suspend fun signup(email: String, password: String, currentUserId: UUID): Result<AuthSession>
+    suspend fun signup(email: String, password: String, currentUserId: UUID, firstName: String? = null, lastName: String? = null): Result<AuthSession>
 
     suspend fun login(email: String, password: String): Result<LoginSession>
 
