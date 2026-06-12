@@ -25,6 +25,7 @@ class S3FileStorageService(
         .build()
 
     private val bucket = config.bucketName
+    private val cloudfrontDomain = config.cloudfrontDomain
 
     override suspend fun createPresignedUpload(key: String, ttlSeconds: Long): URL =
         withContext(Dispatchers.IO) {
@@ -55,6 +56,8 @@ class S3FileStorageService(
                     .build(),
             ).url()
         }
+
+    override fun publicUrl(key: String): String = "https://$cloudfrontDomain/$key"
 
     override fun createUploadSession(prefix: String): UploadSession =
         UploadSession(

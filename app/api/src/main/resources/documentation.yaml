@@ -1440,7 +1440,7 @@ components:
 
     CoinDetailResponse:
       type: object
-      required: [ id, userId, obverseKey, reverseKey, recognitionResult, catalogueNumbers, createdAt ]
+      required: [ id, userId, obverseUrl, reverseUrl, recognitionResult, catalogueNumbers, createdAt ]
       properties:
         id:
           type: string
@@ -1448,10 +1448,12 @@ components:
         userId:
           type: string
           format: uuid
-        obverseKey:
+        obverseUrl:
           type: string
-        reverseKey:
+          format: uri
+        reverseUrl:
           type: string
+          format: uri
         recognitionResult:
           $ref: "#/components/schemas/RecognitionResultDto"
         catalogueNumbers:
@@ -1476,15 +1478,17 @@ components:
 
     CoinSummaryResponse:
       type: object
-      required: [ id, obverseKey, reverseKey, createdAt ]
+      required: [ id, obverseUrl, reverseUrl, createdAt ]
       properties:
         id:
           type: string
           format: uuid
-        obverseKey:
+        obverseUrl:
           type: string
-        reverseKey:
+          format: uri
+        reverseUrl:
           type: string
+          format: uri
         denomination:
           type: string
           nullable: true
@@ -1608,7 +1612,7 @@ components:
 
     CoinSetResponse:
       type: object
-      required: [ id, name, coinCount, previewObverseKeys, createdAt ]
+      required: [ id, name, coinCount, previewObverseUrls, createdAt ]
       properties:
         id:
           type: string
@@ -1618,11 +1622,12 @@ components:
         description:
           type: string
           nullable: true
-        previewObverseKeys:
+        previewObverseUrls:
           type: array
           items:
             type: string
-          description: "Up to 5 most-recently added coin obverse keys for UI thumbnails."
+            format: uri
+          description: "Up to 5 most-recently added coin obverse CDN URLs for UI thumbnails."
         coinCount:
           type: integer
           format: int32

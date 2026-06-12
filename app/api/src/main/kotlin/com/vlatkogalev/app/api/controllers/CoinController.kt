@@ -299,8 +299,8 @@ class CoinController(
         CoinDetailResponse(
             id = id.toString(),
             userId = userId.toString(),
-            obverseKey = obverseKey,
-            reverseKey = reverseKey,
+            obverseUrl = fileStorageService.publicUrl(obverseKey),
+            reverseUrl = fileStorageService.publicUrl(reverseKey),
             recognitionResult = RecognitionResultDto(
                 overallConfidence = recognitionResult.overallConfidence.name,
                 countryOrIssuer = recognitionResult.countryOrIssuer,
@@ -337,8 +337,8 @@ class CoinController(
         }
         return CoinSummaryResponse(
             id = id.toString(),
-            obverseKey = obverseKey,
-            reverseKey = reverseKey,
+            obverseUrl = fileStorageService.publicUrl(obverseKey),
+            reverseUrl = fileStorageService.publicUrl(reverseKey),
             denomination = recognitionResult.denomination,
             countryOrIssuer = recognitionResult.countryOrIssuer,
             year = recognitionResult.year,

@@ -58,6 +58,7 @@ jobs:
             AWS_BUCKET=${{ vars.AWS_BUCKET || secrets.AWS_BUCKET }}
             AWS_UPLOAD_URL_TTL_SECONDS=${{ vars.AWS_UPLOAD_URL_TTL_SECONDS || secrets.AWS_UPLOAD_URL_TTL_SECONDS }}
             AWS_DOWNLOAD_URL_TTL_SECONDS=${{ vars.AWS_DOWNLOAD_URL_TTL_SECONDS || secrets.AWS_DOWNLOAD_URL_TTL_SECONDS }}
+            AWS_CLOUDFRONT_DOMAIN=${{ vars.AWS_CLOUDFRONT_DOMAIN || secrets.AWS_CLOUDFRONT_DOMAIN }}
             RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
             EMAIL_FROM=${{ vars.EMAIL_FROM || secrets.EMAIL_FROM }}
             EBAY_CLIENT_ID=${{ secrets.EBAY_CLIENT_ID }}

@@ -163,7 +163,7 @@ val appModule = module {
 
     single { UserAuthController(get(), get(), get()) }
     single { CoinController(get(), get(), get(), get()) }
-    single { CoinSetController(get(), get()) }
+    single { CoinSetController(get(), get(), get()) }
     single { CoinPricingController(get(), get(), get()) }
     single { NewsController(get(), get()) }
     single { MarketplaceController(get(), get()) }

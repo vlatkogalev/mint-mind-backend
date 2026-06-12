@@ -56,8 +56,8 @@ data class UpdateCoinNotesRequest(
 data class CoinDetailResponse(
     val id: String,
     val userId: String,
-    val obverseKey: String,
-    val reverseKey: String,
+    val obverseUrl: String,
+    val reverseUrl: String,
     val recognitionResult: RecognitionResultDto,
     val catalogueNumbers: List<CatalogueNumberDto>,
     val setId: String?,
@@ -69,8 +69,8 @@ data class CoinDetailResponse(
 @Serializable
 data class CoinSummaryResponse(
     val id: String,
-    val obverseKey: String,
-    val reverseKey: String,
+    val obverseUrl: String,
+    val reverseUrl: String,
     val denomination: String?,
     val countryOrIssuer: String?,
     val year: Int?,
@@ -147,7 +147,7 @@ data class CoinSetResponse(
     val id: String,
     val name: String,
     val description: String?,
-    val previewObverseKeys: List<String>,
+    val previewObverseUrls: List<String>,
     val coinCount: Int,
     val createdAt: Long,
 )

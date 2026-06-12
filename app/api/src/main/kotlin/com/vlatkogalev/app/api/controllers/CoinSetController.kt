@@ -9,6 +9,7 @@ import com.vlatkogalev.domain.coin.service.CoinSetService
 import com.vlatkogalev.platform.auth.userIdOrNull
 import com.vlatkogalev.platform.core.ApiResponse
 import com.vlatkogalev.platform.core.Result
+import com.vlatkogalev.platform.core.storage.FileStorageService
 import com.vlatkogalev.platform.core.time.TimeProvider
 import io.ktor.http.*
 import io.ktor.server.auth.*
@@ -21,6 +22,7 @@ import java.util.*
 
 class CoinSetController(
     private val coinSetService: CoinSetService,
+    private val fileStorageService: FileStorageService,
     private val timeProvider: TimeProvider,
 ) {
     fun Route.registerRoutes() {
@@ -211,7 +213,7 @@ class CoinSetController(
             id = id.toString(),
             name = name,
             description = description,
-            previewObverseKeys = previewObverseKeys,
+            previewObverseUrls = previewObverseKeys.map { fileStorageService.publicUrl(it) },
             coinCount = coinIds.size,
             createdAt = createdAt.toEpochMilli(),
         )
