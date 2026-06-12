@@ -19,6 +19,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.routing.openapi.*
+import kotlinx.serialization.json.Json
 import java.util.*
 
 class CoinController(
@@ -285,7 +286,7 @@ class CoinController(
             obverseDescription = dto.obverseDescription,
             reverseDescription = dto.reverseDescription,
             historicalContext = dto.historicalContext,
-            rawJson = dto.rawJson,
+            rawJson = dto.rawJson.minifiedJson(),
         )
 
     private fun mapToCatalogueNumber(dto: CatalogueNumberDto): CatalogueNumber =
@@ -375,4 +376,9 @@ class CoinController(
             error = message,
             timestampMillis = timeProvider.nowMillis(),
         )
+
+    private fun String.minifiedJson(): String =
+        kotlin.runCatching {
+            Json.encodeToString(Json.parseToJsonElement(this))
+        }.getOrDefault(this)
 }
