@@ -6,6 +6,7 @@ data class RecognitionResult(
     val denomination: String?,
     val seriesName: String?,
     val year: Int?,
+    val era: String? = null,
     val mintMark: String?,
     val metalComposition: String?,
     val estimatedGrade: String?,
@@ -16,6 +17,23 @@ data class RecognitionResult(
     val mintage: Long?,
     val obverseDescription: String?,
     val reverseDescription: String?,
+    // Specifications
+    val weightGrams: Double? = null,
+    val diameterMm: Double? = null,
+    val thicknessMm: Double? = null,
+    val edge: String? = null,
+    val designerObverse: String? = null,
+    val designerReverse: String? = null,
+    // Condition
+    val positiveFeatures: List<String> = emptyList(),
+    val negativeFeatures: List<String> = emptyList(),
+    // Market
+    val supplySummary: String? = null,
+    val demandSummary: String? = null,
+    // Design lettering
+    val obverseLettering: String? = null,
+    val reverseLettering: String? = null,
+    val analysisNotes: String? = null,
     val historicalContext: String?,
     val rawJson: String,
 ) {

@@ -1,5 +1,6 @@
 package com.vlatkogalev.data.postgres.tables
 
+import com.vlatkogalev.data.postgres.columns.PostgresTextArrayColumnType
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.javatime.timestampWithTimeZone
@@ -17,6 +18,7 @@ object CoinsTable : Table("coins") {
     val denomination = text("denomination").nullable()
     val seriesName = text("series_name").nullable()
     val year = integer("year").nullable()
+    val era = text("era").nullable()
     val mintMark = text("mint_mark").nullable()
     val metalComposition = text("metal_composition").nullable()
     val estimatedGrade = text("estimated_grade").nullable()
@@ -27,6 +29,23 @@ object CoinsTable : Table("coins") {
     val mintage = long("mintage").nullable()
     val obverseDescription = text("obverse_description").nullable()
     val reverseDescription = text("reverse_description").nullable()
+    // Specifications
+    val weightGrams = double("weight_grams").nullable()
+    val diameterMm = double("diameter_mm").nullable()
+    val thicknessMm = double("thickness_mm").nullable()
+    val edge = text("edge").nullable()
+    val designerObverse = text("designer_obverse").nullable()
+    val designerReverse = text("designer_reverse").nullable()
+    // Condition
+    val positiveFeatures = registerColumn("positive_features", PostgresTextArrayColumnType())
+    val negativeFeatures = registerColumn("negative_features", PostgresTextArrayColumnType())
+    // Market
+    val supplySummary = text("supply_summary").nullable()
+    val demandSummary = text("demand_summary").nullable()
+    // Design lettering
+    val obverseLettering = text("obverse_lettering").nullable()
+    val reverseLettering = text("reverse_lettering").nullable()
+    val analysisNotes = text("analysis_notes").nullable()
     val historicalContext = text("historical_context").nullable()
     val rawJson = text("raw_json")
     val createdAt = timestampWithTimeZone("created_at")

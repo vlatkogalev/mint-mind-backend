@@ -33,6 +33,7 @@ class CoinRepositoryImpl(
                 it[denomination] = coin.recognitionResult.denomination
                 it[seriesName] = coin.recognitionResult.seriesName
                 it[year] = coin.recognitionResult.year
+                it[era] = coin.recognitionResult.era
                 it[mintMark] = coin.recognitionResult.mintMark
                 it[metalComposition] = coin.recognitionResult.metalComposition
                 it[estimatedGrade] = coin.recognitionResult.estimatedGrade
@@ -43,6 +44,19 @@ class CoinRepositoryImpl(
                 it[mintage] = coin.recognitionResult.mintage
                 it[obverseDescription] = coin.recognitionResult.obverseDescription
                 it[reverseDescription] = coin.recognitionResult.reverseDescription
+                it[weightGrams] = coin.recognitionResult.weightGrams
+                it[diameterMm] = coin.recognitionResult.diameterMm
+                it[thicknessMm] = coin.recognitionResult.thicknessMm
+                it[edge] = coin.recognitionResult.edge
+                it[designerObverse] = coin.recognitionResult.designerObverse
+                it[designerReverse] = coin.recognitionResult.designerReverse
+                it[positiveFeatures] = coin.recognitionResult.positiveFeatures
+                it[negativeFeatures] = coin.recognitionResult.negativeFeatures
+                it[supplySummary] = coin.recognitionResult.supplySummary
+                it[demandSummary] = coin.recognitionResult.demandSummary
+                it[obverseLettering] = coin.recognitionResult.obverseLettering
+                it[reverseLettering] = coin.recognitionResult.reverseLettering
+                it[analysisNotes] = coin.recognitionResult.analysisNotes
                 it[historicalContext] = coin.recognitionResult.historicalContext
                 it[rawJson] = coin.recognitionResult.rawJson
             }
@@ -273,6 +287,7 @@ class CoinRepositoryImpl(
                 denomination = this[CoinsTable.denomination],
                 seriesName = this[CoinsTable.seriesName],
                 year = this[CoinsTable.year],
+                era = this[CoinsTable.era],
                 mintMark = this[CoinsTable.mintMark],
                 metalComposition = this[CoinsTable.metalComposition],
                 estimatedGrade = this[CoinsTable.estimatedGrade],
@@ -283,6 +298,19 @@ class CoinRepositoryImpl(
                 mintage = this[CoinsTable.mintage],
                 obverseDescription = this[CoinsTable.obverseDescription],
                 reverseDescription = this[CoinsTable.reverseDescription],
+                weightGrams = this[CoinsTable.weightGrams],
+                diameterMm = this[CoinsTable.diameterMm],
+                thicknessMm = this[CoinsTable.thicknessMm],
+                edge = this[CoinsTable.edge],
+                designerObverse = this[CoinsTable.designerObverse],
+                designerReverse = this[CoinsTable.designerReverse],
+                positiveFeatures = this[CoinsTable.positiveFeatures],
+                negativeFeatures = this[CoinsTable.negativeFeatures],
+                supplySummary = this[CoinsTable.supplySummary],
+                demandSummary = this[CoinsTable.demandSummary],
+                obverseLettering = this[CoinsTable.obverseLettering],
+                reverseLettering = this[CoinsTable.reverseLettering],
+                analysisNotes = this[CoinsTable.analysisNotes],
                 historicalContext = this[CoinsTable.historicalContext],
                 rawJson = this[CoinsTable.rawJson],
             ),

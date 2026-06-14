@@ -26,6 +26,7 @@ data class RecognitionResultDto(
     val denomination: String? = null,
     val seriesName: String? = null,
     val year: Int? = null,
+    val era: String? = null,
     val mintMark: String? = null,
     val metalComposition: String? = null,
     val estimatedGrade: String? = null,
@@ -36,6 +37,23 @@ data class RecognitionResultDto(
     val mintage: Long? = null,
     val obverseDescription: String? = null,
     val reverseDescription: String? = null,
+    // Specifications
+    val weightGrams: Double? = null,
+    val diameterMm: Double? = null,
+    val thicknessMm: Double? = null,
+    val edge: String? = null,
+    val designerObverse: String? = null,
+    val designerReverse: String? = null,
+    // Condition
+    val positiveFeatures: List<String> = emptyList(),
+    val negativeFeatures: List<String> = emptyList(),
+    // Market
+    val supplySummary: String? = null,
+    val demandSummary: String? = null,
+    // Design lettering
+    val obverseLettering: String? = null,
+    val reverseLettering: String? = null,
+    val analysisNotes: String? = null,
     val historicalContext: String? = null,
     val rawJson: String,
 )
@@ -76,6 +94,7 @@ data class CoinSummaryResponse(
     val year: Int?,
     val mintage: Long?,
     val estimatedGrade: String?,
+    val estimatedGradeValue: String?,
     val estimatedValueMean: Double?,
     val setId: String?,
     val createdAt: Long,

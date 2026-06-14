@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS coins (
     denomination TEXT,
     series_name TEXT,
     year INT,
+    era TEXT,
     mint_mark TEXT,
     metal_composition TEXT,
     estimated_grade TEXT,
@@ -79,6 +80,23 @@ CREATE TABLE IF NOT EXISTS coins (
     obverse_description TEXT,
     reverse_description TEXT,
     historical_context TEXT,
+    -- Specifications
+    weight_grams DOUBLE PRECISION,
+    diameter_mm DOUBLE PRECISION,
+    thickness_mm DOUBLE PRECISION,
+    edge TEXT,
+    designer_obverse TEXT,
+    designer_reverse TEXT,
+    -- Condition
+    positive_features TEXT[],
+    negative_features TEXT[],
+    -- Market
+    supply_summary TEXT,
+    demand_summary TEXT,
+    -- Design lettering
+    obverse_lettering TEXT,
+    reverse_lettering TEXT,
+    analysis_notes TEXT,
     raw_json TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -1376,6 +1376,9 @@ components:
           type: integer
           format: int32
           nullable: true
+        era:
+          type: string
+          nullable: true
         mintMark:
           type: string
           nullable: true
@@ -1410,6 +1413,50 @@ components:
           type: string
           nullable: true
         historicalContext:
+          type: string
+          nullable: true
+        weightGrams:
+          type: number
+          format: double
+          nullable: true
+        diameterMm:
+          type: number
+          format: double
+          nullable: true
+        thicknessMm:
+          type: number
+          format: double
+          nullable: true
+        edge:
+          type: string
+          nullable: true
+        designerObverse:
+          type: string
+          nullable: true
+        designerReverse:
+          type: string
+          nullable: true
+        positiveFeatures:
+          type: array
+          items:
+            type: string
+        negativeFeatures:
+          type: array
+          items:
+            type: string
+        supplySummary:
+          type: string
+          nullable: true
+        demandSummary:
+          type: string
+          nullable: true
+        obverseLettering:
+          type: string
+          nullable: true
+        reverseLettering:
+          type: string
+          nullable: true
+        analysisNotes:
           type: string
           nullable: true
         rawJson:
@@ -1506,6 +1553,9 @@ components:
         estimatedGrade:
           type: string
           nullable: true
+        estimatedGradeValue:
+          type: string
+          nullable: true
         estimatedValueMean:
           type: number
           format: double
@@ -1565,17 +1615,17 @@ components:
       type: object
       properties:
         mostValuable:
-          anyOf:
+          allOf:
             - $ref: "#/components/schemas/CoinDetailResponse"
-            - type: 'null'
+          nullable: true
         mostAncient:
-          anyOf:
+          allOf:
             - $ref: "#/components/schemas/CoinDetailResponse"
-            - type: 'null'
+          nullable: true
         rarest:
-          anyOf:
+          allOf:
             - $ref: "#/components/schemas/CoinDetailResponse"
-            - type: 'null'
+          nullable: true
 
     CreateCoinSetRequest:
       type: object
@@ -1813,9 +1863,9 @@ components:
           items:
             $ref: "#/components/schemas/ActiveListingResponse"
         priceRange:
-          anyOf:
+          allOf:
             - $ref: "#/components/schemas/PriceRangeResponse"
-            - type: 'null'
+          nullable: true
         source:
           type: string
           example: "eBay"
