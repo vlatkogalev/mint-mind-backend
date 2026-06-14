@@ -6,6 +6,7 @@ import java.time.Instant
 data class CatalogCoin(
     val id: UUID,
     val fingerprint: CoinFingerprint,
+    val title: String? = null,
     val composition: String? = null,
     val weightGrams: Double? = null,
     val diameterMm: Double? = null,

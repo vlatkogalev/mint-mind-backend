@@ -277,7 +277,6 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
         byId.values.firstOrNull {
             it.fingerprint.countryOrIssuer == fingerprint.countryOrIssuer &&
                 it.fingerprint.denomination == fingerprint.denomination &&
-                it.fingerprint.title == fingerprint.title &&
                 it.fingerprint.year == fingerprint.year
         }
 
@@ -304,6 +303,7 @@ private class FakeCatalogCoinRepository : CatalogCoinRepository {
             lastEnrichmentAttemptAt = now,
             lastEnrichmentFailedAt = null,
             lastEnrichmentError = null,
+            title = coin.title ?: candidate?.title,
             composition = coin.composition ?: candidate?.composition,
             weightGrams = coin.weightGrams ?: candidate?.weightGrams,
             diameterMm = coin.diameterMm ?: candidate?.diameterMm,

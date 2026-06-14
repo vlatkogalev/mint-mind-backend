@@ -118,7 +118,6 @@ class CoinEnrichmentServiceImpl(
 
         if (looseMatch(fingerprint.countryOrIssuer, candidate.countryOrIssuer)) score += 4
         if (looseMatch(fingerprint.denomination, candidate.denomination)) score += 3
-        if (looseMatch(fingerprint.title, candidate.title)) score += 5
 
         val year = fingerprint.year
         if (year != null) {

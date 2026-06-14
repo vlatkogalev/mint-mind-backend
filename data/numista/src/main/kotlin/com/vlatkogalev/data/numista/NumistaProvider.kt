@@ -81,7 +81,6 @@ class NumistaProvider(
             fingerprint.countryOrIssuer,
             fingerprint.denomination,
             fingerprint.seriesName,
-            fingerprint.title,
             fingerprint.year?.toString(),
             fingerprint.mintMark,
         ).joinToString(" ").trim()

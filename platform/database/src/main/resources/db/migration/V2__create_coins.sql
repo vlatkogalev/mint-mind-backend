@@ -44,7 +44,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_catalog_coins_fingerprint
         COALESCE(country_or_issuer, '__null__'),
         COALESCE(denomination, '__null__'),
         COALESCE(series_name, '__null__'),
-        COALESCE(title, '__null__'),
         COALESCE(year, -999999),
         COALESCE(mint_mark, '__null__')
     );

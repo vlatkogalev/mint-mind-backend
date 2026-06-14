@@ -26,19 +26,7 @@ class CatalogCoinRepositoryImpl(
             val normalized = fingerprint.normalized()
             CatalogCoinsTable
                 .selectAll()
-                .where {
-                    CatalogCoinsTable.countryOrIssuer eq normalized.countryOrIssuer
-                }.andWhere {
-                    CatalogCoinsTable.denomination eq normalized.denomination
-                }.andWhere {
-                    CatalogCoinsTable.seriesName eq normalized.seriesName
-                }.andWhere {
-                    CatalogCoinsTable.title eq normalized.title
-                }.andWhere {
-                    CatalogCoinsTable.year eq normalized.year
-                }.andWhere {
-                    CatalogCoinsTable.mintMark eq normalized.mintMark
-                }
+                .where { fingerprintOp(normalized) }
                 .firstOrNull()
                 ?.toCatalogCoin()
         }
@@ -71,28 +59,47 @@ class CatalogCoinRepositoryImpl(
 
     override suspend fun save(catalogCoin: CatalogCoin): CatalogCoin =
         dbQuery(database) {
-            CatalogCoinsTable.insert {
-                it[id] = catalogCoin.id
-                it[countryOrIssuer] = catalogCoin.fingerprint.countryOrIssuer
-                it[denomination] = catalogCoin.fingerprint.denomination
-                it[seriesName] = catalogCoin.fingerprint.seriesName
-                it[title] = catalogCoin.fingerprint.title
-                it[year] = catalogCoin.fingerprint.year
-                it[mintMark] = catalogCoin.fingerprint.mintMark
-                it[composition] = catalogCoin.composition
-                it[weightGrams] = catalogCoin.weightGrams
-                it[diameterMm] = catalogCoin.diameterMm
-                it[obverseDescription] = catalogCoin.obverseDescription
-                it[reverseDescription] = catalogCoin.reverseDescription
-                it[historicalContext] = catalogCoin.historicalContext
-                it[thumbnailUrl] = catalogCoin.thumbnailUrl
-                it[numistaUrl] = catalogCoin.numistaUrl
-                it[enrichedAt] = catalogCoin.enrichedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
-                it[lastEnrichmentAttemptAt] = catalogCoin.lastEnrichmentAttemptAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
-                it[lastEnrichmentFailedAt] = catalogCoin.lastEnrichmentFailedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
-                it[lastEnrichmentError] = catalogCoin.lastEnrichmentError
+            val normalized = catalogCoin.fingerprint.normalized()
+            val updated = CatalogCoinsTable
+                .update({ fingerprintOp(normalized) }) {
+                    it[composition] = catalogCoin.composition
+                    it[weightGrams] = catalogCoin.weightGrams
+                    it[diameterMm] = catalogCoin.diameterMm
+                    it[obverseDescription] = catalogCoin.obverseDescription
+                    it[reverseDescription] = catalogCoin.reverseDescription
+                    it[historicalContext] = catalogCoin.historicalContext
+                    it[thumbnailUrl] = catalogCoin.thumbnailUrl
+                    it[numistaUrl] = catalogCoin.numistaUrl
+                    it[enrichedAt] = catalogCoin.enrichedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                    it[lastEnrichmentAttemptAt] = catalogCoin.lastEnrichmentAttemptAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                    it[lastEnrichmentFailedAt] = catalogCoin.lastEnrichmentFailedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                    it[lastEnrichmentError] = catalogCoin.lastEnrichmentError
+                    it[title] = catalogCoin.title
+                }
+            if (updated == 0) {
+                CatalogCoinsTable.insert {
+                    it[id] = catalogCoin.id
+                    it[countryOrIssuer] = normalized.countryOrIssuer
+                    it[denomination] = normalized.denomination
+                    it[seriesName] = normalized.seriesName
+                    it[year] = normalized.year
+                    it[mintMark] = normalized.mintMark
+                    it[composition] = catalogCoin.composition
+                    it[weightGrams] = catalogCoin.weightGrams
+                    it[diameterMm] = catalogCoin.diameterMm
+                    it[obverseDescription] = catalogCoin.obverseDescription
+                    it[reverseDescription] = catalogCoin.reverseDescription
+                    it[historicalContext] = catalogCoin.historicalContext
+                    it[thumbnailUrl] = catalogCoin.thumbnailUrl
+                    it[numistaUrl] = catalogCoin.numistaUrl
+                    it[enrichedAt] = catalogCoin.enrichedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                    it[lastEnrichmentAttemptAt] = catalogCoin.lastEnrichmentAttemptAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                    it[lastEnrichmentFailedAt] = catalogCoin.lastEnrichmentFailedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                    it[lastEnrichmentError] = catalogCoin.lastEnrichmentError
+                    it[title] = catalogCoin.title
+                }
             }
-            catalogCoin
+            findByFingerprint(normalized)!!
         }
 
     override suspend fun markEnrichmentSuccess(
@@ -107,6 +114,7 @@ class CatalogCoinRepositoryImpl(
                 it[lastEnrichmentFailedAt] = null
                 it[lastEnrichmentError] = null
                 candidate?.let { c ->
+                    it[title] = c.title
                     it[composition] = c.composition
                     it[weightGrams] = c.weightGrams
                     it[diameterMm] = c.diameterMm
@@ -157,6 +165,30 @@ class CatalogCoinRepositoryImpl(
                 ?.toExternalCoinReference()
         }
 
+    private fun fingerprintOp(normalized: CoinFingerprint): Op<Boolean> {
+        var op = if (normalized.countryOrIssuer != null)
+            CatalogCoinsTable.countryOrIssuer eq normalized.countryOrIssuer
+        else
+            CatalogCoinsTable.countryOrIssuer.isNull()
+        op = op and (if (normalized.denomination != null)
+            CatalogCoinsTable.denomination eq normalized.denomination
+        else
+            CatalogCoinsTable.denomination.isNull())
+        op = op and (if (normalized.seriesName != null)
+            CatalogCoinsTable.seriesName eq normalized.seriesName
+        else
+            CatalogCoinsTable.seriesName.isNull())
+        op = op and (if (normalized.year != null)
+            CatalogCoinsTable.year eq normalized.year
+        else
+            CatalogCoinsTable.year.isNull())
+        op = op and (if (normalized.mintMark != null)
+            CatalogCoinsTable.mintMark eq normalized.mintMark
+        else
+            CatalogCoinsTable.mintMark.isNull())
+        return op
+    }
+
     private fun ResultRow.toCatalogCoin(): CatalogCoin =
         CatalogCoin(
             id = this[CatalogCoinsTable.id],
@@ -164,10 +196,10 @@ class CatalogCoinRepositoryImpl(
                 countryOrIssuer = this[CatalogCoinsTable.countryOrIssuer],
                 denomination = this[CatalogCoinsTable.denomination],
                 seriesName = this[CatalogCoinsTable.seriesName],
-                title = this[CatalogCoinsTable.title],
                 year = this[CatalogCoinsTable.year],
                 mintMark = this[CatalogCoinsTable.mintMark],
             ),
+            title = this[CatalogCoinsTable.title],
             composition = this[CatalogCoinsTable.composition],
             weightGrams = this[CatalogCoinsTable.weightGrams],
             diameterMm = this[CatalogCoinsTable.diameterMm],

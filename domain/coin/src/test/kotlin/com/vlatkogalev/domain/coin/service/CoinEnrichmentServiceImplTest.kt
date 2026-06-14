@@ -163,19 +163,20 @@ class CoinEnrichmentServiceImplTest {
     }
 
     @Test
-    fun getOrEnrich_sameYearCountryDenominationButDifferentTitle_createsDistinctCatalogEntries() {
+    fun getOrEnrich_sameFingerprint_returnsSameCatalogCoin() {
         val now = Instant.parse("2026-01-09T00:00:00Z")
         val repository = InMemoryCatalogCoinRepository()
         val provider = FakeProvider("numista")
         val service = service(repository, listOf(provider), now)
 
-        val first = runBlocking { service.getOrEnrich(fingerprint(year = 1921).copy(title = "Morgan Dollar")) }
-        val second = runBlocking { service.getOrEnrich(fingerprint(year = 1921).copy(title = "Peace Dollar")) }
+        val fp = fingerprint(year = 1921)
+        val first = runBlocking { service.getOrEnrich(fp) }
+        val second = runBlocking { service.getOrEnrich(fp) }
 
         assertNotNull(first)
         assertNotNull(second)
-        assertTrue(first.id != second.id)
-        assertEquals(2, provider.callCount)
+        assertEquals(first.id, second.id)
+        assertEquals(1, provider.callCount)
     }
 
     @Test
@@ -229,7 +230,6 @@ class CoinEnrichmentServiceImplTest {
             countryOrIssuer = "United States",
             denomination = "1 Dollar",
             seriesName = "Morgan Dollar",
-            title = "Morgan Dollar",
             year = year,
             mintMark = "D",
         )
@@ -311,7 +311,6 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
         coins.values.firstOrNull {
             it.fingerprint.countryOrIssuer == fingerprint.countryOrIssuer &&
                 it.fingerprint.denomination == fingerprint.denomination &&
-                it.fingerprint.title == fingerprint.title &&
                 it.fingerprint.year == fingerprint.year
         }
 
@@ -338,6 +337,7 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
             lastEnrichmentAttemptAt = now,
             lastEnrichmentFailedAt = null,
             lastEnrichmentError = null,
+            title = current.title ?: candidate?.title,
             composition = current.composition ?: candidate?.composition,
             weightGrams = current.weightGrams ?: candidate?.weightGrams,
             diameterMm = current.diameterMm ?: candidate?.diameterMm,

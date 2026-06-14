@@ -37,12 +37,11 @@ data class RecognitionResult(
     val historicalContext: String?,
     val rawJson: String,
 ) {
-    fun toFingerprint(title: String? = null): CoinFingerprint =
+    fun toFingerprint(): CoinFingerprint =
         CoinFingerprint(
             countryOrIssuer = countryOrIssuer,
             denomination = denomination,
             seriesName = seriesName,
-            title = title,
             year = year,
             mintMark = mintMark,
         )
