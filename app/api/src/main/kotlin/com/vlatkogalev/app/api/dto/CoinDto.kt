@@ -27,13 +27,26 @@ data class RecognitionResultDto(
     val seriesName: String? = null,
     val year: Int? = null,
     val era: String? = null,
+    // Identification confidence
+    val confidenceCountry: String? = null,
+    val confidenceDenomination: String? = null,
+    val confidenceSeries: String? = null,
+    val confidenceYear: String? = null,
+    val confidenceEra: String? = null,
     val mintMark: String? = null,
+    // Mint mark detail
+    val mintMarkStatus: String? = null,
+    val mintMarkConfidence: String? = null,
     val metalComposition: String? = null,
     val estimatedGrade: String? = null,
     val estimatedGradeValue: String? = null,
+    val gradeCode: String? = null,
+    val gradeConfidence: String? = null,
     val rarityQualitative: String? = null,
+    val rarityScore: Double? = null,
     val valueLow: Double? = null,
     val valueHigh: Double? = null,
+    val valueCurrency: String? = null,
     val mintage: Long? = null,
     val obverseDescription: String? = null,
     val reverseDescription: String? = null,
@@ -50,11 +63,20 @@ data class RecognitionResultDto(
     // Market
     val supplySummary: String? = null,
     val demandSummary: String? = null,
+    val valueDisclaimer: String? = null,
     // Design lettering
     val obverseLettering: String? = null,
     val reverseLettering: String? = null,
     val analysisNotes: String? = null,
     val historicalContext: String? = null,
+    // Image analysis
+    val obverseVisible: Boolean? = null,
+    val reverseVisible: Boolean? = null,
+    val imageFocus: String? = null,
+    val imageLighting: String? = null,
+    val imageResolution: String? = null,
+    val imageCropping: String? = null,
+    val imageIssues: List<String> = emptyList(),
     val rawJson: String,
 )
 

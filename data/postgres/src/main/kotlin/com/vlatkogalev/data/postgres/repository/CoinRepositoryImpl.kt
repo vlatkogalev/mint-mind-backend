@@ -34,13 +34,24 @@ class CoinRepositoryImpl(
                 it[seriesName] = coin.recognitionResult.seriesName
                 it[year] = coin.recognitionResult.year
                 it[era] = coin.recognitionResult.era
+                it[confidenceCountry] = coin.recognitionResult.confidenceCountry
+                it[confidenceDenomination] = coin.recognitionResult.confidenceDenomination
+                it[confidenceSeries] = coin.recognitionResult.confidenceSeries
+                it[confidenceYear] = coin.recognitionResult.confidenceYear
+                it[confidenceEra] = coin.recognitionResult.confidenceEra
                 it[mintMark] = coin.recognitionResult.mintMark
+                it[mintMarkStatus] = coin.recognitionResult.mintMarkStatus
+                it[mintMarkConfidence] = coin.recognitionResult.mintMarkConfidence
                 it[metalComposition] = coin.recognitionResult.metalComposition
                 it[estimatedGrade] = coin.recognitionResult.estimatedGrade
                 it[estimatedGradeValue] = coin.recognitionResult.estimatedGradeValue
+                it[gradeCode] = coin.recognitionResult.gradeCode
+                it[gradeConfidence] = coin.recognitionResult.gradeConfidence
                 it[rarityQualitative] = coin.recognitionResult.rarityQualitative
+                it[rarityScore] = coin.recognitionResult.rarityScore
                 it[valueLow] = coin.recognitionResult.valueLow
                 it[valueHigh] = coin.recognitionResult.valueHigh
+                it[valueCurrency] = coin.recognitionResult.valueCurrency
                 it[mintage] = coin.recognitionResult.mintage
                 it[obverseDescription] = coin.recognitionResult.obverseDescription
                 it[reverseDescription] = coin.recognitionResult.reverseDescription
@@ -54,10 +65,18 @@ class CoinRepositoryImpl(
                 it[negativeFeatures] = coin.recognitionResult.negativeFeatures
                 it[supplySummary] = coin.recognitionResult.supplySummary
                 it[demandSummary] = coin.recognitionResult.demandSummary
+                it[valueDisclaimer] = coin.recognitionResult.valueDisclaimer
                 it[obverseLettering] = coin.recognitionResult.obverseLettering
                 it[reverseLettering] = coin.recognitionResult.reverseLettering
                 it[analysisNotes] = coin.recognitionResult.analysisNotes
                 it[historicalContext] = coin.recognitionResult.historicalContext
+                it[obverseVisible] = coin.recognitionResult.obverseVisible
+                it[reverseVisible] = coin.recognitionResult.reverseVisible
+                it[imageFocus] = coin.recognitionResult.imageFocus
+                it[imageLighting] = coin.recognitionResult.imageLighting
+                it[imageResolution] = coin.recognitionResult.imageResolution
+                it[imageCropping] = coin.recognitionResult.imageCropping
+                it[imageIssues] = coin.recognitionResult.imageIssues
                 it[rawJson] = coin.recognitionResult.rawJson
             }
 
@@ -177,7 +196,6 @@ class CoinRepositoryImpl(
             val rows = query.toList()
             val totalCoins = rows.size
             val totalIssuers = rows.mapNotNull { it[CoinsTable.countryOrIssuer] }.distinct().size
-            val coinIds = rows.map { it[CoinsTable.id] }
 
             val values = rows.mapNotNull { row ->
                 val low = row[CoinsTable.valueLow]
@@ -288,13 +306,24 @@ class CoinRepositoryImpl(
                 seriesName = this[CoinsTable.seriesName],
                 year = this[CoinsTable.year],
                 era = this[CoinsTable.era],
+                confidenceCountry = this[CoinsTable.confidenceCountry],
+                confidenceDenomination = this[CoinsTable.confidenceDenomination],
+                confidenceSeries = this[CoinsTable.confidenceSeries],
+                confidenceYear = this[CoinsTable.confidenceYear],
+                confidenceEra = this[CoinsTable.confidenceEra],
                 mintMark = this[CoinsTable.mintMark],
+                mintMarkStatus = this[CoinsTable.mintMarkStatus],
+                mintMarkConfidence = this[CoinsTable.mintMarkConfidence],
                 metalComposition = this[CoinsTable.metalComposition],
                 estimatedGrade = this[CoinsTable.estimatedGrade],
                 estimatedGradeValue = this[CoinsTable.estimatedGradeValue],
+                gradeCode = this[CoinsTable.gradeCode],
+                gradeConfidence = this[CoinsTable.gradeConfidence],
                 rarityQualitative = this[CoinsTable.rarityQualitative],
+                rarityScore = this[CoinsTable.rarityScore],
                 valueLow = this[CoinsTable.valueLow],
                 valueHigh = this[CoinsTable.valueHigh],
+                valueCurrency = this[CoinsTable.valueCurrency],
                 mintage = this[CoinsTable.mintage],
                 obverseDescription = this[CoinsTable.obverseDescription],
                 reverseDescription = this[CoinsTable.reverseDescription],
@@ -308,10 +337,18 @@ class CoinRepositoryImpl(
                 negativeFeatures = this[CoinsTable.negativeFeatures],
                 supplySummary = this[CoinsTable.supplySummary],
                 demandSummary = this[CoinsTable.demandSummary],
+                valueDisclaimer = this[CoinsTable.valueDisclaimer],
                 obverseLettering = this[CoinsTable.obverseLettering],
                 reverseLettering = this[CoinsTable.reverseLettering],
                 analysisNotes = this[CoinsTable.analysisNotes],
                 historicalContext = this[CoinsTable.historicalContext],
+                obverseVisible = this[CoinsTable.obverseVisible],
+                reverseVisible = this[CoinsTable.reverseVisible],
+                imageFocus = this[CoinsTable.imageFocus],
+                imageLighting = this[CoinsTable.imageLighting],
+                imageResolution = this[CoinsTable.imageResolution],
+                imageCropping = this[CoinsTable.imageCropping],
+                imageIssues = this[CoinsTable.imageIssues],
                 rawJson = this[CoinsTable.rawJson],
             ),
             catalogueNumbers = catalogueNumbers,

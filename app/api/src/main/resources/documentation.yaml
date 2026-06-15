@@ -1379,7 +1379,28 @@ components:
         era:
           type: string
           nullable: true
+        confidenceCountry:
+          type: string
+          nullable: true
+        confidenceDenomination:
+          type: string
+          nullable: true
+        confidenceSeries:
+          type: string
+          nullable: true
+        confidenceYear:
+          type: string
+          nullable: true
+        confidenceEra:
+          type: string
+          nullable: true
         mintMark:
+          type: string
+          nullable: true
+        mintMarkStatus:
+          type: string
+          nullable: true
+        mintMarkConfidence:
           type: string
           nullable: true
         metalComposition:
@@ -1391,8 +1412,18 @@ components:
         estimatedGradeValue:
           type: string
           nullable: true
+        gradeCode:
+          type: string
+          nullable: true
+        gradeConfidence:
+          type: string
+          nullable: true
         rarityQualitative:
           type: string
+          nullable: true
+        rarityScore:
+          type: number
+          format: double
           nullable: true
         valueLow:
           type: number
@@ -1401,6 +1432,9 @@ components:
         valueHigh:
           type: number
           format: double
+          nullable: true
+        valueCurrency:
+          type: string
           nullable: true
         mintage:
           type: integer
@@ -1450,6 +1484,9 @@ components:
         demandSummary:
           type: string
           nullable: true
+        valueDisclaimer:
+          type: string
+          nullable: true
         obverseLettering:
           type: string
           nullable: true
@@ -1459,6 +1496,28 @@ components:
         analysisNotes:
           type: string
           nullable: true
+        obverseVisible:
+          type: boolean
+          nullable: true
+        reverseVisible:
+          type: boolean
+          nullable: true
+        imageFocus:
+          type: string
+          nullable: true
+        imageLighting:
+          type: string
+          nullable: true
+        imageResolution:
+          type: string
+          nullable: true
+        imageCropping:
+          type: string
+          nullable: true
+        imageIssues:
+          type: array
+          items:
+            type: string
         rawJson:
           type: string
           description: "The original JSON string from the AI recognition response."
