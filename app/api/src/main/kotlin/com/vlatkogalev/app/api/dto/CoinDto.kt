@@ -209,6 +209,7 @@ data class MatchCandidateDto(
     val externalId: String?,
     val score: Int,
     val scoreBreakdown: Map<String, Int>,
+    val dataCompleteness: Map<String, Boolean> = emptyMap(),
 )
 
 @Serializable

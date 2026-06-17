@@ -437,6 +437,7 @@ class CoinController(
                     externalId = bc.externalId,
                     score = bc.score,
                     scoreBreakdown = bc.scoreBreakdown,
+                    dataCompleteness = completenessOf(bc),
                 )
             },
             allCandidates = allCandidates.map { bc ->
@@ -446,9 +447,20 @@ class CoinController(
                     externalId = bc.externalId,
                     score = bc.score,
                     scoreBreakdown = bc.scoreBreakdown,
+                    dataCompleteness = completenessOf(bc),
                 )
             },
             retrievalKey = retrievalKey,
+        )
+
+    private fun completenessOf(bc: MatchCandidate): Map<String, Boolean> =
+        mapOf(
+            "country" to (bc.matchableCoin.countryOrIssuer != null),
+            "denomination" to (bc.matchableCoin.denomination != null),
+            "weight" to (bc.matchableCoin.weightGrams != null),
+            "diameter" to (bc.matchableCoin.diameterMm != null),
+            "composition" to (bc.matchableCoin.composition != null),
+            "externalReference" to (bc.externalId != null),
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

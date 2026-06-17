@@ -45,6 +45,7 @@ class NumistaProvider(
             }
 
             val query = buildQuery(fingerprint)
+            println("numista query='$query'")
             if (query.isBlank()) return Result.Success(emptyList())
 
             val searchResponse: NumistaTypesSearchResponse = client
@@ -56,9 +57,11 @@ class NumistaProvider(
                 }.body()
 
             val summaries = searchResponse.types ?: emptyList()
+            println("numista searchResults=${summaries.size}")
 
             coroutineScope {
                 summaries.map { summary ->
+                    println("numista fetching typeId=${summary.id}")
                     async {
                         try {
                             val detail: NumistaTypeDetail = client
@@ -66,7 +69,8 @@ class NumistaProvider(
                                     header("Numista-API-Key", config.apiKey)
                                 }.body()
                             detail.toCandidate(summary.id)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            println("numista detail fetch failed typeId=${summary.id} error=${e::class.simpleName} message=${e.message}")
                             null
                         }
                     }
@@ -80,9 +84,7 @@ class NumistaProvider(
         listOfNotNull(
             fingerprint.countryOrIssuer,
             fingerprint.denomination,
-            fingerprint.seriesName,
             fingerprint.year?.toString(),
-            fingerprint.mintMark,
         ).joinToString(" ").trim()
 
     private fun NumistaTypeDetail.toCandidate(externalId: Int): CoinCatalogCandidate {

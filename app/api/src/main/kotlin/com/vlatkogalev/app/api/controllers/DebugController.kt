@@ -8,6 +8,7 @@ import com.vlatkogalev.app.api.dto.MatchResultDto
 import com.vlatkogalev.app.api.dto.MetricsResponseDto
 import com.vlatkogalev.app.api.dto.RecognitionResultDto
 import com.vlatkogalev.domain.coin.model.Confidence
+import com.vlatkogalev.domain.coin.model.MatchCandidate
 import com.vlatkogalev.domain.coin.model.MatchMetrics
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
@@ -38,6 +39,7 @@ class DebugController(
                         externalId = it.externalId,
                         score = it.score,
                         scoreBreakdown = it.scoreBreakdown,
+                        dataCompleteness = completenessOf(it),
                     )
                 },
                 allCandidates = matchResult.allCandidates.map {
@@ -47,6 +49,7 @@ class DebugController(
                         externalId = it.externalId,
                         score = it.score,
                         scoreBreakdown = it.scoreBreakdown,
+                        dataCompleteness = completenessOf(it),
                     )
                 },
                 retrievalKey = matchResult.retrievalKey,
@@ -137,5 +140,15 @@ class DebugController(
             imageCropping = dto.imageCropping,
             imageIssues = dto.imageIssues,
             rawJson = dto.rawJson,
+        )
+
+    private fun completenessOf(bc: MatchCandidate): Map<String, Boolean> =
+        mapOf(
+            "country" to (bc.matchableCoin.countryOrIssuer != null),
+            "denomination" to (bc.matchableCoin.denomination != null),
+            "weight" to (bc.matchableCoin.weightGrams != null),
+            "diameter" to (bc.matchableCoin.diameterMm != null),
+            "composition" to (bc.matchableCoin.composition != null),
+            "externalReference" to (bc.externalId != null),
         )
 }

@@ -36,7 +36,9 @@ class CoinEnrichmentServiceImpl(
         if (cooldownActive) {
             MatchMetrics.cacheHits.incrementAndGet()
             if (dbCoins.isNotEmpty()) {
-                val candidates = dbCoins.map { coin ->
+                val candidates = dbCoins
+                    .filter { it.enrichedAt != null }
+                    .map { coin ->
                     MatchCandidate(
                         catalogCoin = coin,
                         matchableCoin = coin.toMatchableCoin(),
@@ -62,7 +64,9 @@ class CoinEnrichmentServiceImpl(
 
         MatchMetrics.numistaCalls.incrementAndGet()
 
-        val dbCandidates = dbCoins.map { coin ->
+        val dbCandidates = dbCoins
+            .filter { it.enrichedAt != null }
+            .map { coin ->
             MatchCandidate(
                 catalogCoin = coin,
                 matchableCoin = coin.toMatchableCoin(),
@@ -112,6 +116,7 @@ class CoinEnrichmentServiceImpl(
                     else -> "candidate:${candidate.matchableCoin.countryOrIssuer}|${candidate.matchableCoin.denomination}|${candidate.matchableCoin.yearStart}"
                 }
             }
+        println("match retrievalKey=${keys.retrievalKey} query=${keys.searchQuery} dbCandidates=${dbCandidates.size} numistaCandidates=${numistaCandidates.size} allCandidates=${allCandidates.size}")
         val result = matcher.match(recognition, allCandidates)
         val topScore = result.allCandidates.firstOrNull()?.score
         val secondScore = result.allCandidates.getOrNull(1)?.score
