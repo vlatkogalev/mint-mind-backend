@@ -215,3 +215,14 @@ data class MatchCandidateDto(
 data class DebugNumistaMatchRequest(
     val recognitionResult: RecognitionResultDto,
 )
+
+@Serializable
+data class MetricsResponseDto(
+    val attemptsTotal: Long,
+    val matchedTotal: Long,
+    val ambiguousTotal: Long,
+    val noMatchTotal: Long,
+    val numistaCallsTotal: Long,
+    val cacheHitsTotal: Long,
+    val avgCandidatesPerMatch: Double,
+)

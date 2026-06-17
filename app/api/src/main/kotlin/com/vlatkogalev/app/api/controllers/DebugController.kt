@@ -5,6 +5,7 @@ package com.vlatkogalev.app.api.controllers
 import com.vlatkogalev.app.api.dto.DebugNumistaMatchRequest
 import com.vlatkogalev.app.api.dto.MatchCandidateDto
 import com.vlatkogalev.app.api.dto.MatchResultDto
+import com.vlatkogalev.app.api.dto.MetricsResponseDto
 import com.vlatkogalev.app.api.dto.RecognitionResultDto
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.MatchMetrics
@@ -67,14 +68,14 @@ class DebugController(
             call.respond(
                 ApiResponse(
                     success = true,
-                    data = mapOf(
-                        "attemptsTotal" to snapshot.attemptsTotal,
-                        "matchedTotal" to snapshot.matchedTotal,
-                        "ambiguousTotal" to snapshot.ambiguousTotal,
-                        "noMatchTotal" to snapshot.noMatchTotal,
-                        "numistaCallsTotal" to snapshot.numistaCallsTotal,
-                        "cacheHitsTotal" to snapshot.cacheHitsTotal,
-                        "avgCandidatesPerMatch" to snapshot.avgCandidates,
+                    data = MetricsResponseDto(
+                        attemptsTotal = snapshot.attemptsTotal,
+                        matchedTotal = snapshot.matchedTotal,
+                        ambiguousTotal = snapshot.ambiguousTotal,
+                        noMatchTotal = snapshot.noMatchTotal,
+                        numistaCallsTotal = snapshot.numistaCallsTotal,
+                        cacheHitsTotal = snapshot.cacheHitsTotal,
+                        avgCandidatesPerMatch = snapshot.avgCandidates,
                     ),
                     timestampMillis = timeProvider.nowMillis(),
                 )
