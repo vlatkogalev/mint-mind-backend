@@ -3,6 +3,7 @@ package com.vlatkogalev.app.api.di
 import com.vlatkogalev.app.api.controllers.CoinController
 import com.vlatkogalev.app.api.controllers.CoinPricingController
 import com.vlatkogalev.app.api.controllers.CoinSetController
+import com.vlatkogalev.app.api.controllers.DebugController
 import com.vlatkogalev.app.api.controllers.MarketplaceController
 import com.vlatkogalev.app.api.controllers.NewsController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
@@ -18,10 +19,12 @@ import com.vlatkogalev.data.ebay.EbayMarketplaceFetcher
 import com.vlatkogalev.data.ebay.EbayTokenProvider
 import com.vlatkogalev.data.email.ResendEmailVerificationSender
 import com.vlatkogalev.data.email.ResendPasswordResetEmailSender
+import com.vlatkogalev.data.numista.NumistaMatcher
 import com.vlatkogalev.data.numista.NumistaProvider
 import com.vlatkogalev.data.postgres.repository.CatalogCoinRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.CoinRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.CoinSetRepositoryImpl
+import com.vlatkogalev.data.postgres.repository.EnrichmentAttemptsRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.MarketplaceRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.NewsRepositoryImpl
 import com.vlatkogalev.data.postgres.repository.SubscriptionRepositoryImpl
@@ -32,13 +35,22 @@ import com.vlatkogalev.domain.billing.service.SubscriptionService
 import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.domain.coin.repository.CoinSetRepository
+import com.vlatkogalev.domain.coin.repository.EnrichmentAttemptsRepository
 import com.vlatkogalev.domain.coin.service.CoinCatalogProvider
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentServiceImpl
+import com.vlatkogalev.domain.coin.service.CoinMatcher
 import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.domain.coin.service.CoinServiceImpl
 import com.vlatkogalev.domain.coin.service.CoinSetService
 import com.vlatkogalev.domain.coin.service.CoinSetServiceImpl
+import com.vlatkogalev.domain.coin.service.MatchSignal
+import com.vlatkogalev.domain.coin.service.signals.CompositionSignal
+import com.vlatkogalev.domain.coin.service.signals.CountrySignal
+import com.vlatkogalev.domain.coin.service.signals.DenominationSignal
+import com.vlatkogalev.domain.coin.service.signals.DiameterSignal
+import com.vlatkogalev.domain.coin.service.signals.WeightSignal
+import com.vlatkogalev.domain.coin.service.signals.YearSignal
 import com.vlatkogalev.domain.marketplace.repository.MarketplaceRepository
 import com.vlatkogalev.domain.news.repository.NewsRepository
 import com.vlatkogalev.domain.pricing.service.CoinPricingService
@@ -104,17 +116,34 @@ val appModule = module {
         NumistaProvider(get<NumistaConfig>())
     }
 
+    single<EnrichmentAttemptsRepository> { EnrichmentAttemptsRepositoryImpl(get()) }
+
+    single<List<MatchSignal>> {
+        listOf(
+            CountrySignal(),
+            DenominationSignal(),
+            YearSignal(),
+            WeightSignal(),
+            DiameterSignal(),
+            CompositionSignal(),
+        )
+    }
+
+    single<CoinMatcher> { NumistaMatcher(get()) }
+
     single<CoinEnrichmentService> {
         CoinEnrichmentServiceImpl(
             catalogCoinRepository = get<CatalogCoinRepository>(),
+            enrichmentAttemptsRepository = get<EnrichmentAttemptsRepository>(),
+            coinRepository = get<CoinRepository>(),
             providers = listOf(get<CoinCatalogProvider>()),
+            matcher = get<CoinMatcher>(),
         )
     }
 
     single<CoinService> {
         CoinServiceImpl(
             coinRepository = get<CoinRepository>(),
-            enrichmentService = get<CoinEnrichmentService>(),
         )
     }
 
@@ -169,4 +198,5 @@ val appModule = module {
     single { MarketplaceController(get(), get()) }
     single { RevenueCatWebhookController(get(), get()) }
     single { StorageController(get(), get()) }
+    single { DebugController(get(), get()) }
 }

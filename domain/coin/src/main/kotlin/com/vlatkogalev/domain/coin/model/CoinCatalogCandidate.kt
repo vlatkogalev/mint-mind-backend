@@ -15,4 +15,7 @@ data class CoinCatalogCandidate(
     val historicalContext: String? = null,
     val thumbnailUrl: String? = null,
     val numistaUrl: String? = null,
+    val obverseLettering: String? = null,
+    val reverseLettering: String? = null,
+    val designers: List<String> = emptyList(),
 )

@@ -3,6 +3,7 @@ package com.vlatkogalev.app.api.routes
 import com.vlatkogalev.app.api.controllers.CoinController
 import com.vlatkogalev.app.api.controllers.CoinPricingController
 import com.vlatkogalev.app.api.controllers.CoinSetController
+import com.vlatkogalev.app.api.controllers.DebugController
 import com.vlatkogalev.app.api.controllers.MarketplaceController
 import com.vlatkogalev.app.api.controllers.NewsController
 import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
@@ -33,6 +34,7 @@ fun Application.configureRoutes() {
     val coinPricingController by inject<CoinPricingController>()
     val storageController by inject<StorageController>()
     val revenueCatWebhookController by inject<RevenueCatWebhookController>()
+    val debugController by inject<DebugController>()
 
     routing {
         authRoutes(userAuthController)
@@ -43,6 +45,7 @@ fun Application.configureRoutes() {
         marketplaceRoutes(marketplaceController)
         storageRoutes(storageController)
         webhookRoutes(revenueCatWebhookController)
+        debugRoutes(debugController)
         docsRoutes()
     }
 }
@@ -133,4 +136,10 @@ fun Routing.webhookRoutes(controller: RevenueCatWebhookController) {
 
 fun Routing.docsRoutes() {
     swaggerUI(path = "/docs", swaggerFile = "documentation.yaml")
+}
+
+fun Routing.debugRoutes(controller: DebugController) {
+    controller.run {
+        registerRoutes()
+    }
 }

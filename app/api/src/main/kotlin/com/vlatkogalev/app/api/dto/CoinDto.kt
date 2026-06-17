@@ -104,6 +104,7 @@ data class CoinDetailResponse(
     val catalogCoinId: String?,
     val notes: String?,
     val createdAt: Long,
+    val matchResult: MatchResultDto? = null,
 )
 
 @Serializable
@@ -191,4 +192,26 @@ data class CoinSetResponse(
     val previewObverseUrls: List<String>,
     val coinCount: Int,
     val createdAt: Long,
+)
+
+@Serializable
+data class MatchResultDto(
+    val tier: String,
+    val bestCandidate: MatchCandidateDto? = null,
+    val allCandidates: List<MatchCandidateDto> = emptyList(),
+    val retrievalKey: String,
+)
+
+@Serializable
+data class MatchCandidateDto(
+    val catalogCoinId: String?,
+    val providerName: String,
+    val externalId: String?,
+    val score: Int,
+    val scoreBreakdown: Map<String, Int>,
+)
+
+@Serializable
+data class DebugNumistaMatchRequest(
+    val recognitionResult: RecognitionResultDto,
 )

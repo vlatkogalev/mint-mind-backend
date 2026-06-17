@@ -44,6 +44,7 @@ class CoinController(
 
             val recognitionResult = mapToRecognitionResult(payload.recognitionResult)
             val catalogueNumbers = payload.catalogueNumbers.map { mapToCatalogueNumber(it) }
+            val matchResult = enrichmentService.getOrMatch(recognitionResult)
 
             when (val result = coinService.saveCoin(
                 userId = userId,
@@ -52,8 +53,12 @@ class CoinController(
                 recognitionResult = recognitionResult,
                 catalogueNumbers = catalogueNumbers,
                 notes = payload.notes,
+                catalogCoinId = matchResult.bestCandidate?.catalogCoin?.id,
             )) {
-                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toDetailResponse()))
+                is Result.Success -> call.respond(
+                    HttpStatusCode.Created,
+                    success(result.value.toDetailResponse(matchResult))
+                )
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {
@@ -216,19 +221,10 @@ class CoinController(
                 return@post
             }
 
-            when (val coinResult = coinService.getCoin(coinId, userId)) {
-                is Result.Success -> {
-                    val catalogCoinId = coinResult.value.catalogCoinId
-                    if (catalogCoinId == null) {
-                        call.respond(HttpStatusCode.BadRequest, error("Coin is not linked to a catalog entry"))
-                        return@post
-                    }
-                    when (val enrichResult = enrichmentService.enrichById(catalogCoinId)) {
-                        is Result.Success -> call.respond(success(mapOf("message" to "Enrichment completed")))
-                        is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, error(enrichResult.reason))
-                    }
-                }
-                is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(coinResult.reason))
+            val matchResult = enrichmentService.enrichCoin(coinId, userId)
+            when (matchResult.tier) {
+                MatchTier.MATCHED -> call.respond(success(matchResult.toDto()))
+                else -> call.respond(success(matchResult.toDto()))
             }
         }.describe {
             tag(ApiTags.COINS)
@@ -329,7 +325,7 @@ class CoinController(
             confidence = runCatching { Confidence.valueOf(dto.confidence.uppercase()) }.getOrDefault(Confidence.LOW),
         )
 
-    private fun Coin.toDetailResponse(): CoinDetailResponse =
+    private fun Coin.toDetailResponse(matchResult: MatchResult? = null): CoinDetailResponse =
         CoinDetailResponse(
             id = id.toString(),
             userId = userId.toString(),
@@ -394,6 +390,7 @@ class CoinController(
             catalogCoinId = catalogCoinId?.toString(),
             notes = notes,
             createdAt = createdAt.toEpochMilli(),
+            matchResult = matchResult?.toDto(),
         )
 
     private fun Coin.toSummaryResponse(): CoinSummaryResponse {
@@ -428,6 +425,30 @@ class CoinController(
                 mostAncient = highlights.mostAncient?.toDetailResponse(),
                 rarest = highlights.rarest?.toDetailResponse(),
             ),
+        )
+
+    private fun MatchResult.toDto(): MatchResultDto =
+        MatchResultDto(
+            tier = tier.name,
+            bestCandidate = bestCandidate?.let { bc ->
+                MatchCandidateDto(
+                    catalogCoinId = bc.catalogCoin?.id?.toString(),
+                    providerName = bc.providerName,
+                    externalId = bc.externalId,
+                    score = bc.score,
+                    scoreBreakdown = bc.scoreBreakdown,
+                )
+            },
+            allCandidates = allCandidates.map { bc ->
+                MatchCandidateDto(
+                    catalogCoinId = bc.catalogCoin?.id?.toString(),
+                    providerName = bc.providerName,
+                    externalId = bc.externalId,
+                    score = bc.score,
+                    scoreBreakdown = bc.scoreBreakdown,
+                )
+            },
+            retrievalKey = retrievalKey,
         )
 
     private fun <T> success(data: T): ApiResponse<T> =

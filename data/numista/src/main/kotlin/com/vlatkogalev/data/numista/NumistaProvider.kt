@@ -66,7 +66,7 @@ class NumistaProvider(
                                     header("Numista-API-Key", config.apiKey)
                                 }.body()
                             detail.toCandidate(summary.id)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
@@ -100,18 +100,21 @@ class NumistaProvider(
         return CoinCatalogCandidate(
             externalReference = ref,
             title = title,
-            countryOrIssuer = country?.name ?: issuer?.name,
-            denomination = denomination,
-            yearStart = yearStart,
-            yearEnd = yearEnd,
+            countryOrIssuer = issuer?.name,
+            denomination = value?.text,
+            yearStart = minYear,
+            yearEnd = maxYear,
             composition = composition?.text,
             weightGrams = weight,
             diameterMm = size,
             obverseDescription = obverse?.description,
             reverseDescription = reverse?.description,
             historicalContext = comments,
-            thumbnailUrl = obverseThumbnail,
+            thumbnailUrl = obverse?.thumbnail,
             numistaUrl = url,
+            obverseLettering = obverse?.lettering,
+            reverseLettering = reverse?.lettering,
+            designers = (obverse?.engravers ?: emptyList()) + (reverse?.engravers ?: emptyList()),
         )
     }
 }
@@ -127,11 +130,6 @@ data class NumistaTypeSummary(
 )
 
 @Serializable
-data class NumistaCountry(
-    val name: String? = null,
-)
-
-@Serializable
 data class NumistaIssuer(
     val name: String? = null,
 )
@@ -144,6 +142,29 @@ data class NumistaComposition(
 @Serializable
 data class NumistaSide(
     val description: String? = null,
+    val lettering: String? = null,
+    val engravers: List<String>? = null,
+    val thumbnail: String? = null,
+)
+
+@Serializable
+data class NumistaValue(
+    val text: String? = null,
+    @SerialName("numeric_value")
+    val numericValue: Double? = null,
+    val currency: NumistaCurrency? = null,
+)
+
+@Serializable
+data class NumistaCurrency(
+    val name: String? = null,
+    @SerialName("full_name")
+    val fullName: String? = null,
+)
+
+@Serializable
+data class NumistaEdge(
+    val description: String? = null,
 )
 
 @Serializable
@@ -151,16 +172,18 @@ data class NumistaTypeDetail(
     val id: Int,
     val url: String? = null,
     val title: String? = null,
-    val country: NumistaCountry? = null,
     val issuer: NumistaIssuer? = null,
-    val denomination: String? = null,
-    val yearStart: Int? = null,
-    val yearEnd: Int? = null,
+    val value: NumistaValue? = null,
+    @SerialName("min_year")
+    val minYear: Int? = null,
+    @SerialName("max_year")
+    val maxYear: Int? = null,
     val composition: NumistaComposition? = null,
     val weight: Double? = null,
     val size: Double? = null,
+    val thickness: Double? = null,
+    val edge: NumistaEdge? = null,
     val obverse: NumistaSide? = null,
     val reverse: NumistaSide? = null,
     val comments: String? = null,
-    val obverseThumbnail: String? = null,
 )

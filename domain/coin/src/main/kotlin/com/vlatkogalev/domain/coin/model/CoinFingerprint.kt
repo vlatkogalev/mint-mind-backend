@@ -15,4 +15,22 @@ data class CoinFingerprint(
             year = year,
             mintMark = mintMark?.trim()?.ifBlank { null },
         )
+
+    fun toKeys(): FingerprintKeys {
+        val normalizedCountry = CountryAliasMapping.normalize(countryOrIssuer)
+        val normalizedDenom = DenominationAliasMapping.normalize(denomination)
+        val retrievalKey = FingerprintKeys.from(normalizedCountry, normalizedDenom, year)
+        val searchQuery = buildList {
+            countryOrIssuer?.let { add(it) }
+            denomination?.let { add(it) }
+            year?.toString()?.let { add(it) }
+        }.joinToString(" ")
+        val hash = FingerprintKeys.hash(retrievalKey)
+        return FingerprintKeys(
+            retrievalKey = retrievalKey,
+            searchQuery = searchQuery,
+            hash = hash,
+            version = 1,
+        )
+    }
 }

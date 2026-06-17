@@ -7,7 +7,6 @@ import java.util.UUID
 
 class CoinServiceImpl(
     private val coinRepository: CoinRepository,
-    private val enrichmentService: CoinEnrichmentService,
 ) : CoinService {
 
     override suspend fun saveCoin(
@@ -17,11 +16,9 @@ class CoinServiceImpl(
         recognitionResult: RecognitionResult,
         catalogueNumbers: List<CatalogueNumber>,
         notes: String?,
+        catalogCoinId: UUID?,
     ): Result<Coin> =
         try {
-            val fingerprint = recognitionResult.toFingerprint()
-            val catalogCoin = enrichmentService.getOrEnrich(fingerprint)
-
             val coin = Coin(
                 id = UUID.randomUUID(),
                 userId = userId,
@@ -30,7 +27,7 @@ class CoinServiceImpl(
                 recognitionResult = recognitionResult,
                 catalogueNumbers = catalogueNumbers,
                 setId = null,
-                catalogCoinId = catalogCoin?.id,
+                catalogCoinId = catalogCoinId,
                 notes = notes,
                 createdAt = java.time.Instant.now(),
             )

@@ -10,6 +10,7 @@ tags:
   - name: "Marketplace"
   - name: "Storage"
   - name: "Webhooks"
+  - name: "Debug"
 paths:
   /auth/register:
     post:
@@ -360,7 +361,7 @@ paths:
     post:
       tags: [ "Coins" ]
       summary: "Save a recognized coin"
-      description: "Saves a coin with its AI recognition result, catalogue numbers, and triggers catalog enrichment asynchronously."
+      description: "Saves a coin with its AI recognition result, catalogue numbers, and triggers catalog enrichment synchronously — the request blocks until Numista matching completes. Returns a MatchResult with confidence tier (MATCHED/AMBIGUOUS/NO_MATCH), score breakdown, and the linked CatalogCoin when identified."
       security:
         - bearerAuth: [ ]
       requestBody:
@@ -658,7 +659,7 @@ paths:
     post:
       tags: [ "Coins" ]
       summary: "Manually trigger catalog enrichment"
-      description: "Forces a fresh enrichment attempt against all registered catalog providers (e.g. Numista) regardless of the retry window."
+      description: "Runs the full enrichment pipeline for a coin, respecting the 24-hour cooldown window. Works on both matched and unmatched coins — operates from the coin's stored AI recognition result."
       security:
         - bearerAuth: [ ]
       parameters:
@@ -670,29 +671,49 @@ paths:
             format: uuid
       responses:
         "200":
-          description: "Enrichment completed"
+          description: "Match result with confidence tier and score breakdown"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: "Coin not linked to a catalog entry"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/MatchResultApiResponse"
         "401":
           description: "Unauthorized"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: "Not found"
+
+  /debug/numista-match:
+    post:
+      tags: [ "Debug" ]
+      summary: "Debug Numista matching for a recognition result"
+      description: "Runs the full enrichment pipeline (cooldown check, DB lookup, Numista API, scoring) and returns detailed MatchResult with per-candidate score breakdowns. Useful for tuning signal weights and troubleshooting matching behavior."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebugNumistaMatchRequest"
+      responses:
+        "200":
+          description: "Match result with per-candidate score breakdowns"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/MatchResultApiResponse"
+
+  /debug/numista-metrics:
+    get:
+      tags: [ "Debug" ]
+      summary: "Get enrichment matching metrics"
+      description: "Returns in-memory counters: total attempts, matched/ambiguous/no-match counts, Numista API calls, cache hits, and average candidates per match."
+      responses:
+        "200":
+          description: "Metrics snapshot"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsApiResponse"
 
   /coins/{id}/pricing:
     get:
@@ -1581,6 +1602,11 @@ components:
           type: integer
           format: int64
           description: "Epoch milliseconds."
+        matchResult:
+          allOf:
+            - $ref: "#/components/schemas/MatchResultDto"
+          nullable: true
+          description: "Enrichment match result from the scoring engine. Present on POST /coins responses. Contains confidence tier, best candidate score breakdown, and retrieval key."
 
     CoinSummaryResponse:
       type: object
@@ -1933,6 +1959,94 @@ components:
           format: int64
           description: "Epoch milliseconds."
 
+    MatchResultDto:
+      type: object
+      required: [ tier, retrievalKey ]
+      properties:
+        tier:
+          type: string
+          enum: [ MATCHED, AMBIGUOUS, NO_MATCH ]
+          description: "Confidence tier from the scoring engine. MATCHED: score ≥ 380 with country/denomination/year identity confirmed and clear top candidate. AMBIGUOUS: score 300-379, or top two candidates within 50 points, or identity signals not all confirmed. NO_MATCH: score < 300 or no candidates found."
+        bestCandidate:
+          allOf:
+            - $ref: "#/components/schemas/MatchCandidateDto"
+          nullable: true
+          description: "Highest-scoring candidate. Null when tier is NO_MATCH or no candidates scored above 0."
+        allCandidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchCandidateDto"
+          description: "All candidates that scored above 0, sorted by score descending."
+        retrievalKey:
+          type: string
+          description: "Normalized retrieval key used for cache lookup (e.g., 'greece|20 euro cent|2023')."
+
+    MatchCandidateDto:
+      type: object
+      required: [ providerName, score, scoreBreakdown ]
+      properties:
+        catalogCoinId:
+          type: string
+          format: uuid
+          nullable: true
+          description: "UUID of the linked CatalogCoin. Non-null when the candidate matches an existing catalog entry."
+        providerName:
+          type: string
+          example: "Numista"
+          description: "Name of the catalog provider that sourced this candidate."
+        externalId:
+          type: string
+          nullable: true
+          description: "Provider-specific type ID (e.g., Numista type ID '6350')."
+        score:
+          type: integer
+          description: "Total match score (max 420 with current 6 signals)."
+        scoreBreakdown:
+          type: object
+          additionalProperties:
+            type: integer
+          description: "Per-signal scores. Keys: country (max 100), denomination (max 100), year (max 100), weight (max 40), diameter (max 40), composition (max 40)."
+
+    DebugNumistaMatchRequest:
+      type: object
+      required: [ recognitionResult ]
+      properties:
+        recognitionResult:
+          $ref: "#/components/schemas/RecognitionResultDto"
+
+    MetricsResponse:
+      type: object
+      required: [ attemptsTotal, matchedTotal, ambiguousTotal, noMatchTotal, numistaCallsTotal, cacheHitsTotal, avgCandidatesPerMatch ]
+      properties:
+        attemptsTotal:
+          type: integer
+          format: int64
+          description: "Total number of getOrMatch invocations since server start."
+        matchedTotal:
+          type: integer
+          format: int64
+          description: "Number of MATCHED results."
+        ambiguousTotal:
+          type: integer
+          format: int64
+          description: "Number of AMBIGUOUS results."
+        noMatchTotal:
+          type: integer
+          format: int64
+          description: "Number of NO_MATCH results."
+        numistaCallsTotal:
+          type: integer
+          format: int64
+          description: "Number of times the Numista API was called."
+        cacheHitsTotal:
+          type: integer
+          format: int64
+          description: "Number of times cooldown was active and Numista was skipped."
+        avgCandidatesPerMatch:
+          type: number
+          format: double
+          description: "Average number of candidates considered per match attempt."
+
     LoginSessionResponse:
       type: object
       required: [accessToken, refreshToken, accessTokenExpiresInSeconds, refreshTokenExpiresInSeconds]
@@ -2242,6 +2356,22 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CoinPricingResponse"
+
+    MatchResultApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MatchResultDto"
+
+    MetricsApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponseBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MetricsResponse"
 
     UploadUrlsApiResponse:
       allOf:

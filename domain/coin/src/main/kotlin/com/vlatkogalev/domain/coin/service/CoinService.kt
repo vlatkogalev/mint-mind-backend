@@ -12,6 +12,7 @@ interface CoinService {
         recognitionResult: RecognitionResult,
         catalogueNumbers: List<CatalogueNumber>,
         notes: String? = null,
+        catalogCoinId: UUID? = null,
     ): Result<Coin>
 
     suspend fun getCoin(coinId: UUID, userId: UUID): Result<Coin>
