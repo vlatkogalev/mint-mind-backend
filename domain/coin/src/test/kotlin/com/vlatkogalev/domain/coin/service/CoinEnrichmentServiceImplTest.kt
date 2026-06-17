@@ -1,17 +1,12 @@
 package com.vlatkogalev.domain.coin.service
 
-import com.vlatkogalev.domain.coin.model.CatalogCoin
-import com.vlatkogalev.domain.coin.model.CoinCatalogCandidate
-import com.vlatkogalev.domain.coin.model.CoinFingerprint
-import com.vlatkogalev.domain.coin.model.ExternalCoinReference
-import com.vlatkogalev.domain.coin.model.MatchTier
-import com.vlatkogalev.domain.coin.model.RecognitionResult
+import com.vlatkogalev.domain.coin.model.*
 import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.domain.coin.repository.EnrichmentAttemptsRepository
 import com.vlatkogalev.platform.core.Result
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -30,6 +25,23 @@ class CoinEnrichmentServiceImplTest {
     }
 
     @Test
+    fun fingerprintNormalizedLowercasesFields() {
+        val fingerprint = CoinFingerprint(
+            countryOrIssuer = "United States",
+            denomination = "1 Dollar",
+            seriesName = "Morgan",
+            year = 1921,
+            mintMark = "S",
+        )
+        val normalized = fingerprint.normalized()
+        assertEquals("united states", normalized.countryOrIssuer)
+        assertEquals("1 dollar", normalized.denomination)
+        assertEquals("morgan", normalized.seriesName)
+        assertEquals("s", normalized.mintMark)
+        assertEquals(1921, normalized.year)
+    }
+
+    @Test
     fun getOrMatch_hitsCooldownAndSkipsNumista() {
         val now = Instant.parse("2026-01-02T00:00:00Z")
         val repository = InMemoryCatalogCoinRepository()
@@ -45,22 +57,61 @@ class CoinEnrichmentServiceImplTest {
         assertEquals(1, provider.callCount)
     }
 
+    @Test
+    fun getOrMatch_cooldownReturnsScoredBestCandidateWhenDbCoinMatches() {
+        val now = Instant.parse("2026-01-01T00:00:00Z")
+        val repository = InMemoryCatalogCoinRepository()
+        val recognition = makeRecognitionResult()
+
+        val dbCoin = CatalogCoin(
+            id = UUID.randomUUID(),
+            fingerprint = CoinFingerprint(
+                countryOrIssuer = "united states",
+                denomination = "1 dollar",
+                seriesName = null,
+                year = 1921,
+                mintMark = null,
+            ),
+            enrichedAt = now,
+            lastEnrichmentAttemptAt = now,
+            lastEnrichmentFailedAt = null,
+            lastEnrichmentError = null,
+            createdAt = now,
+            updatedAt = now,
+        )
+        runBlocking { repository.save(dbCoin) }
+
+        val provider = FakeProvider("numista", Result.Success(emptyList()))
+        val svc = service(repository, listOf(provider), now, matcher = ScoringMatcher())
+
+        val first = runBlocking { svc.getOrMatch(recognition) }
+        assertEquals(1, provider.callCount)
+
+        val second = runBlocking { svc.getOrMatch(recognition) }
+        assertEquals(1, provider.callCount)
+
+        assertEquals(MatchTier.MATCHED, second.tier)
+        assertEquals(100, second.bestCandidate?.score)
+        assert(second.allCandidates.isNotEmpty())
+    }
+
     private fun service(
         repository: InMemoryCatalogCoinRepository,
         providers: List<CoinCatalogProvider>,
         now: Instant,
+        matcher: CoinMatcher = NoopMatcher(),
     ): CoinEnrichmentServiceImpl = CoinEnrichmentServiceImpl(
         catalogCoinRepository = repository,
         enrichmentAttemptsRepository = InMemoryEnrichmentAttemptsRepository(),
-        coinRepository = null,
+        coinRepository = FakeCoinRepository(),
         providers = providers,
-        matcher = NoopMatcher(),
+        matcher = matcher,
         nowProvider = { now },
     )
 
     private fun makeRecognitionResult(): RecognitionResult =
         RecognitionResult(
-            overallConfidence = com.vlatkogalev.domain.coin.model.Confidence.HIGH,
+            overallConfidence = Confidence.HIGH,
             countryOrIssuer = "United States",
             denomination = "1 Dollar",
             seriesName = null,
@@ -199,13 +250,13 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
 }
 
 private class InMemoryEnrichmentAttemptsRepository : EnrichmentAttemptsRepository {
-    private val attempts = mutableMapOf<String, com.vlatkogalev.domain.coin.model.EnrichmentAttempt>()
+    private val attempts = mutableMapOf<String, EnrichmentAttempt>()
 
-    override suspend fun findByHash(hash: String): com.vlatkogalev.domain.coin.model.EnrichmentAttempt? =
+    override suspend fun findByHash(hash: String): EnrichmentAttempt? =
         attempts[hash]
 
-    override suspend fun upsert(hash: String, retrievalKey: String, result: String): com.vlatkogalev.domain.coin.model.EnrichmentAttempt {
-        val attempt = com.vlatkogalev.domain.coin.model.EnrichmentAttempt(
+    override suspend fun upsert(hash: String, retrievalKey: String, result: String): EnrichmentAttempt {
+        val attempt = EnrichmentAttempt(
             fingerprintHash = hash,
             retrievalKey = retrievalKey,
             lastAttemptAt = Instant.now(),
@@ -219,13 +270,31 @@ private class InMemoryEnrichmentAttemptsRepository : EnrichmentAttemptsRepositor
 private class NoopMatcher : CoinMatcher {
     override fun match(
         recognition: RecognitionResult,
-        candidates: List<com.vlatkogalev.domain.coin.model.MatchCandidate>,
-    ): com.vlatkogalev.domain.coin.model.MatchResult =
-        com.vlatkogalev.domain.coin.model.MatchResult(
+        candidates: List<MatchCandidate>,
+    ): MatchResult =
+        MatchResult(
             tier = MatchTier.NO_MATCH,
             bestCandidate = null,
             allCandidates = emptyList(),
             fingerprintHash = "",
             retrievalKey = "",
         )
+}
+
+private class ScoringMatcher : CoinMatcher {
+    override fun match(
+        recognition: RecognitionResult,
+        candidates: List<MatchCandidate>,
+    ): MatchResult {
+        if (candidates.isEmpty()) return MatchResult(
+            MatchTier.NO_MATCH, null, emptyList(), "", ""
+        )
+        val scored = candidates.map { candidate ->
+            val countryMatch = CountryAliasMapping.normalize(recognition.countryOrIssuer) ==
+                CountryAliasMapping.normalize(candidate.matchableCoin.countryOrIssuer)
+            candidate.copy(score = if (countryMatch) 100 else 0, scoreBreakdown = mapOf("country" to (if (countryMatch) 100 else 0)))
+        }.filter { it.score > 0 }.sortedByDescending { it.score }
+        if (scored.isEmpty()) return MatchResult(MatchTier.NO_MATCH, null, emptyList(), "", "")
+        return MatchResult(MatchTier.MATCHED, scored.first(), scored, "", "")
+    }
 }

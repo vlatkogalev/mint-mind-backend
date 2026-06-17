@@ -136,6 +136,13 @@ class FakeCoinRepository : CoinRepository {
         return count
     }
 
+    override suspend fun updateCatalogCoinId(coinId: UUID, catalogCoinId: UUID): Coin? {
+        val existing = coins[coinId] ?: return null
+        val updated = existing.copy(catalogCoinId = catalogCoinId)
+        coins[coinId] = updated
+        return updated
+    }
+
     override suspend fun countByUserId(userId: UUID): Int =
         coins.values.count { it.userId == userId }
 }

@@ -12,4 +12,5 @@ dependencies {
     implementation(ktorLibs.server.contentNegotiation)
     implementation(ktorLibs.server.statusPages)
     implementation(ktorLibs.serialization.kotlinx.json)
+    implementation(libs.slf4j.api)
 }

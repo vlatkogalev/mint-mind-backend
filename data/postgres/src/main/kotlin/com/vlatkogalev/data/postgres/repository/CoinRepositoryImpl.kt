@@ -214,6 +214,15 @@ class CoinRepositoryImpl(
             )
         }
 
+    override suspend fun updateCatalogCoinId(coinId: UUID, catalogCoinId: UUID): Coin? =
+        dbQuery(database) {
+            val updated = CoinsTable.update({ CoinsTable.id eq coinId }) {
+                it[CoinsTable.catalogCoinId] = catalogCoinId
+            }
+            if (updated == 0) return@dbQuery null
+            findById(coinId)
+        }
+
     override suspend fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int =
         dbQuery(database) {
             CoinsTable.update({ CoinsTable.userId eq fromUserId }) {

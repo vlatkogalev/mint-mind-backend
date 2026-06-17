@@ -9,7 +9,7 @@ import java.util.UUID
 
 interface CoinEnrichmentService {
     suspend fun getOrMatch(recognition: RecognitionResult): MatchResult
-    suspend fun enrichCoin(coinId: UUID, callerUserId: UUID): MatchResult
+    suspend fun enrichCoin(coinId: UUID, callerUserId: UUID): Result<MatchResult>
 }
 
 interface CoinCatalogProvider {

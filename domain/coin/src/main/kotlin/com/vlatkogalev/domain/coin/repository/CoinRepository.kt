@@ -28,6 +28,7 @@ interface CoinRepository {
         setId: UUID? = null,
     ): CoinCollectionStats
 
+    suspend fun updateCatalogCoinId(coinId: UUID, catalogCoinId: UUID): Coin?
     suspend fun reassignFromUser(fromUserId: UUID, toUserId: UUID): Int
     suspend fun countByUserId(userId: UUID): Int
     suspend fun deleteById(coinId: UUID, userId: UUID): Boolean

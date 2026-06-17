@@ -9,11 +9,11 @@ data class CoinFingerprint(
 ) {
     fun normalized(): CoinFingerprint =
         CoinFingerprint(
-            countryOrIssuer = countryOrIssuer?.trim()?.ifBlank { null },
-            denomination = denomination?.trim()?.ifBlank { null },
-            seriesName = seriesName?.trim()?.ifBlank { null },
+            countryOrIssuer = countryOrIssuer?.trim()?.lowercase()?.ifBlank { null },
+            denomination = denomination?.trim()?.lowercase()?.ifBlank { null },
+            seriesName = seriesName?.trim()?.lowercase()?.ifBlank { null },
             year = year,
-            mintMark = mintMark?.trim()?.ifBlank { null },
+            mintMark = mintMark?.trim()?.lowercase()?.ifBlank { null },
         )
 
     fun toKeys(): FingerprintKeys {

@@ -6,6 +6,7 @@ import com.vlatkogalev.domain.coin.model.ExternalCoinReference
 import com.vlatkogalev.domain.coin.service.CoinCatalogProvider
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.config.NumistaConfig
+import com.vlatkogalev.platform.core.StructuredLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -26,6 +27,8 @@ class NumistaProvider(
 ) : CoinCatalogProvider {
     override val providerName: String = "Numista"
 
+    private val logger = StructuredLogger("NumistaProvider")
+
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json {
@@ -45,7 +48,7 @@ class NumistaProvider(
             }
 
             val query = buildQuery(fingerprint)
-            println("numista query='$query'")
+            logger.info("numista query='$query'")
             if (query.isBlank()) return Result.Success(emptyList())
 
             val searchResponse: NumistaTypesSearchResponse = client
@@ -57,11 +60,11 @@ class NumistaProvider(
                 }.body()
 
             val summaries = searchResponse.types ?: emptyList()
-            println("numista searchResults=${summaries.size}")
+            logger.info("numista searchResults=${summaries.size}")
 
             coroutineScope {
                 summaries.map { summary ->
-                    println("numista fetching typeId=${summary.id}")
+                    logger.info("numista fetching typeId=${summary.id}")
                     async {
                         try {
                             val detail: NumistaTypeDetail = client
@@ -70,7 +73,7 @@ class NumistaProvider(
                                 }.body()
                             detail.toCandidate(summary.id)
                         } catch (e: Exception) {
-                            println("numista detail fetch failed typeId=${summary.id} error=${e::class.simpleName} message=${e.message}")
+                            logger.error("numista detail fetch failed typeId=${summary.id} error=${e::class.simpleName} message=${e.message}")
                             null
                         }
                     }

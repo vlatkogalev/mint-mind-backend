@@ -75,8 +75,14 @@ class CatalogCoinRepositoryImpl(
     override suspend fun save(catalogCoin: CatalogCoin): CatalogCoin =
         dbQuery(database) {
             val normalized = catalogCoin.fingerprint.normalized()
-            val updated = CatalogCoinsTable
-                .update({ fingerprintOp(normalized) }) {
+            try {
+                CatalogCoinsTable.insert {
+                    it[id] = catalogCoin.id
+                    it[countryOrIssuer] = normalized.countryOrIssuer
+                    it[denomination] = normalized.denomination
+                    it[seriesName] = normalized.seriesName
+                    it[year] = normalized.year
+                    it[mintMark] = normalized.mintMark
                     it[composition] = catalogCoin.composition
                     it[weightGrams] = catalogCoin.weightGrams
                     it[diameterMm] = catalogCoin.diameterMm
@@ -91,14 +97,8 @@ class CatalogCoinRepositoryImpl(
                     it[lastEnrichmentError] = catalogCoin.lastEnrichmentError
                     it[title] = catalogCoin.title
                 }
-            if (updated == 0) {
-                CatalogCoinsTable.insert {
-                    it[id] = catalogCoin.id
-                    it[countryOrIssuer] = normalized.countryOrIssuer
-                    it[denomination] = normalized.denomination
-                    it[seriesName] = normalized.seriesName
-                    it[year] = normalized.year
-                    it[mintMark] = normalized.mintMark
+            } catch (_: Exception) {
+                CatalogCoinsTable.update({ fingerprintOp(normalized) }) {
                     it[composition] = catalogCoin.composition
                     it[weightGrams] = catalogCoin.weightGrams
                     it[diameterMm] = catalogCoin.diameterMm
@@ -155,30 +155,23 @@ class CatalogCoinRepositoryImpl(
 
     override suspend fun saveExternalReference(reference: ExternalCoinReference): ExternalCoinReference =
         dbQuery(database) {
-            val existing = ExternalCoinReferencesTable
-                .selectAll()
-                .where {
-                    (ExternalCoinReferencesTable.provider eq reference.provider) and
-                        (ExternalCoinReferencesTable.externalId eq reference.externalId)
-                }
-                .firstOrNull()
-            if (existing != null) {
-                ExternalCoinReferencesTable.update({
-                    (ExternalCoinReferencesTable.provider eq reference.provider) and
-                        (ExternalCoinReferencesTable.externalId eq reference.externalId)
-                }) {
-                    it[catalogCoinId] = reference.catalogCoinId
-                    it[externalUrl] = reference.externalUrl
-                    it[lastSyncedAt] = reference.lastSyncedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
-                    it[syncStatus] = reference.syncStatus
-                    it[syncError] = reference.syncError
-                }
-            } else {
+            try {
                 ExternalCoinReferencesTable.insert {
                     it[id] = reference.id
                     it[catalogCoinId] = reference.catalogCoinId
                     it[provider] = reference.provider
                     it[externalId] = reference.externalId
+                    it[externalUrl] = reference.externalUrl
+                    it[lastSyncedAt] = reference.lastSyncedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
+                    it[syncStatus] = reference.syncStatus
+                    it[syncError] = reference.syncError
+                }
+            } catch (_: Exception) {
+                ExternalCoinReferencesTable.update({
+                    (ExternalCoinReferencesTable.provider eq reference.provider) and
+                        (ExternalCoinReferencesTable.externalId eq reference.externalId)
+                }) {
+                    it[catalogCoinId] = reference.catalogCoinId
                     it[externalUrl] = reference.externalUrl
                     it[lastSyncedAt] = reference.lastSyncedAt?.let { at -> OffsetDateTime.ofInstant(at, ZoneOffset.UTC) }
                     it[syncStatus] = reference.syncStatus
@@ -206,16 +199,7 @@ class CatalogCoinRepositoryImpl(
         catalogCoin: CatalogCoin,
         now: Instant,
     ): CatalogCoin = dbQuery(database) {
-        val existingRef = ExternalCoinReferencesTable
-            .selectAll()
-            .where {
-                (ExternalCoinReferencesTable.provider eq provider) and
-                    (ExternalCoinReferencesTable.externalId eq externalId)
-            }
-            .firstOrNull()
-        if (existingRef != null) {
-            findByProviderExternalId(provider, externalId) ?: catalogCoin
-        } else {
+        try {
             ExternalCoinReferencesTable.insert {
                 it[id] = UUID.randomUUID()
                 it[catalogCoinId] = catalogCoin.id
@@ -224,8 +208,10 @@ class CatalogCoinRepositoryImpl(
                 it[lastSyncedAt] = OffsetDateTime.ofInstant(now, ZoneOffset.UTC)
                 it[syncStatus] = "synced"
             }
-            catalogCoin
+        } catch (_: Exception) {
+            // Already exists — first writer wins
         }
+        findByProviderExternalId(provider, externalId) ?: catalogCoin
     }
 
     private fun fingerprintOp(normalized: CoinFingerprint): Op<Boolean> {

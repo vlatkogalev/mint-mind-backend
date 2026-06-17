@@ -5,6 +5,7 @@ import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.domain.coin.repository.EnrichmentAttemptsRepository
 import com.vlatkogalev.platform.core.Result
+import com.vlatkogalev.platform.core.StructuredLogger
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -12,11 +13,13 @@ import java.util.UUID
 class CoinEnrichmentServiceImpl(
     private val catalogCoinRepository: CatalogCoinRepository,
     private val enrichmentAttemptsRepository: EnrichmentAttemptsRepository,
-    private val coinRepository: CoinRepository?,
+    private val coinRepository: CoinRepository,
     private val providers: List<CoinCatalogProvider>,
     private val matcher: CoinMatcher,
     private val nowProvider: () -> Instant = { Instant.now() },
 ) : CoinEnrichmentService {
+
+    private val logger = StructuredLogger("CoinEnrichmentService")
 
     override suspend fun getOrMatch(recognition: RecognitionResult): MatchResult {
         val keys = recognition.toFingerprint().toKeys()
@@ -116,11 +119,11 @@ class CoinEnrichmentServiceImpl(
                     else -> "candidate:${candidate.matchableCoin.countryOrIssuer}|${candidate.matchableCoin.denomination}|${candidate.matchableCoin.yearStart}"
                 }
             }
-        println("match retrievalKey=${keys.retrievalKey} query=${keys.searchQuery} dbCandidates=${dbCandidates.size} numistaCandidates=${numistaCandidates.size} allCandidates=${allCandidates.size}")
+        logger.info("match retrievalKey=${keys.retrievalKey} query=${keys.searchQuery} dbCandidates=${dbCandidates.size} numistaCandidates=${numistaCandidates.size} allCandidates=${allCandidates.size}")
         val result = matcher.match(recognition, allCandidates)
         val topScore = result.allCandidates.firstOrNull()?.score
         val secondScore = result.allCandidates.getOrNull(1)?.score
-        println("match retrievalKey=${keys.retrievalKey} tier=${result.tier} topScore=$topScore secondScore=$secondScore candidateCount=${result.allCandidates.size}")
+        logger.info("match retrievalKey=${keys.retrievalKey} tier=${result.tier} topScore=$topScore secondScore=$secondScore candidateCount=${result.allCandidates.size}")
         var finalResult = result.copy(fingerprintHash = keys.hash, retrievalKey = keys.retrievalKey)
 
         MatchMetrics.candidateCountSum.addAndGet(allCandidates.size.toLong())
@@ -205,32 +208,21 @@ class CoinEnrichmentServiceImpl(
         return finalResult
     }
 
-    override suspend fun enrichCoin(coinId: UUID, callerUserId: UUID): MatchResult {
-        val coinRepo = coinRepository ?: return MatchResult(
-            tier = MatchTier.NO_MATCH, bestCandidate = null, allCandidates = emptyList(),
-            fingerprintHash = "", retrievalKey = "unavailable"
-        )
-        val coin = coinRepo.findById(coinId)
-            ?: return MatchResult(
-                tier = MatchTier.NO_MATCH, bestCandidate = null, allCandidates = emptyList(),
-                fingerprintHash = "", retrievalKey = "coin-not-found"
-            )
+    override suspend fun enrichCoin(coinId: UUID, callerUserId: UUID): Result<MatchResult> {
+        val coin = coinRepository.findById(coinId)
+            ?: return Result.Failure("Coin not found")
         if (coin.userId != callerUserId) {
-            return MatchResult(
-                tier = MatchTier.NO_MATCH, bestCandidate = null, allCandidates = emptyList(),
-                fingerprintHash = "", retrievalKey = "unauthorized"
-            )
+            return Result.Failure("Unauthorized")
         }
 
         val matchResult = getOrMatch(coin.recognitionResult)
 
         if (matchResult.tier == MatchTier.MATCHED && coin.catalogCoinId == null) {
             matchResult.bestCandidate?.catalogCoin?.let { catalogCoin ->
-                val existing = coinRepo.findById(coinId) ?: return matchResult
-                coinRepo.save(existing.copy(catalogCoinId = catalogCoin.id))
+                coinRepository.updateCatalogCoinId(coinId, catalogCoin.id)
             }
         }
 
-        return matchResult
+        return Result.Success(matchResult)
     }
 }

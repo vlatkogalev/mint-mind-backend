@@ -221,10 +221,24 @@ class CoinController(
                 return@post
             }
 
-            val matchResult = enrichmentService.enrichCoin(coinId, userId)
-            when (matchResult.tier) {
-                MatchTier.MATCHED -> call.respond(success(matchResult.toDto()))
-                else -> call.respond(success(matchResult.toDto()))
+            when (val result = enrichmentService.enrichCoin(coinId, userId)) {
+                is Result.Success -> {
+                    val matchResult = result.value
+                    when (matchResult.tier) {
+                        MatchTier.MATCHED -> call.respond(success(matchResult.toDto()))
+                        else -> call.respond(success(matchResult.toDto()))
+                    }
+                }
+                is Result.Failure -> {
+                    when {
+                        result.reason.contains("Unauthorized", ignoreCase = true) ->
+                            call.respond(HttpStatusCode.Forbidden, error(result.reason))
+                        result.reason.contains("not found", ignoreCase = true) ->
+                            call.respond(HttpStatusCode.NotFound, error(result.reason))
+                        else ->
+                            call.respond(HttpStatusCode.InternalServerError, error(result.reason))
+                    }
+                }
             }
         }.describe {
             tag(ApiTags.COINS)
