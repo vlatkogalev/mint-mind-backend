@@ -28,6 +28,7 @@ class CoinEnrichmentServiceImpl(
 
         val existingAttempt = enrichmentAttemptsRepository.findByHash(keys.hash)
         val cooldownActive = existingAttempt != null &&
+            existingAttempt.pipelineVersion == ConfidenceConfig.PIPELINE_VERSION &&
             Duration.between(existingAttempt.lastAttemptAt, now).toHours() < ConfidenceConfig.COOLDOWN_HOURS
 
         val dbCoins = catalogCoinRepository.findByRetrievalKey(
@@ -129,8 +130,9 @@ class CoinEnrichmentServiceImpl(
         MatchMetrics.candidateCountSum.addAndGet(allCandidates.size.toLong())
 
         when (finalResult.tier) {
-            MatchTier.MATCHED -> {
-                MatchMetrics.matched.incrementAndGet()
+            MatchTier.MATCHED, MatchTier.AMBIGUOUS -> {
+                if (finalResult.tier == MatchTier.MATCHED) MatchMetrics.matched.incrementAndGet()
+                else MatchMetrics.ambiguous.incrementAndGet()
                 val best = finalResult.bestCandidate!!
                 val linkedCoin: CatalogCoin = if (best.catalogCoin != null) {
                     catalogCoinRepository.markEnrichmentSuccess(
@@ -193,16 +195,18 @@ class CoinEnrichmentServiceImpl(
                     bestCandidate = best.copy(catalogCoin = linkedCoin)
                 )
             }
-            MatchTier.AMBIGUOUS -> MatchMetrics.ambiguous.incrementAndGet()
             MatchTier.NO_MATCH -> MatchMetrics.noMatch.incrementAndGet()
         }
 
-        check(finalResult.tier != MatchTier.MATCHED || finalResult.bestCandidate?.catalogCoin != null) {
-            "MATCHED result must have a linked CatalogCoin"
+        check(
+            (finalResult.tier != MatchTier.MATCHED && finalResult.tier != MatchTier.AMBIGUOUS) ||
+            finalResult.bestCandidate?.catalogCoin != null
+        ) {
+            "MATCHED or AMBIGUOUS result must have a linked CatalogCoin"
         }
 
         enrichmentAttemptsRepository.upsert(
-            keys.hash, keys.retrievalKey, finalResult.tier.name
+            keys.hash, keys.retrievalKey, finalResult.tier.name, ConfidenceConfig.PIPELINE_VERSION
         )
 
         return finalResult
@@ -217,7 +221,7 @@ class CoinEnrichmentServiceImpl(
 
         val matchResult = getOrMatch(coin.recognitionResult)
 
-        if (matchResult.tier == MatchTier.MATCHED && coin.catalogCoinId == null) {
+        if (matchResult.tier != MatchTier.NO_MATCH && coin.catalogCoinId == null) {
             matchResult.bestCandidate?.catalogCoin?.let { catalogCoin ->
                 coinRepository.updateCatalogCoinId(coinId, catalogCoin.id)
             }

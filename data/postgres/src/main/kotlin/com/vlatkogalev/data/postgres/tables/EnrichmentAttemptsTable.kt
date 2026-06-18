@@ -8,6 +8,7 @@ object EnrichmentAttemptsTable : Table("enrichment_attempts") {
     val retrievalKey = text("retrieval_key")
     val lastAttemptAt = timestampWithTimeZone("last_attempt_at")
     val lastResult = varchar("last_result", 16)
+    val pipelineVersion = integer("pipeline_version")
 
     override val primaryKey = PrimaryKey(fingerprintHash)
 }

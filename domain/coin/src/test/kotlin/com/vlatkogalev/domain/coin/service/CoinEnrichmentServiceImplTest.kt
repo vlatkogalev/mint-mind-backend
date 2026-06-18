@@ -255,12 +255,13 @@ private class InMemoryEnrichmentAttemptsRepository : EnrichmentAttemptsRepositor
     override suspend fun findByHash(hash: String): EnrichmentAttempt? =
         attempts[hash]
 
-    override suspend fun upsert(hash: String, retrievalKey: String, result: String): EnrichmentAttempt {
+    override suspend fun upsert(hash: String, retrievalKey: String, result: String, pipelineVersion: Int): EnrichmentAttempt {
         val attempt = EnrichmentAttempt(
             fingerprintHash = hash,
             retrievalKey = retrievalKey,
             lastAttemptAt = Instant.now(),
             lastResult = result,
+            pipelineVersion = pipelineVersion,
         )
         attempts[hash] = attempt
         return attempt

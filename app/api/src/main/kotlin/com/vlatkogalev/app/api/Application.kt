@@ -2,6 +2,7 @@ package com.vlatkogalev.app.api
 
 import com.vlatkogalev.app.api.di.appModule
 import com.vlatkogalev.app.api.routes.configureRoutes
+import com.vlatkogalev.app.jobs.CoinEnrichmentQueue
 import com.vlatkogalev.app.jobs.MarketplaceJobScheduler
 import com.vlatkogalev.app.jobs.NewsJobScheduler
 import com.vlatkogalev.platform.auth.configureAuth
@@ -56,5 +57,7 @@ fun Application.module() {
     monitor.subscribe(ApplicationStopped) {
         newsJobScheduler.stop()
         marketplaceJobScheduler.stop()
+        val queue by inject<CoinEnrichmentQueue>()
+        queue.shutdown()
     }
 }

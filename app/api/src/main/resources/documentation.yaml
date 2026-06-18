@@ -361,7 +361,7 @@ paths:
     post:
       tags: [ "Coins" ]
       summary: "Save a recognized coin"
-      description: "Saves a coin with its AI recognition result, catalogue numbers, and triggers catalog enrichment synchronously — the request blocks until Numista matching completes. Returns a MatchResult with confidence tier (MATCHED/AMBIGUOUS/NO_MATCH), score breakdown, and the linked CatalogCoin when identified."
+      description: "Saves a coin with its AI recognition result and catalogue numbers. Enrichment runs asynchronously — the request returns immediately with matchResult null. The coin's catalogCoinId is updated once the background enrichment completes. Use GET /coins/{id} to poll for the result or POST /coins/{id}/enrich to trigger enrichment synchronously."
       security:
         - bearerAuth: [ ]
       requestBody:
@@ -1606,7 +1606,7 @@ components:
           allOf:
             - $ref: "#/components/schemas/MatchResultDto"
           nullable: true
-          description: "Enrichment match result from the scoring engine. Present on POST /coins responses. Contains confidence tier, best candidate score breakdown, and retrieval key."
+          description: "Enrichment match result. Null on initial save — enrichment runs asynchronously. Present on GET /coins/{id} once enrichment has completed, and always present on POST /coins/{id}/enrich responses."
 
     CoinSummaryResponse:
       type: object
@@ -1966,7 +1966,7 @@ components:
         tier:
           type: string
           enum: [ MATCHED, AMBIGUOUS, NO_MATCH ]
-          description: "Confidence tier from the scoring engine. MATCHED: score ≥ 380 with country/denomination/year identity confirmed and clear top candidate. AMBIGUOUS: score 300-379, or top two candidates within 50 points, or identity signals not all confirmed. NO_MATCH: score < 300 or no candidates found."
+          description: "Confidence tier from the scoring engine. MATCHED: score ≥ 380, all identity signals confirmed, clear top candidate. Catalog data is authoritative. AMBIGUOUS: score 300–379, or top two candidates within 50 points, or not all identity signals confirmed. Catalog data is linked but should be presented as approximate. NO_MATCH: score < 300 or no candidates found. No catalog data linked."
         bestCandidate:
           allOf:
             - $ref: "#/components/schemas/MatchCandidateDto"

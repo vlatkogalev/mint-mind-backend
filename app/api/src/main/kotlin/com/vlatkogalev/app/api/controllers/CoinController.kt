@@ -4,6 +4,7 @@ package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
+import com.vlatkogalev.app.jobs.CoinEnrichmentQueue
 import com.vlatkogalev.domain.coin.model.*
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
 import com.vlatkogalev.domain.coin.service.CoinService
@@ -25,6 +26,7 @@ import java.util.*
 class CoinController(
     private val coinService: CoinService,
     private val enrichmentService: CoinEnrichmentService,
+    private val enrichmentQueue: CoinEnrichmentQueue,
     private val fileStorageService: FileStorageService,
     private val timeProvider: TimeProvider,
 ) {
@@ -44,7 +46,6 @@ class CoinController(
 
             val recognitionResult = mapToRecognitionResult(payload.recognitionResult)
             val catalogueNumbers = payload.catalogueNumbers.map { mapToCatalogueNumber(it) }
-            val matchResult = enrichmentService.getOrMatch(recognitionResult)
 
             when (val result = coinService.saveCoin(
                 userId = userId,
@@ -53,12 +54,15 @@ class CoinController(
                 recognitionResult = recognitionResult,
                 catalogueNumbers = catalogueNumbers,
                 notes = payload.notes,
-                catalogCoinId = matchResult.bestCandidate?.catalogCoin?.id,
+                catalogCoinId = null,
             )) {
-                is Result.Success -> call.respond(
-                    HttpStatusCode.Created,
-                    success(result.value.toDetailResponse(matchResult))
-                )
+                is Result.Success -> {
+                    enrichmentQueue.enqueue(result.value.id, recognitionResult)
+                    call.respond(
+                        HttpStatusCode.Created,
+                        success(result.value.toDetailResponse(matchResult = null))
+                    )
+                }
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
             }
         }.describe {

@@ -5,4 +5,5 @@ object ConfidenceConfig {
     const val AMBIGUOUS_MIN_SCORE = 300
     const val TOP_TWO_GAP = 50
     const val COOLDOWN_HOURS = 24L
+    const val PIPELINE_VERSION = 1
 }

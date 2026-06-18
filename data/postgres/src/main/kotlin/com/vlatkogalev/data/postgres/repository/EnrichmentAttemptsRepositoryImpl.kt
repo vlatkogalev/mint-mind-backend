@@ -25,7 +25,7 @@ class EnrichmentAttemptsRepositoryImpl(
                 ?.toEnrichmentAttempt()
         }
 
-    override suspend fun upsert(hash: String, retrievalKey: String, result: String): EnrichmentAttempt =
+    override suspend fun upsert(hash: String, retrievalKey: String, result: String, pipelineVersion: Int): EnrichmentAttempt =
         dbQuery(database) {
             val now = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
             val existing = EnrichmentAttemptsTable
@@ -36,6 +36,7 @@ class EnrichmentAttemptsRepositoryImpl(
                 EnrichmentAttemptsTable.update({ EnrichmentAttemptsTable.fingerprintHash eq hash }) {
                     it[lastAttemptAt] = now
                     it[lastResult] = result
+                    it[EnrichmentAttemptsTable.pipelineVersion] = pipelineVersion
                 }
             } else {
                 EnrichmentAttemptsTable.insert {
@@ -43,6 +44,7 @@ class EnrichmentAttemptsRepositoryImpl(
                     it[EnrichmentAttemptsTable.retrievalKey] = retrievalKey
                     it[lastAttemptAt] = now
                     it[lastResult] = result
+                    it[EnrichmentAttemptsTable.pipelineVersion] = pipelineVersion
                 }
             }
             findByHash(hash)!!
@@ -54,5 +56,6 @@ class EnrichmentAttemptsRepositoryImpl(
             retrievalKey = this[EnrichmentAttemptsTable.retrievalKey],
             lastAttemptAt = this[EnrichmentAttemptsTable.lastAttemptAt].toInstant(),
             lastResult = this[EnrichmentAttemptsTable.lastResult],
+            pipelineVersion = this[EnrichmentAttemptsTable.pipelineVersion],
         )
 }

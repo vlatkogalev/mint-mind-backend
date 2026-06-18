@@ -10,6 +10,7 @@ import com.vlatkogalev.app.api.controllers.RevenueCatWebhookController
 import com.vlatkogalev.app.api.controllers.StorageController
 import com.vlatkogalev.app.api.controllers.UserAuthController
 import com.vlatkogalev.app.api.service.SessionMergeService
+import com.vlatkogalev.app.jobs.CoinEnrichmentQueue
 import com.vlatkogalev.app.jobs.EbayListingsJob
 import com.vlatkogalev.app.jobs.MarketplaceJobScheduler
 import com.vlatkogalev.app.jobs.NewsJobScheduler
@@ -141,6 +142,13 @@ val appModule = module {
         )
     }
 
+    single<CoinEnrichmentQueue> {
+        CoinEnrichmentQueue(
+            enrichmentService = get<CoinEnrichmentService>(),
+            coinRepository = get<CoinRepository>(),
+        )
+    }
+
     single<CoinService> {
         CoinServiceImpl(
             coinRepository = get<CoinRepository>(),
@@ -191,7 +199,7 @@ val appModule = module {
     single<FileStorageService> { S3FileStorageService() }
 
     single { UserAuthController(get(), get(), get()) }
-    single { CoinController(get(), get(), get(), get()) }
+    single { CoinController(get(), get(), get(), get(), get()) }
     single { CoinSetController(get(), get(), get()) }
     single { CoinPricingController(get(), get(), get()) }
     single { NewsController(get(), get()) }

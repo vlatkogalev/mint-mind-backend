@@ -7,4 +7,5 @@ data class EnrichmentAttempt(
     val retrievalKey: String,
     val lastAttemptAt: Instant,
     val lastResult: String,
+    val pipelineVersion: Int,
 )
