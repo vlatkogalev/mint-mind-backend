@@ -160,3 +160,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_external_coin_refs_provider_ext_id
     ON external_coin_references(provider, external_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_external_coin_refs_catalog_provider
     ON external_coin_references(catalog_coin_id, provider);
+
+UPDATE catalog_coins SET
+    country_or_issuer = LOWER(country_or_issuer),
+    denomination = LOWER(denomination);
+
+CREATE TABLE IF NOT EXISTS enrichment_attempts (
+    fingerprint_hash TEXT PRIMARY KEY,
+    retrieval_key TEXT NOT NULL,
+    pipeline_version INTEGER NOT NULL DEFAULT 1,
+    last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_result TEXT NOT NULL CHECK (last_result IN ('MATCHED', 'AMBIGUOUS', 'NO_MATCH'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalog_coins_lookup
+    ON catalog_coins (LOWER(country_or_issuer), LOWER(denomination), year);
+
+CREATE INDEX IF NOT EXISTS idx_enrichment_attempts_hash_version
+    ON enrichment_attempts (fingerprint_hash, pipeline_version);
