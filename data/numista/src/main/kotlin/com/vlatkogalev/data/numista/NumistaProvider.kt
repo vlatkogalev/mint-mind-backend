@@ -2,6 +2,7 @@ package com.vlatkogalev.data.numista
 
 import com.vlatkogalev.domain.coin.model.CoinCatalogCandidate
 import com.vlatkogalev.domain.coin.model.CoinFingerprint
+import com.vlatkogalev.domain.coin.model.CountryAliasMapping
 import com.vlatkogalev.domain.coin.model.ExternalCoinReference
 import com.vlatkogalev.domain.coin.service.CoinCatalogProvider
 import com.vlatkogalev.platform.core.Result
@@ -41,11 +42,35 @@ class NumistaProvider(
         }
     }
 
+    private var issuerCodeCache: Map<String, String>? = null
+
+    private suspend fun ensureIssuerCache() {
+        if (issuerCodeCache != null) return
+        if (!config.enabled) {
+            issuerCodeCache = emptyMap()
+            return
+        }
+        try {
+            val response: NumistaIssuersResponse = client
+                .get("${config.baseUrl}/v3/issuers") {
+                    header("Numista-API-Key", config.apiKey)
+                }.body()
+            issuerCodeCache = response.issuers
+                ?.associate { it.name.lowercase() to it.code }
+                ?: emptyMap()
+            logger.info("numista loaded ${issuerCodeCache!!.size} issuer codes")
+        } catch (e: Exception) {
+            logger.error("numista issuer cache load failed — will retry on next scan", throwable = e)
+        }
+    }
+
     override suspend fun findCandidates(fingerprint: CoinFingerprint): Result<List<CoinCatalogCandidate>> =
         try {
             if (!config.enabled) {
                 return Result.Success(emptyList())
             }
+
+            ensureIssuerCache()
 
             val query = buildQuery(fingerprint)
             logger.info("numista query='$query'")
@@ -55,15 +80,55 @@ class NumistaProvider(
                 .get("${config.baseUrl}/v3/types") {
                     parameter("category", "coin")
                     parameter("q", query)
-                    parameter("count", 10)
+                    parameter("count", 3)
                     header("Numista-API-Key", config.apiKey)
+
+                    fingerprint.year?.let { parameter("year", it.toString()) }
+
+                    fingerprint.diameterMm?.let { d ->
+                        val lo = (d - 2.0).coerceAtLeast(0.0).toInt()
+                        val hi = (d + 2.0).toInt()
+                        parameter("size", "$lo-$hi")
+                    }
+
+                    fingerprint.weightGrams?.let { w ->
+                        val lo = (w - 1.0).coerceAtLeast(0.0).toInt()
+                        val hi = (w + 1.0).toInt()
+                        parameter("weight", "$lo-$hi")
+                    }
+
+                    fingerprint.countryOrIssuer
+                        ?.let { CountryAliasMapping.normalize(it) }
+                        ?.let { normalized -> issuerCodeCache?.get(normalized) }
+                        ?.let { code -> parameter("issuer", code) }
                 }.body()
 
             val summaries = searchResponse.types ?: emptyList()
             logger.info("numista searchResults=${summaries.size}")
 
+            val filteredSummaries = if (fingerprint.year != null) {
+                val fpYear = fingerprint.year!!
+                summaries.filter { summary ->
+                    val min = summary.minYear
+                    val max = summary.maxYear
+                    when {
+                        min != null && max != null -> fpYear in min..max
+                        min != null -> fpYear >= min
+                        max != null -> fpYear <= max
+                        else -> true
+                    }
+                }.also { filtered ->
+                    val skipped = summaries.size - filtered.size
+                    if (skipped > 0) {
+                        logger.info("numista pre-filter skipped $skipped/${summaries.size} summaries by year range")
+                    }
+                }
+            } else {
+                summaries
+            }
+
             coroutineScope {
-                summaries.map { summary ->
+                filteredSummaries.map { summary ->
                     logger.info("numista fetching typeId=${summary.id}")
                     async {
                         try {
@@ -132,11 +197,37 @@ data class NumistaTypesSearchResponse(
 @Serializable
 data class NumistaTypeSummary(
     val id: Int,
+    val title: String? = null,
+    val issuer: NumistaIssuer? = null,
+    @SerialName("min_year") val minYear: Int? = null,
+    @SerialName("max_year") val maxYear: Int? = null,
+    @SerialName("object_type") val objectType: NumistaObjectType? = null,
+    @SerialName("obverse_thumbnail") val obverseThumbnail: String? = null,
+    @SerialName("reverse_thumbnail") val reverseThumbnail: String? = null,
+)
+
+@Serializable
+data class NumistaObjectType(
+    val id: String? = null,
+    val name: String? = null,
+)
+
+@Serializable
+data class NumistaIssuersResponse(
+    val count: Int? = null,
+    val issuers: List<NumistaIssuerEntry>? = null,
+)
+
+@Serializable
+data class NumistaIssuerEntry(
+    val code: String,
+    val name: String,
 )
 
 @Serializable
 data class NumistaIssuer(
     val name: String? = null,
+    val code: String? = null,
 )
 
 @Serializable

@@ -6,6 +6,8 @@ data class CoinFingerprint(
     val seriesName: String?,
     val year: Int?,
     val mintMark: String?,
+    val diameterMm: Double? = null,
+    val weightGrams: Double? = null,
 ) {
     fun normalized(): CoinFingerprint =
         CoinFingerprint(

@@ -66,5 +66,7 @@ data class RecognitionResult(
             seriesName = seriesName,
             year = year,
             mintMark = mintMark,
+            diameterMm = diameterMm,
+            weightGrams = weightGrams,
         )
 }
