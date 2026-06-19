@@ -101,6 +101,7 @@ class CoinEnrichmentServiceImpl(
                 obverseLettering = candidate.obverseLettering,
                 reverseLettering = candidate.reverseLettering,
                 designers = candidate.designers,
+                thicknessMm = candidate.thicknessMm,
             )
             MatchCandidate(
                 catalogCoin = existingCatalogCoin,
@@ -109,6 +110,7 @@ class CoinEnrichmentServiceImpl(
                 externalId = candidate.externalReference.externalId,
                 score = 0,
                 scoreBreakdown = emptyMap(),
+                catalogCandidate = candidate,
             )
         }
 
@@ -137,7 +139,7 @@ class CoinEnrichmentServiceImpl(
                 val linkedCoin: CatalogCoin = if (best.catalogCoin != null) {
                     catalogCoinRepository.markEnrichmentSuccess(
                         best.catalogCoin.id, now,
-                        CoinCatalogCandidate(
+                        best.catalogCandidate?.copy(
                             externalReference = ExternalCoinReference(
                                 id = UUID.randomUUID(),
                                 catalogCoinId = best.catalogCoin.id,
@@ -149,30 +151,43 @@ class CoinEnrichmentServiceImpl(
                                 syncError = null,
                                 createdAt = now,
                             ),
-                            title = null,
-                            countryOrIssuer = best.matchableCoin.countryOrIssuer,
-                            denomination = best.matchableCoin.denomination,
-                            yearStart = best.matchableCoin.yearStart,
-                            yearEnd = best.matchableCoin.yearEnd,
-                            composition = best.matchableCoin.composition,
-                            weightGrams = best.matchableCoin.weightGrams,
-                            diameterMm = best.matchableCoin.diameterMm,
-                        )
+                        ),
                     )
                     best.catalogCoin
                 } else {
+                    val candidate = best.catalogCandidate
                     val newCoin = CatalogCoin(
                         id = UUID.randomUUID(),
                         fingerprint = recognition.toFingerprint(),
-                        title = null,
-                        composition = best.matchableCoin.composition,
-                        weightGrams = best.matchableCoin.weightGrams,
-                        diameterMm = best.matchableCoin.diameterMm,
-                        obverseDescription = null,
-                        reverseDescription = null,
-                        historicalContext = null,
-                        thumbnailUrl = null,
-                        numistaUrl = null,
+                        title = candidate?.title,
+                        composition = candidate?.composition ?: best.matchableCoin.composition,
+                        weightGrams = candidate?.weightGrams ?: best.matchableCoin.weightGrams,
+                        diameterMm = candidate?.diameterMm ?: best.matchableCoin.diameterMm,
+                        obverseDescription = candidate?.obverseDescription,
+                        reverseDescription = candidate?.reverseDescription,
+                        historicalContext = candidate?.historicalContext,
+                        thumbnailUrl = candidate?.thumbnailUrl,
+                        numistaUrl = candidate?.numistaUrl,
+                        minYear = candidate?.yearStart,
+                        maxYear = candidate?.yearEnd,
+                        thicknessMm = candidate?.thicknessMm,
+                        shape = candidate?.shape,
+                        technique = candidate?.technique,
+                        orientation = candidate?.orientation,
+                        edgeDescription = candidate?.edgeDescription,
+                        obverseLettering = candidate?.obverseLettering,
+                        reverseLettering = candidate?.reverseLettering,
+                        obverseDesigners = candidate?.obverseDesigners ?: emptyList(),
+                        reverseDesigners = candidate?.reverseDesigners ?: emptyList(),
+                        obversePictureUrl = candidate?.obversePictureUrl,
+                        reversePictureUrl = candidate?.reversePictureUrl,
+                        reverseThumbnailUrl = candidate?.reverseThumbnailUrl,
+                        objectType = candidate?.objectType,
+                        demonetized = candidate?.demonetized,
+                        ruler = candidate?.ruler,
+                        mintName = candidate?.mintName,
+                        tags = candidate?.tags ?: emptyList(),
+                        catalogReferences = candidate?.catalogReferences ?: emptyList(),
                         enrichedAt = now,
                         lastEnrichmentAttemptAt = now,
                         lastEnrichmentFailedAt = null,

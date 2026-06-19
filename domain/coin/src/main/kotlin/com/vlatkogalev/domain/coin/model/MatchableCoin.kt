@@ -11,4 +11,5 @@ data class MatchableCoin(
     val obverseLettering: String? = null,
     val reverseLettering: String? = null,
     val designers: List<String> = emptyList(),
+    val thicknessMm: Double? = null,
 )

@@ -1,7 +1,9 @@
 package com.vlatkogalev.data.numista
 
+import com.vlatkogalev.domain.coin.model.CatalogueNumber
 import com.vlatkogalev.domain.coin.model.CoinCatalogCandidate
 import com.vlatkogalev.domain.coin.model.CoinFingerprint
+import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.CountryAliasMapping
 import com.vlatkogalev.domain.coin.model.ExternalCoinReference
 import com.vlatkogalev.domain.coin.service.CoinCatalogProvider
@@ -185,6 +187,28 @@ class NumistaProvider(
             obverseLettering = obverse?.lettering,
             reverseLettering = reverse?.lettering,
             designers = (obverse?.engravers ?: emptyList()) + (reverse?.engravers ?: emptyList()),
+            thicknessMm = thickness,
+            shape = shape,
+            technique = technique?.text,
+            orientation = orientation,
+            edgeDescription = edge?.description,
+            obverseDesigners = obverse?.engravers ?: emptyList(),
+            reverseDesigners = reverse?.engravers ?: emptyList(),
+            obversePictureUrl = obverse?.picture,
+            reversePictureUrl = reverse?.picture,
+            reverseThumbnailUrl = reverse?.thumbnail,
+            objectType = objectType?.name,
+            demonetized = demonetization?.isDemonetized,
+            ruler = rulers?.firstOrNull()?.name,
+            mintName = mints?.firstOrNull()?.name,
+            tags = tags ?: emptyList(),
+            catalogReferences = references?.map {
+                CatalogueNumber(
+                    catalogueName = it.catalogue?.code ?: "",
+                    number = it.number,
+                    confidence = Confidence.HIGH,
+                )
+            } ?: emptyList(),
         )
     }
 }
@@ -208,7 +232,7 @@ data class NumistaTypeSummary(
 
 @Serializable
 data class NumistaObjectType(
-    val id: String? = null,
+    val id: Int? = null,
     val name: String? = null,
 )
 
@@ -241,6 +265,7 @@ data class NumistaSide(
     val lettering: String? = null,
     val engravers: List<String>? = null,
     val thumbnail: String? = null,
+    val picture: String? = null,
 )
 
 @Serializable
@@ -261,6 +286,45 @@ data class NumistaCurrency(
 @Serializable
 data class NumistaEdge(
     val description: String? = null,
+    val picture: String? = null,
+    val thumbnail: String? = null,
+)
+
+@Serializable
+data class NumistaTechnique(
+    val text: String? = null,
+)
+
+@Serializable
+data class NumistaMint(
+    val id: Int? = null,
+    val name: String? = null,
+)
+
+@Serializable
+data class NumistaRuler(
+    val id: Int? = null,
+    val name: String? = null,
+    @SerialName("wikidata_id")
+    val wikidataId: String? = null,
+)
+
+@Serializable
+data class NumistaDemonetization(
+    @SerialName("is_demonetized")
+    val isDemonetized: Boolean? = null,
+)
+
+@Serializable
+data class NumistaReference(
+    val catalogue: NumistaCatalogue? = null,
+    val number: String? = null,
+)
+
+@Serializable
+data class NumistaCatalogue(
+    val id: Int? = null,
+    val code: String? = null,
 )
 
 @Serializable
@@ -278,8 +342,18 @@ data class NumistaTypeDetail(
     val weight: Double? = null,
     val size: Double? = null,
     val thickness: Double? = null,
+    val shape: String? = null,
+    val technique: NumistaTechnique? = null,
+    val orientation: String? = null,
     val edge: NumistaEdge? = null,
     val obverse: NumistaSide? = null,
     val reverse: NumistaSide? = null,
     val comments: String? = null,
+    @SerialName("object_type")
+    val objectType: NumistaObjectType? = null,
+    val demonetization: NumistaDemonetization? = null,
+    val rulers: List<NumistaRuler>? = null,
+    val mints: List<NumistaMint>? = null,
+    val tags: List<String>? = null,
+    val references: List<NumistaReference>? = null,
 )

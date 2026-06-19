@@ -31,6 +31,22 @@ CREATE TABLE IF NOT EXISTS catalog_coins (
     historical_context TEXT,
     thumbnail_url TEXT,
     numista_url TEXT,
+    min_year INT,
+    max_year INT,
+    thickness_mm DOUBLE PRECISION,
+    shape TEXT,
+    technique TEXT,
+    orientation TEXT,
+    edge_description TEXT,
+    obverse_lettering TEXT,
+    reverse_lettering TEXT,
+    obverse_picture_url TEXT,
+    reverse_picture_url TEXT,
+    reverse_thumbnail_url TEXT,
+    object_type TEXT,
+    demonetized BOOLEAN,
+    ruler TEXT,
+    mint_name TEXT,
     enriched_at TIMESTAMP WITH TIME ZONE,
     last_enrichment_attempt_at TIMESTAMP WITH TIME ZONE,
     last_enrichment_failed_at TIMESTAMP WITH TIME ZONE,
@@ -143,6 +159,46 @@ CREATE TABLE IF NOT EXISTS coin_catalogue_numbers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_coin_catalogue_numbers_coin_id ON coin_catalogue_numbers(coin_id);
+
+CREATE TABLE IF NOT EXISTS catalog_coin_obverse_designers (
+    id UUID PRIMARY KEY,
+    catalog_coin_id UUID NOT NULL REFERENCES catalog_coins(id) ON DELETE CASCADE,
+    designer TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cc_obv_designers_coin_id ON catalog_coin_obverse_designers(catalog_coin_id);
+
+CREATE TABLE IF NOT EXISTS catalog_coin_reverse_designers (
+    id UUID PRIMARY KEY,
+    catalog_coin_id UUID NOT NULL REFERENCES catalog_coins(id) ON DELETE CASCADE,
+    designer TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cc_rev_designers_coin_id ON catalog_coin_reverse_designers(catalog_coin_id);
+
+CREATE TABLE IF NOT EXISTS catalog_coin_tags (
+    id UUID PRIMARY KEY,
+    catalog_coin_id UUID NOT NULL REFERENCES catalog_coins(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cc_tags_coin_id ON catalog_coin_tags(catalog_coin_id);
+
+CREATE TABLE IF NOT EXISTS catalog_coin_catalogue_numbers (
+    id UUID PRIMARY KEY,
+    catalog_coin_id UUID NOT NULL REFERENCES catalog_coins(id) ON DELETE CASCADE,
+    catalogue_name TEXT NOT NULL,
+    number TEXT,
+    confidence VARCHAR(16) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cc_catnum_coin_id ON catalog_coin_catalogue_numbers(catalog_coin_id);
 
 CREATE TABLE IF NOT EXISTS external_coin_references (
     id UUID PRIMARY KEY,

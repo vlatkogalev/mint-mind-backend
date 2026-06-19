@@ -6,38 +6,65 @@ import kotlinx.serialization.Serializable
 data class SaveCoinRequest(
     val obverseKey: String,
     val reverseKey: String,
-    val recognitionResult: RecognitionResultDto,
+    val coinData: CoinDataDto,
+    val aiAnalysis: AiAnalysisDto,
     val catalogueNumbers: List<CatalogueNumberDto>,
     val notes: String? = null,
 ) {
     fun validate(): String? {
         if (obverseKey.isBlank()) return "obverseKey is required"
         if (reverseKey.isBlank()) return "reverseKey is required"
-        if (recognitionResult.rawJson.isBlank()) return "recognitionResult.rawJson is required"
+        if (aiAnalysis.rawJson.isBlank()) return "aiAnalysis.rawJson is required"
         if (catalogueNumbers.any { it.catalogueName.isBlank() }) return "catalogueNumbers catalogueName must not be blank"
         return null
     }
 }
 
 @Serializable
-data class RecognitionResultDto(
-    val overallConfidence: String,
+data class CoinDataDto(
     val countryOrIssuer: String? = null,
     val denomination: String? = null,
     val seriesName: String? = null,
     val year: Int? = null,
     val era: String? = null,
-    // Identification confidence
+    val mintMark: String? = null,
+    val metalComposition: String? = null,
+    val weightGrams: Double? = null,
+    val diameterMm: Double? = null,
+    val thicknessMm: Double? = null,
+    val edge: String? = null,
+    val obverseDescription: String? = null,
+    val reverseDescription: String? = null,
+    val historicalContext: String? = null,
+    val obverseLettering: String? = null,
+    val reverseLettering: String? = null,
+    val designerObverse: String? = null,
+    val designerReverse: String? = null,
+    val mintage: Long? = null,
+    val shape: String? = null,
+    val technique: String? = null,
+    val orientation: String? = null,
+    val mintName: String? = null,
+    val ruler: String? = null,
+    val objectType: String? = null,
+    val demonetized: Boolean? = null,
+    val tags: List<String> = emptyList(),
+    val numistaUrl: String? = null,
+    val thumbnailUrl: String? = null,
+    val minYear: Int? = null,
+    val maxYear: Int? = null,
+)
+
+@Serializable
+data class AiAnalysisDto(
+    val overallConfidence: String,
     val confidenceCountry: String? = null,
     val confidenceDenomination: String? = null,
     val confidenceSeries: String? = null,
     val confidenceYear: String? = null,
     val confidenceEra: String? = null,
-    val mintMark: String? = null,
-    // Mint mark detail
     val mintMarkStatus: String? = null,
     val mintMarkConfidence: String? = null,
-    val metalComposition: String? = null,
     val estimatedGrade: String? = null,
     val estimatedGradeValue: String? = null,
     val gradeCode: String? = null,
@@ -47,29 +74,12 @@ data class RecognitionResultDto(
     val valueLow: Double? = null,
     val valueHigh: Double? = null,
     val valueCurrency: String? = null,
-    val mintage: Long? = null,
-    val obverseDescription: String? = null,
-    val reverseDescription: String? = null,
-    // Specifications
-    val weightGrams: Double? = null,
-    val diameterMm: Double? = null,
-    val thicknessMm: Double? = null,
-    val edge: String? = null,
-    val designerObverse: String? = null,
-    val designerReverse: String? = null,
-    // Condition
     val positiveFeatures: List<String> = emptyList(),
     val negativeFeatures: List<String> = emptyList(),
-    // Market
     val supplySummary: String? = null,
     val demandSummary: String? = null,
     val valueDisclaimer: String? = null,
-    // Design lettering
-    val obverseLettering: String? = null,
-    val reverseLettering: String? = null,
     val analysisNotes: String? = null,
-    val historicalContext: String? = null,
-    // Image analysis
     val obverseVisible: Boolean? = null,
     val reverseVisible: Boolean? = null,
     val imageFocus: String? = null,
@@ -98,13 +108,13 @@ data class CoinDetailResponse(
     val userId: String,
     val obverseUrl: String,
     val reverseUrl: String,
-    val recognitionResult: RecognitionResultDto,
+    val coinData: CoinDataDto,
+    val aiAnalysis: AiAnalysisDto,
     val catalogueNumbers: List<CatalogueNumberDto>,
     val setId: String?,
     val catalogCoinId: String?,
     val notes: String?,
     val createdAt: Long,
-    val matchResult: MatchResultDto? = null,
 )
 
 @Serializable
@@ -214,7 +224,8 @@ data class MatchCandidateDto(
 
 @Serializable
 data class DebugNumistaMatchRequest(
-    val recognitionResult: RecognitionResultDto,
+    val coinData: CoinDataDto,
+    val aiAnalysis: AiAnalysisDto,
 )
 
 @Serializable

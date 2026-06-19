@@ -199,7 +199,7 @@ val appModule = module {
     single<FileStorageService> { S3FileStorageService() }
 
     single { UserAuthController(get(), get(), get()) }
-    single { CoinController(get(), get(), get(), get(), get()) }
+    single { CoinController(get(), get(), get(), get(), get(), get()) }
     single { CoinSetController(get(), get(), get()) }
     single { CoinPricingController(get(), get(), get()) }
     single { NewsController(get(), get()) }

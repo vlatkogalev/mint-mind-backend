@@ -2,11 +2,12 @@
 
 package com.vlatkogalev.app.api.controllers
 
+import com.vlatkogalev.app.api.dto.AiAnalysisDto
+import com.vlatkogalev.app.api.dto.CoinDataDto
 import com.vlatkogalev.app.api.dto.DebugNumistaMatchRequest
 import com.vlatkogalev.app.api.dto.MatchCandidateDto
 import com.vlatkogalev.app.api.dto.MatchResultDto
 import com.vlatkogalev.app.api.dto.MetricsResponseDto
-import com.vlatkogalev.app.api.dto.RecognitionResultDto
 import com.vlatkogalev.domain.coin.model.Confidence
 import com.vlatkogalev.domain.coin.model.MatchCandidate
 import com.vlatkogalev.domain.coin.model.MatchMetrics
@@ -27,7 +28,7 @@ class DebugController(
         post("/debug/numista-match") {
             val payload = call.receive<DebugNumistaMatchRequest>()
 
-            val recognitionResult = mapToRecognitionResult(payload.recognitionResult)
+            val recognitionResult = mapToRecognitionResult(payload.coinData, payload.aiAnalysis)
             val matchResult = enrichmentService.getOrMatch(recognitionResult)
 
             val dto = MatchResultDto(
@@ -88,58 +89,58 @@ class DebugController(
         }
     }
 
-    private fun mapToRecognitionResult(dto: RecognitionResultDto): RecognitionResult =
+    private fun mapToRecognitionResult(coinData: CoinDataDto, aiAnalysis: AiAnalysisDto): RecognitionResult =
         RecognitionResult(
-            overallConfidence = runCatching { Confidence.valueOf(dto.overallConfidence.uppercase()) }.getOrDefault(Confidence.LOW),
-            countryOrIssuer = dto.countryOrIssuer,
-            denomination = dto.denomination,
-            seriesName = dto.seriesName,
-            year = dto.year,
-            era = dto.era,
-            confidenceCountry = dto.confidenceCountry,
-            confidenceDenomination = dto.confidenceDenomination,
-            confidenceSeries = dto.confidenceSeries,
-            confidenceYear = dto.confidenceYear,
-            confidenceEra = dto.confidenceEra,
-            mintMark = dto.mintMark,
-            mintMarkStatus = dto.mintMarkStatus,
-            mintMarkConfidence = dto.mintMarkConfidence,
-            metalComposition = dto.metalComposition,
-            estimatedGrade = dto.estimatedGrade,
-            estimatedGradeValue = dto.estimatedGradeValue,
-            gradeCode = dto.gradeCode,
-            gradeConfidence = dto.gradeConfidence,
-            rarityQualitative = dto.rarityQualitative,
-            rarityScore = dto.rarityScore,
-            valueLow = dto.valueLow,
-            valueHigh = dto.valueHigh,
-            valueCurrency = dto.valueCurrency,
-            mintage = dto.mintage,
-            obverseDescription = dto.obverseDescription,
-            reverseDescription = dto.reverseDescription,
-            weightGrams = dto.weightGrams,
-            diameterMm = dto.diameterMm,
-            thicknessMm = dto.thicknessMm,
-            edge = dto.edge,
-            designerObverse = dto.designerObverse,
-            designerReverse = dto.designerReverse,
-            positiveFeatures = dto.positiveFeatures,
-            negativeFeatures = dto.negativeFeatures,
-            supplySummary = dto.supplySummary,
-            demandSummary = dto.demandSummary,
-            valueDisclaimer = dto.valueDisclaimer,
-            obverseLettering = dto.obverseLettering,
-            reverseLettering = dto.reverseLettering,
-            analysisNotes = dto.analysisNotes,
-            historicalContext = dto.historicalContext,
-            obverseVisible = dto.obverseVisible,
-            reverseVisible = dto.reverseVisible,
-            imageFocus = dto.imageFocus,
-            imageLighting = dto.imageLighting,
-            imageResolution = dto.imageResolution,
-            imageCropping = dto.imageCropping,
-            imageIssues = dto.imageIssues,
-            rawJson = dto.rawJson,
+            overallConfidence = runCatching { Confidence.valueOf(aiAnalysis.overallConfidence.uppercase()) }.getOrDefault(Confidence.LOW),
+            countryOrIssuer = coinData.countryOrIssuer,
+            denomination = coinData.denomination,
+            seriesName = coinData.seriesName,
+            year = coinData.year,
+            era = coinData.era,
+            confidenceCountry = aiAnalysis.confidenceCountry,
+            confidenceDenomination = aiAnalysis.confidenceDenomination,
+            confidenceSeries = aiAnalysis.confidenceSeries,
+            confidenceYear = aiAnalysis.confidenceYear,
+            confidenceEra = aiAnalysis.confidenceEra,
+            mintMark = coinData.mintMark,
+            mintMarkStatus = aiAnalysis.mintMarkStatus,
+            mintMarkConfidence = aiAnalysis.mintMarkConfidence,
+            metalComposition = coinData.metalComposition,
+            estimatedGrade = aiAnalysis.estimatedGrade,
+            estimatedGradeValue = aiAnalysis.estimatedGradeValue,
+            gradeCode = aiAnalysis.gradeCode,
+            gradeConfidence = aiAnalysis.gradeConfidence,
+            rarityQualitative = aiAnalysis.rarityQualitative,
+            rarityScore = aiAnalysis.rarityScore,
+            valueLow = aiAnalysis.valueLow,
+            valueHigh = aiAnalysis.valueHigh,
+            valueCurrency = aiAnalysis.valueCurrency,
+            mintage = coinData.mintage,
+            obverseDescription = coinData.obverseDescription,
+            reverseDescription = coinData.reverseDescription,
+            weightGrams = coinData.weightGrams,
+            diameterMm = coinData.diameterMm,
+            thicknessMm = coinData.thicknessMm,
+            edge = coinData.edge,
+            designerObverse = coinData.designerObverse,
+            designerReverse = coinData.designerReverse,
+            positiveFeatures = aiAnalysis.positiveFeatures,
+            negativeFeatures = aiAnalysis.negativeFeatures,
+            supplySummary = aiAnalysis.supplySummary,
+            demandSummary = aiAnalysis.demandSummary,
+            valueDisclaimer = aiAnalysis.valueDisclaimer,
+            obverseLettering = coinData.obverseLettering,
+            reverseLettering = coinData.reverseLettering,
+            analysisNotes = aiAnalysis.analysisNotes,
+            historicalContext = coinData.historicalContext,
+            obverseVisible = aiAnalysis.obverseVisible,
+            reverseVisible = aiAnalysis.reverseVisible,
+            imageFocus = aiAnalysis.imageFocus,
+            imageLighting = aiAnalysis.imageLighting,
+            imageResolution = aiAnalysis.imageResolution,
+            imageCropping = aiAnalysis.imageCropping,
+            imageIssues = aiAnalysis.imageIssues,
+            rawJson = aiAnalysis.rawJson,
         )
 
     private fun completenessOf(bc: MatchCandidate): Map<String, Boolean> =

@@ -9,7 +9,8 @@ fun CatalogCoin.toMatchableCoin(): MatchableCoin =
         composition = composition,
         weightGrams = weightGrams,
         diameterMm = diameterMm,
-        obverseLettering = null,
-        reverseLettering = null,
-        designers = emptyList(),
+        obverseLettering = obverseLettering,
+        reverseLettering = reverseLettering,
+        designers = obverseDesigners + reverseDesigners,
+        thicknessMm = thicknessMm,
     )

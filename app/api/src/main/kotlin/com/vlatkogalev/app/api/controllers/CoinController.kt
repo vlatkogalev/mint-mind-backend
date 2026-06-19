@@ -6,6 +6,7 @@ import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.app.jobs.CoinEnrichmentQueue
 import com.vlatkogalev.domain.coin.model.*
+import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
 import com.vlatkogalev.domain.coin.service.CoinService
 import com.vlatkogalev.platform.auth.userIdOrNull
@@ -29,6 +30,7 @@ class CoinController(
     private val enrichmentQueue: CoinEnrichmentQueue,
     private val fileStorageService: FileStorageService,
     private val timeProvider: TimeProvider,
+    private val catalogCoinRepository: CatalogCoinRepository,
 ) {
     fun Route.registerRoutes() {
         post {
@@ -44,7 +46,7 @@ class CoinController(
                 return@post
             }
 
-            val recognitionResult = mapToRecognitionResult(payload.recognitionResult)
+            val recognitionResult = mapToRecognitionResult(payload.coinData, payload.aiAnalysis)
             val catalogueNumbers = payload.catalogueNumbers.map { mapToCatalogueNumber(it) }
 
             when (val result = coinService.saveCoin(
@@ -60,7 +62,7 @@ class CoinController(
                     enrichmentQueue.enqueue(result.value.id, recognitionResult)
                     call.respond(
                         HttpStatusCode.Created,
-                        success(result.value.toDetailResponse(matchResult = null))
+                        success(result.value.toDetailResponse())
                     )
                 }
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
@@ -128,7 +130,11 @@ class CoinController(
             }
 
             when (val result = coinService.getCoin(coinId, userId)) {
-                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
+                is Result.Success -> {
+                    val coin = result.value
+                    val catalogCoin = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }
+                    call.respond(success(coin.toDetailResponse(catalogCoin)))
+                }
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
@@ -174,7 +180,11 @@ class CoinController(
             val payload = call.receive<UpdateCoinNotesRequest>()
 
             when (val result = coinService.updateNotes(coinId, userId, payload.notes)) {
-                is Result.Success -> call.respond(success(result.value.toDetailResponse()))
+                is Result.Success -> {
+                    val coin = result.value
+                    val catalogCoin = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }
+                    call.respond(success(coin.toDetailResponse(catalogCoin)))
+                }
                 is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
             }
         }.describe {
@@ -228,10 +238,7 @@ class CoinController(
             when (val result = enrichmentService.enrichCoin(coinId, userId)) {
                 is Result.Success -> {
                     val matchResult = result.value
-                    when (matchResult.tier) {
-                        MatchTier.MATCHED -> call.respond(success(matchResult.toDto()))
-                        else -> call.respond(success(matchResult.toDto()))
-                    }
+                    call.respond(success(matchResult.toDto()))
                 }
                 is Result.Failure -> {
                     when {
@@ -282,58 +289,58 @@ class CoinController(
     private fun io.ktor.server.application.ApplicationCall.userUuidOrNull(): UUID? =
         principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
-    private fun mapToRecognitionResult(dto: RecognitionResultDto): RecognitionResult =
+    private fun mapToRecognitionResult(coinData: CoinDataDto, aiAnalysis: AiAnalysisDto): RecognitionResult =
         RecognitionResult(
-            overallConfidence = runCatching { Confidence.valueOf(dto.overallConfidence.uppercase()) }.getOrDefault(Confidence.LOW),
-            countryOrIssuer = dto.countryOrIssuer,
-            denomination = dto.denomination,
-            seriesName = dto.seriesName,
-            year = dto.year,
-            era = dto.era,
-            confidenceCountry = dto.confidenceCountry,
-            confidenceDenomination = dto.confidenceDenomination,
-            confidenceSeries = dto.confidenceSeries,
-            confidenceYear = dto.confidenceYear,
-            confidenceEra = dto.confidenceEra,
-            mintMark = dto.mintMark,
-            mintMarkStatus = dto.mintMarkStatus,
-            mintMarkConfidence = dto.mintMarkConfidence,
-            metalComposition = dto.metalComposition,
-            estimatedGrade = dto.estimatedGrade,
-            estimatedGradeValue = dto.estimatedGradeValue,
-            gradeCode = dto.gradeCode,
-            gradeConfidence = dto.gradeConfidence,
-            rarityQualitative = dto.rarityQualitative,
-            rarityScore = dto.rarityScore,
-            valueLow = dto.valueLow,
-            valueHigh = dto.valueHigh,
-            valueCurrency = dto.valueCurrency,
-            mintage = dto.mintage,
-            obverseDescription = dto.obverseDescription,
-            reverseDescription = dto.reverseDescription,
-            weightGrams = dto.weightGrams,
-            diameterMm = dto.diameterMm,
-            thicknessMm = dto.thicknessMm,
-            edge = dto.edge,
-            designerObverse = dto.designerObverse,
-            designerReverse = dto.designerReverse,
-            positiveFeatures = dto.positiveFeatures,
-            negativeFeatures = dto.negativeFeatures,
-            supplySummary = dto.supplySummary,
-            demandSummary = dto.demandSummary,
-            valueDisclaimer = dto.valueDisclaimer,
-            obverseLettering = dto.obverseLettering,
-            reverseLettering = dto.reverseLettering,
-            analysisNotes = dto.analysisNotes,
-            historicalContext = dto.historicalContext,
-            obverseVisible = dto.obverseVisible,
-            reverseVisible = dto.reverseVisible,
-            imageFocus = dto.imageFocus,
-            imageLighting = dto.imageLighting,
-            imageResolution = dto.imageResolution,
-            imageCropping = dto.imageCropping,
-            imageIssues = dto.imageIssues,
-            rawJson = dto.rawJson.minifiedJson(),
+            overallConfidence = runCatching { Confidence.valueOf(aiAnalysis.overallConfidence.uppercase()) }.getOrDefault(Confidence.LOW),
+            countryOrIssuer = coinData.countryOrIssuer,
+            denomination = coinData.denomination,
+            seriesName = coinData.seriesName,
+            year = coinData.year,
+            era = coinData.era,
+            confidenceCountry = aiAnalysis.confidenceCountry,
+            confidenceDenomination = aiAnalysis.confidenceDenomination,
+            confidenceSeries = aiAnalysis.confidenceSeries,
+            confidenceYear = aiAnalysis.confidenceYear,
+            confidenceEra = aiAnalysis.confidenceEra,
+            mintMark = coinData.mintMark,
+            mintMarkStatus = aiAnalysis.mintMarkStatus,
+            mintMarkConfidence = aiAnalysis.mintMarkConfidence,
+            metalComposition = coinData.metalComposition,
+            estimatedGrade = aiAnalysis.estimatedGrade,
+            estimatedGradeValue = aiAnalysis.estimatedGradeValue,
+            gradeCode = aiAnalysis.gradeCode,
+            gradeConfidence = aiAnalysis.gradeConfidence,
+            rarityQualitative = aiAnalysis.rarityQualitative,
+            rarityScore = aiAnalysis.rarityScore,
+            valueLow = aiAnalysis.valueLow,
+            valueHigh = aiAnalysis.valueHigh,
+            valueCurrency = aiAnalysis.valueCurrency,
+            mintage = coinData.mintage,
+            obverseDescription = coinData.obverseDescription,
+            reverseDescription = coinData.reverseDescription,
+            weightGrams = coinData.weightGrams,
+            diameterMm = coinData.diameterMm,
+            thicknessMm = coinData.thicknessMm,
+            edge = coinData.edge,
+            designerObverse = coinData.designerObverse,
+            designerReverse = coinData.designerReverse,
+            positiveFeatures = aiAnalysis.positiveFeatures,
+            negativeFeatures = aiAnalysis.negativeFeatures,
+            supplySummary = aiAnalysis.supplySummary,
+            demandSummary = aiAnalysis.demandSummary,
+            valueDisclaimer = aiAnalysis.valueDisclaimer,
+            obverseLettering = coinData.obverseLettering,
+            reverseLettering = coinData.reverseLettering,
+            analysisNotes = aiAnalysis.analysisNotes,
+            historicalContext = coinData.historicalContext,
+            obverseVisible = aiAnalysis.obverseVisible,
+            reverseVisible = aiAnalysis.reverseVisible,
+            imageFocus = aiAnalysis.imageFocus,
+            imageLighting = aiAnalysis.imageLighting,
+            imageResolution = aiAnalysis.imageResolution,
+            imageCropping = aiAnalysis.imageCropping,
+            imageIssues = aiAnalysis.imageIssues,
+            rawJson = aiAnalysis.rawJson.minifiedJson(),
         )
 
     private fun mapToCatalogueNumber(dto: CatalogueNumberDto): CatalogueNumber =
@@ -343,73 +350,94 @@ class CoinController(
             confidence = runCatching { Confidence.valueOf(dto.confidence.uppercase()) }.getOrDefault(Confidence.LOW),
         )
 
-    private fun Coin.toDetailResponse(matchResult: MatchResult? = null): CoinDetailResponse =
-        CoinDetailResponse(
+    private fun Coin.toDetailResponse(catalogCoin: CatalogCoin? = null): CoinDetailResponse {
+        val r = recognitionResult
+        val c = catalogCoin
+        return CoinDetailResponse(
             id = id.toString(),
             userId = userId.toString(),
             obverseUrl = fileStorageService.publicUrl(obverseKey),
             reverseUrl = fileStorageService.publicUrl(reverseKey),
-            recognitionResult = RecognitionResultDto(
-                overallConfidence = recognitionResult.overallConfidence.name,
-                countryOrIssuer = recognitionResult.countryOrIssuer,
-                denomination = recognitionResult.denomination,
-                seriesName = recognitionResult.seriesName,
-                year = recognitionResult.year,
-                era = recognitionResult.era,
-                confidenceCountry = recognitionResult.confidenceCountry,
-                confidenceDenomination = recognitionResult.confidenceDenomination,
-                confidenceSeries = recognitionResult.confidenceSeries,
-                confidenceYear = recognitionResult.confidenceYear,
-                confidenceEra = recognitionResult.confidenceEra,
-                mintMark = recognitionResult.mintMark,
-                mintMarkStatus = recognitionResult.mintMarkStatus,
-                mintMarkConfidence = recognitionResult.mintMarkConfidence,
-                metalComposition = recognitionResult.metalComposition,
-                estimatedGrade = recognitionResult.estimatedGrade,
-                estimatedGradeValue = recognitionResult.estimatedGradeValue,
-                gradeCode = recognitionResult.gradeCode,
-                gradeConfidence = recognitionResult.gradeConfidence,
-                rarityQualitative = recognitionResult.rarityQualitative,
-                rarityScore = recognitionResult.rarityScore,
-                valueLow = recognitionResult.valueLow,
-                valueHigh = recognitionResult.valueHigh,
-                valueCurrency = recognitionResult.valueCurrency,
-                mintage = recognitionResult.mintage,
-                obverseDescription = recognitionResult.obverseDescription,
-                reverseDescription = recognitionResult.reverseDescription,
-                weightGrams = recognitionResult.weightGrams,
-                diameterMm = recognitionResult.diameterMm,
-                thicknessMm = recognitionResult.thicknessMm,
-                edge = recognitionResult.edge,
-                designerObverse = recognitionResult.designerObverse,
-                designerReverse = recognitionResult.designerReverse,
-                positiveFeatures = recognitionResult.positiveFeatures,
-                negativeFeatures = recognitionResult.negativeFeatures,
-                supplySummary = recognitionResult.supplySummary,
-                demandSummary = recognitionResult.demandSummary,
-                valueDisclaimer = recognitionResult.valueDisclaimer,
-                obverseLettering = recognitionResult.obverseLettering,
-                reverseLettering = recognitionResult.reverseLettering,
-                analysisNotes = recognitionResult.analysisNotes,
-                historicalContext = recognitionResult.historicalContext,
-                obverseVisible = recognitionResult.obverseVisible,
-                reverseVisible = recognitionResult.reverseVisible,
-                imageFocus = recognitionResult.imageFocus,
-                imageLighting = recognitionResult.imageLighting,
-                imageResolution = recognitionResult.imageResolution,
-                imageCropping = recognitionResult.imageCropping,
-                imageIssues = recognitionResult.imageIssues,
-                rawJson = recognitionResult.rawJson,
+            coinData = CoinDataDto(
+                countryOrIssuer = c?.fingerprint?.countryOrIssuer ?: r.countryOrIssuer,
+                denomination = c?.fingerprint?.denomination ?: r.denomination,
+                seriesName = r.seriesName,
+                year = c?.fingerprint?.year ?: r.year,
+                era = r.era,
+                mintMark = c?.fingerprint?.mintMark ?: r.mintMark,
+                metalComposition = c?.composition ?: r.metalComposition,
+                weightGrams = c?.weightGrams ?: r.weightGrams,
+                diameterMm = c?.diameterMm ?: r.diameterMm,
+                thicknessMm = c?.thicknessMm ?: r.thicknessMm,
+                edge = c?.edgeDescription ?: r.edge,
+                obverseDescription = c?.obverseDescription ?: r.obverseDescription,
+                reverseDescription = c?.reverseDescription ?: r.reverseDescription,
+                historicalContext = c?.historicalContext ?: r.historicalContext,
+                obverseLettering = c?.obverseLettering ?: r.obverseLettering,
+                reverseLettering = c?.reverseLettering ?: r.reverseLettering,
+                designerObverse = c?.obverseDesigners?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: r.designerObverse,
+                designerReverse = c?.reverseDesigners?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: r.designerReverse,
+                mintage = r.mintage,
+                shape = c?.shape,
+                technique = c?.technique,
+                orientation = c?.orientation,
+                mintName = c?.mintName,
+                ruler = c?.ruler,
+                objectType = c?.objectType,
+                demonetized = c?.demonetized,
+                tags = c?.tags ?: emptyList(),
+                numistaUrl = c?.numistaUrl,
+                thumbnailUrl = c?.thumbnailUrl,
+                minYear = c?.minYear,
+                maxYear = c?.maxYear,
             ),
-            catalogueNumbers = catalogueNumbers.map {
-                CatalogueNumberDto(catalogueName = it.catalogueName, number = it.number, confidence = it.confidence.name)
+            aiAnalysis = AiAnalysisDto(
+                overallConfidence = r.overallConfidence.name,
+                confidenceCountry = r.confidenceCountry,
+                confidenceDenomination = r.confidenceDenomination,
+                confidenceSeries = r.confidenceSeries,
+                confidenceYear = r.confidenceYear,
+                confidenceEra = r.confidenceEra,
+                mintMarkStatus = r.mintMarkStatus,
+                mintMarkConfidence = r.mintMarkConfidence,
+                estimatedGrade = r.estimatedGrade,
+                estimatedGradeValue = r.estimatedGradeValue,
+                gradeCode = r.gradeCode,
+                gradeConfidence = r.gradeConfidence,
+                rarityQualitative = r.rarityQualitative,
+                rarityScore = r.rarityScore,
+                valueLow = r.valueLow,
+                valueHigh = r.valueHigh,
+                valueCurrency = r.valueCurrency,
+                positiveFeatures = r.positiveFeatures,
+                negativeFeatures = r.negativeFeatures,
+                supplySummary = r.supplySummary,
+                demandSummary = r.demandSummary,
+                valueDisclaimer = r.valueDisclaimer,
+                analysisNotes = r.analysisNotes,
+                obverseVisible = r.obverseVisible,
+                reverseVisible = r.reverseVisible,
+                imageFocus = r.imageFocus,
+                imageLighting = r.imageLighting,
+                imageResolution = r.imageResolution,
+                imageCropping = r.imageCropping,
+                imageIssues = r.imageIssues,
+                rawJson = r.rawJson,
+            ),
+            catalogueNumbers = when {
+                c != null && c.catalogReferences.isNotEmpty() -> c.catalogReferences.map {
+                    CatalogueNumberDto(it.catalogueName, it.number, it.confidence.name)
+                }
+                else -> catalogueNumbers.map {
+                    CatalogueNumberDto(it.catalogueName, it.number, it.confidence.name)
+                }
             },
             setId = setId?.toString(),
             catalogCoinId = catalogCoinId?.toString(),
             notes = notes,
             createdAt = createdAt.toEpochMilli(),
-            matchResult = matchResult?.toDto(),
         )
+    }
 
     private fun Coin.toSummaryResponse(): CoinSummaryResponse {
         val estimatedValueMean: Double? = run {

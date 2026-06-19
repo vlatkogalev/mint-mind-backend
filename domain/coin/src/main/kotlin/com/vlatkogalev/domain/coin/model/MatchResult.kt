@@ -9,6 +9,7 @@ data class MatchCandidate(
     val externalId: String?,
     val score: Int,
     val scoreBreakdown: Map<String, Int>,
+    val catalogCandidate: CoinCatalogCandidate? = null,
 )
 
 data class MatchResult(
