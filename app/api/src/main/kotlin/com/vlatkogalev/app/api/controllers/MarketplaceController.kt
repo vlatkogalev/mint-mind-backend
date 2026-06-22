@@ -7,8 +7,7 @@ import com.vlatkogalev.app.api.dto.MarketplaceListingsResponse
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.marketplace.model.MarketplaceListing
 import com.vlatkogalev.domain.marketplace.repository.MarketplaceRepository
-import com.vlatkogalev.platform.core.ApiResponse
-import com.vlatkogalev.platform.core.time.TimeProvider
+import com.vlatkogalev.platform.core.ErrorResponse
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -16,7 +15,6 @@ import io.ktor.server.routing.openapi.*
 
 class MarketplaceController(
     private val marketplaceRepository: MarketplaceRepository,
-    private val timeProvider: TimeProvider,
 ) {
     fun Route.registerRoutes() {
         get("/listings") {
@@ -30,15 +28,16 @@ class MarketplaceController(
                 } else null
 
                 call.respond(
-                    success(
-                        MarketplaceListingsResponse(
-                            listings = listings.map { it.toResponse() },
-                            nextCursor = nextCursor,
-                        ),
+                    MarketplaceListingsResponse(
+                        listings = listings.map { it.toResponse() },
+                        nextCursor = nextCursor,
                     ),
                 )
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, error(e.message ?: "Failed to fetch listings"))
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse("INTERNAL_ERROR", e.message ?: "Failed to fetch listings"),
+                )
             }
         }.describe {
             tag(ApiTags.MARKETPLACE)
@@ -60,19 +59,5 @@ class MarketplaceController(
             buyingOptions = buyingOptions,
             expiresAt = expiresAt?.toEpochMilli(),
             timestamp = lastSeenAt.toEpochMilli(),
-        )
-
-    private fun <T> success(data: T): ApiResponse<T> =
-        ApiResponse(
-            success = true,
-            data = data,
-            timestampMillis = timeProvider.nowMillis(),
-        )
-
-    private fun error(message: String): ApiResponse<Unit> =
-        ApiResponse(
-            success = false,
-            error = message,
-            timestampMillis = timeProvider.nowMillis(),
         )
 }

@@ -11,8 +11,6 @@ import com.vlatkogalev.domain.coin.model.MatchCandidate
 import com.vlatkogalev.domain.coin.model.MatchMetrics
 import com.vlatkogalev.domain.coin.model.RecognitionResult
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
-import com.vlatkogalev.platform.core.ApiResponse
-import com.vlatkogalev.platform.core.time.TimeProvider
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -20,7 +18,6 @@ import io.ktor.server.routing.openapi.*
 
 class DebugController(
     private val enrichmentService: CoinEnrichmentService,
-    private val timeProvider: TimeProvider,
 ) {
     fun Route.registerRoutes() {
         post("/debug/numista-match") {
@@ -54,13 +51,7 @@ class DebugController(
                 retrievalKey = matchResult.retrievalKey,
             )
 
-            call.respond(
-                ApiResponse(
-                    success = true,
-                    data = dto,
-                    timestampMillis = timeProvider.nowMillis(),
-                )
-            )
+            call.respond(dto)
         }.describe {
             summary = "Debug Numista matching for a recognition result"
         }
@@ -68,19 +59,15 @@ class DebugController(
         get("/debug/numista-metrics") {
             val snapshot = MatchMetrics.snapshot()
             call.respond(
-                ApiResponse(
-                    success = true,
-                    data = MetricsResponseDto(
-                        attemptsTotal = snapshot.attemptsTotal,
-                        matchedTotal = snapshot.matchedTotal,
-                        ambiguousTotal = snapshot.ambiguousTotal,
-                        noMatchTotal = snapshot.noMatchTotal,
-                        numistaCallsTotal = snapshot.numistaCallsTotal,
-                        cacheHitsTotal = snapshot.cacheHitsTotal,
-                        avgCandidatesPerMatch = snapshot.avgCandidates,
-                    ),
-                    timestampMillis = timeProvider.nowMillis(),
-                )
+                MetricsResponseDto(
+                    attemptsTotal = snapshot.attemptsTotal,
+                    matchedTotal = snapshot.matchedTotal,
+                    ambiguousTotal = snapshot.ambiguousTotal,
+                    noMatchTotal = snapshot.noMatchTotal,
+                    numistaCallsTotal = snapshot.numistaCallsTotal,
+                    cacheHitsTotal = snapshot.cacheHitsTotal,
+                    avgCandidatesPerMatch = snapshot.avgCandidates,
+                ),
             )
         }.describe {
             summary = "Get enrichment matching metrics"

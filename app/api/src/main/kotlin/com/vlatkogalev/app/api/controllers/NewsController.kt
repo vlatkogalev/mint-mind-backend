@@ -8,8 +8,7 @@ import com.vlatkogalev.app.api.dto.NewsListResponse
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.domain.news.model.NewsArticle
 import com.vlatkogalev.domain.news.repository.NewsRepository
-import com.vlatkogalev.platform.core.ApiResponse
-import com.vlatkogalev.platform.core.time.TimeProvider
+import com.vlatkogalev.platform.core.ErrorResponse
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -18,7 +17,6 @@ import java.util.*
 
 class NewsController(
     private val newsRepository: NewsRepository,
-    private val timeProvider: TimeProvider,
 ) {
     fun Route.registerRoutes() {
         get {
@@ -35,15 +33,16 @@ class NewsController(
                 } else null
 
                 call.respond(
-                    success(
-                        NewsListResponse(
-                            articles = articles.map { it.toSummaryResponse() },
-                            nextCursor = nextCursor,
-                        ),
+                    NewsListResponse(
+                        articles = articles.map { it.toSummaryResponse() },
+                        nextCursor = nextCursor,
                     ),
                 )
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, error(e.message ?: "Failed to fetch news"))
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse("INTERNAL_ERROR", e.message ?: "Failed to fetch news"),
+                )
             }
         }.describe {
             tag(ApiTags.NEWS)
@@ -55,19 +54,22 @@ class NewsController(
                 ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
             if (articleId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid article ID"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "Invalid article ID"))
                 return@get
             }
 
             try {
                 val article = newsRepository.findById(articleId)
                 if (article == null) {
-                    call.respond(HttpStatusCode.NotFound, error("Article not found"))
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse("NOT_FOUND", "Article not found"))
                 } else {
-                    call.respond(success(article.toResponse()))
+                    call.respond(article.toResponse())
                 }
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, error(e.message ?: "Failed to fetch article"))
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse("INTERNAL_ERROR", e.message ?: "Failed to fetch article"),
+                )
             }
         }.describe {
             tag(ApiTags.NEWS)
@@ -95,19 +97,5 @@ class NewsController(
             author = author,
             imageUrl = imageUrl,
             publishedAt = publishedAt.toEpochMilli(),
-        )
-
-    private fun <T> success(data: T): ApiResponse<T> =
-        ApiResponse(
-            success = true,
-            data = data,
-            timestampMillis = timeProvider.nowMillis(),
-        )
-
-    private fun error(message: String): ApiResponse<Unit> =
-        ApiResponse(
-            success = false,
-            error = message,
-            timestampMillis = timeProvider.nowMillis(),
         )
 }

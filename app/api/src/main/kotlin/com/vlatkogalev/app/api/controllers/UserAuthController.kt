@@ -6,14 +6,14 @@ import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.app.api.service.SessionMergeService
 import com.vlatkogalev.app.api.util.HtmlTemplates
+import com.vlatkogalev.app.api.util.toErrorResponse
 import com.vlatkogalev.domain.user.model.AuthSession
 import com.vlatkogalev.domain.user.model.LoginSession
 import com.vlatkogalev.domain.user.model.User
 import com.vlatkogalev.domain.user.service.UserAuthService
-import com.vlatkogalev.platform.auth.userIdOrNull
-import com.vlatkogalev.platform.core.ApiResponse
+import com.vlatkogalev.platform.auth.userUuidOrNull
+import com.vlatkogalev.platform.core.ErrorResponse
 import com.vlatkogalev.platform.core.Result
-import com.vlatkogalev.platform.core.time.TimeProvider
 import io.ktor.http.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
@@ -26,18 +26,17 @@ import java.util.*
 class UserAuthController(
     private val userAuthService: UserAuthService,
     private val sessionMergeService: SessionMergeService,
-    private val timeProvider: TimeProvider,
 ) {
     fun Route.registerPublicRoutes() {
         post("/anonymous") {
             val payload = call.receive<AnonymousAuthRequest>()
             payload.validate()?.let {
-                call.respond(HttpStatusCode.BadRequest, error(it))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", it))
                 return@post
             }
             when (val result = userAuthService.authenticateAnonymous(payload.installationId)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Success -> call.respond(result.value.toResponse())
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -48,8 +47,8 @@ class UserAuthController(
             val payload = call.receive<RegisterRequest>()
             when (val result =
                 userAuthService.register(payload.email, payload.password, payload.firstName, payload.lastName)) {
-                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Success -> call.respond(HttpStatusCode.Created, result.value.toResponse())
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -59,7 +58,7 @@ class UserAuthController(
         post("/login") {
             val payload = call.receive<LoginRequest>()
             payload.validate()?.let {
-                call.respond(HttpStatusCode.BadRequest, error(it))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", it))
                 return@post
             }
             when (val result = userAuthService.login(payload.email, payload.password)) {
@@ -68,9 +67,9 @@ class UserAuthController(
                     if (installationId.isNotEmpty()) {
                         sessionMergeService.mergeIfNeeded(installationId, payload.email)
                     }
-                    call.respond(success(result.value.toResponse()))
+                    call.respond(result.value.toResponse())
                 }
-                is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, error(result.reason))
+                is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -80,12 +79,12 @@ class UserAuthController(
         post("/refresh") {
             val payload = call.receive<RefreshTokenRequest>()
             payload.validate()?.let {
-                call.respond(HttpStatusCode.BadRequest, error(it))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", it))
                 return@post
             }
             when (val result = userAuthService.refresh(payload.refreshToken)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, error(result.reason))
+                is Result.Success -> call.respond(result.value.toResponse())
+                is Result.Failure -> call.respond(HttpStatusCode.Unauthorized, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -110,8 +109,8 @@ class UserAuthController(
         post("/resend-verification") {
             val payload = call.receive<ResendVerificationRequest>()
             when (val result = userAuthService.resendVerification(payload.email)) {
-                is Result.Success -> call.respond(success(mapOf("message" to "Verification email has been sent")))
-                is Result.Failure -> call.respond(HttpStatusCode.TooManyRequests, error(result.reason))
+                is Result.Success -> call.respond(mapOf("message" to "Verification email has been sent"))
+                is Result.Failure -> call.respond(HttpStatusCode.TooManyRequests, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -122,9 +121,9 @@ class UserAuthController(
             val payload = call.receive<RequestPasswordResetRequest>()
             when (val result = userAuthService.requestPasswordReset(payload.email)) {
                 is Result.Success -> call.respond(
-                    success(PasswordResetRequestResponse(message = "If the email exists, a reset link has been sent")),
+                    PasswordResetRequestResponse(message = "If the email exists, a reset link has been sent"),
                 )
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -134,12 +133,12 @@ class UserAuthController(
         post("/password-reset/confirm") {
             val payload = call.receive<ConfirmPasswordResetRequest>()
             payload.validate()?.let {
-                call.respond(HttpStatusCode.BadRequest, error(it))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", it))
                 return@post
             }
             when (val result = userAuthService.confirmPasswordReset(payload.token, payload.newPassword)) {
-                is Result.Success -> call.respond(success(mapOf("message" to "Password updated")))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Success -> call.respond(mapOf("message" to "Password updated"))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -151,17 +150,17 @@ class UserAuthController(
         post("/upgrade-account") {
             val currentUserId = call.userUuidOrNull()
             if (currentUserId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Anonymous authentication is required"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Anonymous authentication is required"))
                 return@post
             }
             val payload = call.receive<SignupRequest>()
             payload.validate()?.let {
-                call.respond(HttpStatusCode.BadRequest, error(it))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", it))
                 return@post
             }
             when (val result = userAuthService.signup(payload.email, payload.password, currentUserId, payload.firstName, payload.lastName)) {
-                is Result.Success -> call.respond(HttpStatusCode.Created, success(result.value.toResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Success -> call.respond(HttpStatusCode.Created, result.value.toResponse())
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -173,13 +172,13 @@ class UserAuthController(
         get("/me") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@get
             }
 
             when (val result = userAuthService.getUserProfile(userId)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
+                is Result.Success -> call.respond(result.value.toResponse())
+                is Result.Failure -> call.respond(HttpStatusCode.NotFound, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -189,13 +188,13 @@ class UserAuthController(
         patch("/me") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@patch
             }
             val payload = call.receive<UpdateProfileRequest>()
             when (val result = userAuthService.updateProfile(userId, payload.firstName, payload.lastName)) {
-                is Result.Success -> call.respond(success(result.value.toResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Success -> call.respond(result.value.toResponse())
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -205,12 +204,12 @@ class UserAuthController(
         delete("/me") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@delete
             }
             when (val result = userAuthService.deleteAccount(userId)) {
-                is Result.Success -> call.respond(success(mapOf("message" to "Account deleted")))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Success -> call.respond(mapOf("message" to "Account deleted"))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
@@ -220,21 +219,18 @@ class UserAuthController(
         post("/logout") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@post
             }
             when (val result = userAuthService.logout(userId)) {
-                is Result.Success -> call.respond(success(mapOf("message" to "Logged out")))
-                is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, error(result.reason))
+                is Result.Success -> call.respond(mapOf("message" to "Logged out"))
+                is Result.Failure -> call.respond(HttpStatusCode.InternalServerError, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.AUTH)
             summary = "Logout and invalidate the current refresh token"
         }
     }
-
-    private fun io.ktor.server.application.ApplicationCall.userUuidOrNull(): UUID? =
-        principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
     private fun AuthSession.toResponse(): AuthSessionResponse =
         AuthSessionResponse(
@@ -263,19 +259,5 @@ class UserAuthController(
             emailVerified = emailVerified,
             isAnonymous = isAnonymous,
             upgradedAt = upgradedAt?.toEpochMilli(),
-        )
-
-    private fun <T> success(data: T): ApiResponse<T> =
-        ApiResponse(
-            success = true,
-            data = data,
-            timestampMillis = timeProvider.nowMillis(),
-        )
-
-    private fun error(message: String): ApiResponse<Unit> =
-        ApiResponse(
-            success = false,
-            error = message,
-            timestampMillis = timeProvider.nowMillis(),
         )
 }

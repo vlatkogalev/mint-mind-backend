@@ -34,7 +34,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserApiResponse"
+                $ref: "#/components/schemas/UserResponse"
         "400":
           description: "Bad request"
           content:
@@ -59,7 +59,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthSessionApiResponse"
+                $ref: "#/components/schemas/AuthSessionResponse"
         "400":
           description: "Bad request"
           content:
@@ -86,7 +86,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthSessionApiResponse"
+                $ref: "#/components/schemas/AuthSessionResponse"
         "400":
           description: "Bad request"
           content:
@@ -117,7 +117,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LoginSessionApiResponse"
+                $ref: "#/components/schemas/LoginSessionResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -142,7 +142,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LoginSessionApiResponse"
+                $ref: "#/components/schemas/LoginSessionResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -192,7 +192,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/MessageData"
         "500":
           description: "Internal server error"
           content:
@@ -222,7 +222,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PasswordResetRequestApiResponse"
+                $ref: "#/components/schemas/PasswordResetRequestResponse"
         "400":
           description: "Bad request"
           content:
@@ -246,7 +246,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/MessageData"
         "400":
           description: "Bad request"
           content:
@@ -267,7 +267,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/MessageData"
         "401":
           description: "Unauthorized"
           content:
@@ -287,7 +287,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserApiResponse"
+                $ref: "#/components/schemas/UserResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -318,7 +318,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserApiResponse"
+                $ref: "#/components/schemas/UserResponse"
         "400":
           description: "Bad request"
           content:
@@ -343,7 +343,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/MessageData"
         "400":
           description: "Bad request"
           content:
@@ -376,7 +376,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinDetailApiResponse"
+                $ref: "#/components/schemas/CoinDetailResponse"
         "400":
           description: "Bad request"
           content:
@@ -449,7 +449,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinListApiResponse"
+                $ref: "#/components/schemas/CoinListResponse"
         "400":
           description: "Bad request"
           content:
@@ -498,7 +498,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinCollectionStatsApiResponse"
+                $ref: "#/components/schemas/CoinCollectionStatsResponse"
         "400":
           description: "Bad request"
           content:
@@ -531,7 +531,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinDetailApiResponse"
+                $ref: "#/components/schemas/CoinDetailResponse"
         "400":
           description: "Bad request — invalid UUID"
           content:
@@ -569,7 +569,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/MessageData"
         "401":
           description: "Unauthorized"
           content:
@@ -608,7 +608,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinDetailApiResponse"
+                $ref: "#/components/schemas/CoinDetailResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -641,7 +641,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinImagesApiResponse"
+                $ref: "#/components/schemas/CoinImagesResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -675,7 +675,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MatchResultApiResponse"
+                $ref: "#/components/schemas/MatchResultDto"
         "401":
           description: "Unauthorized"
           content:
@@ -700,7 +700,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MatchResultApiResponse"
+                $ref: "#/components/schemas/MatchResultDto"
 
   /debug/numista-metrics:
     get:
@@ -713,7 +713,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MetricsApiResponse"
+                $ref: "#/components/schemas/MetricsResponse"
 
   /coins/{id}/pricing:
     get:
@@ -735,7 +735,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinPricingApiResponse"
+                $ref: "#/components/schemas/CoinPricingResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -773,7 +773,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinSetApiResponse"
+                $ref: "#/components/schemas/CoinSetResponse"
         "400":
           description: "Bad request"
           content:
@@ -798,7 +798,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinSetListApiResponse"
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoinSetResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -825,7 +827,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinSetApiResponse"
+                $ref: "#/components/schemas/CoinSetResponse"
         "400":
           description: "Bad request — invalid UUID"
           content:
@@ -869,7 +871,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinSetApiResponse"
+                $ref: "#/components/schemas/CoinSetResponse"
         "401":
           description: "Unauthorized"
           content:
@@ -902,7 +904,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/MessageData"
         "401":
           description: "Unauthorized"
           content:
@@ -942,7 +944,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinSetApiResponse"
+                $ref: "#/components/schemas/CoinSetResponse"
         "400":
           description: "Bad request"
           content:
@@ -987,7 +989,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoinSetApiResponse"
+                $ref: "#/components/schemas/CoinSetResponse"
         "400":
           description: "Bad request"
           content:
@@ -1032,7 +1034,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NewsListApiResponse"
+                $ref: "#/components/schemas/NewsListResponse"
 
   /news/{id}:
     get:
@@ -1051,7 +1053,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NewsArticleApiResponse"
+                $ref: "#/components/schemas/NewsArticleResponse"
         "400":
           description: "Bad request — invalid UUID"
           content:
@@ -1090,7 +1092,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MarketplaceListingsApiResponse"
+                $ref: "#/components/schemas/MarketplaceListingsResponse"
 
   /storage/upload-urls:
     post:
@@ -1110,7 +1112,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadUrlsApiResponse"
+                $ref: "#/components/schemas/CreateUploadUrlsResponse"
         "400":
           description: "Bad request"
           content:
@@ -1142,7 +1144,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DownloadUrlsApiResponse"
+                $ref: "#/components/schemas/CreateDownloadUrlsResponse"
         "400":
           description: "Bad request"
           content:
@@ -1181,7 +1183,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/MessageData"
         "401":
           description: "Unauthorized"
           content:
@@ -1201,19 +1203,6 @@ components:
       description: "RevenueCat webhook secret configured with REVENUECAT_WEBHOOK_SECRET."
 
   schemas:
-    ApiResponseBase:
-      type: object
-      required: [success, timestampMillis]
-      properties:
-        success:
-          type: boolean
-        error:
-          type: string
-          nullable: true
-        timestampMillis:
-          type: integer
-          format: int64
-
     HealthData:
       type: object
       required: [status]
@@ -2590,176 +2579,13 @@ components:
           items:
             $ref: "#/components/schemas/PresignedDownloadUrl"
 
-    HealthResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/HealthData"
-
-    AuthHealthResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/AuthHealthData"
-
-    MessageResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/MessageData"
-
-    LoginSessionApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/LoginSessionResponse"
-
-    AuthSessionApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/AuthSessionResponse"
-
-    UserApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/UserResponse"
-
-    PasswordResetRequestApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/PasswordResetRequestResponse"
-
-    CoinDetailApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinDetailResponse"
-
-    CoinListApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinListResponse"
-
-    CoinImagesApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinImagesResponse"
-
-    CoinCollectionStatsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinCollectionStatsResponse"
-
-    CoinSetApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinSetResponse"
-
-    CoinSetListApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              type: array
-              items:
-                $ref: "#/components/schemas/CoinSetResponse"
-
-    NewsListApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/NewsListResponse"
-
-    NewsArticleApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/NewsArticleResponse"
-
-    MarketplaceListingsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/MarketplaceListingsResponse"
-
-    CoinPricingApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CoinPricingResponse"
-
-    MatchResultApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/MatchResultDto"
-
-    MetricsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/MetricsResponse"
-
-    UploadUrlsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CreateUploadUrlsResponse"
-
-    DownloadUrlsApiResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/CreateDownloadUrlsResponse"
-
     ErrorResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponseBase"
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: "USER_NOT_FOUND"
+        message:
+          type: string
+          example: "User not found"

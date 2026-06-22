@@ -71,7 +71,6 @@ import com.vlatkogalev.platform.core.config.loadEbayConfig
 import com.vlatkogalev.platform.core.config.loadEmailConfig
 import com.vlatkogalev.platform.core.config.loadNumistaConfig
 import com.vlatkogalev.platform.core.storage.FileStorageService
-import com.vlatkogalev.platform.core.time.TimeProvider
 import com.vlatkogalev.platform.database.connectDatabase
 import com.vlatkogalev.platform.database.createDataSource
 import com.vlatkogalev.platform.database.runMigrations
@@ -103,7 +102,6 @@ val appModule = module {
             appBaseUrl = config.appBaseUrl,
         )
     }
-    single<TimeProvider> { TimeProvider.System }
 
     single<UserRepository> { UserRepositoryImpl(get()) }
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get()) }
@@ -198,13 +196,13 @@ val appModule = module {
     single { SessionMergeService(get(), get()) }
     single<FileStorageService> { S3FileStorageService() }
 
-    single { UserAuthController(get(), get(), get()) }
-    single { CoinController(get(), get(), get(), get(), get(), get()) }
-    single { CoinSetController(get(), get(), get()) }
-    single { CoinPricingController(get(), get(), get()) }
-    single { NewsController(get(), get()) }
-    single { MarketplaceController(get(), get()) }
-    single { RevenueCatWebhookController(get(), get()) }
-    single { StorageController(get(), get()) }
-    single { DebugController(get(), get()) }
+    single { UserAuthController(get(), get()) }
+    single { CoinController(get(), get(), get(), get(), get()) }
+    single { CoinSetController(get(), get()) }
+    single { CoinPricingController(get(), get()) }
+    single { NewsController(get()) }
+    single { MarketplaceController(get()) }
+    single { RevenueCatWebhookController(get()) }
+    single { StorageController(get()) }
+    single { DebugController(get()) }
 }

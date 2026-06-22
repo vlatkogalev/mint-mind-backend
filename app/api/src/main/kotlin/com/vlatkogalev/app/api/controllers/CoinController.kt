@@ -4,16 +4,16 @@ package com.vlatkogalev.app.api.controllers
 
 import com.vlatkogalev.app.api.dto.*
 import com.vlatkogalev.app.api.routes.ApiTags
+import com.vlatkogalev.app.api.util.toErrorResponse
 import com.vlatkogalev.app.jobs.CoinEnrichmentQueue
 import com.vlatkogalev.domain.coin.model.*
 import com.vlatkogalev.domain.coin.repository.CatalogCoinRepository
 import com.vlatkogalev.domain.coin.service.CoinEnrichmentService
 import com.vlatkogalev.domain.coin.service.CoinService
-import com.vlatkogalev.platform.auth.userIdOrNull
-import com.vlatkogalev.platform.core.ApiResponse
+import com.vlatkogalev.platform.auth.userUuidOrNull
+import com.vlatkogalev.platform.core.ErrorResponse
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.storage.FileStorageService
-import com.vlatkogalev.platform.core.time.TimeProvider
 import io.ktor.http.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
@@ -29,20 +29,19 @@ class CoinController(
     private val enrichmentService: CoinEnrichmentService,
     private val enrichmentQueue: CoinEnrichmentQueue,
     private val fileStorageService: FileStorageService,
-    private val timeProvider: TimeProvider,
     private val catalogCoinRepository: CatalogCoinRepository,
 ) {
     fun Route.registerRoutes() {
         post {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@post
             }
 
             val payload = call.receive<SaveCoinRequest>()
             payload.validate()?.let {
-                call.respond(HttpStatusCode.BadRequest, error(it))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", it))
                 return@post
             }
 
@@ -61,10 +60,10 @@ class CoinController(
                     enrichmentQueue.enqueue(result.value.id, recognitionResult)
                     call.respond(
                         HttpStatusCode.Created,
-                        success(result.value.toDetailResponse())
+                        result.value.toDetailResponse()
                     )
                 }
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.COINS)
@@ -74,7 +73,7 @@ class CoinController(
         get {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@get
             }
 
@@ -106,9 +105,9 @@ class CoinController(
                         coins.last().createdAt.toEpochMilli()
                     } else null
                     val summaries = coins.map { it.toSummaryResponse() }
-                    call.respond(success(CoinListResponse(coins = summaries, nextCursor = nextCursor)))
+                    call.respond(CoinListResponse(coins = summaries, nextCursor = nextCursor))
                 }
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.COINS)
@@ -118,13 +117,13 @@ class CoinController(
         get("/{id}") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@get
             }
 
             val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "Invalid coin ID"))
                 return@get
             }
 
@@ -132,9 +131,9 @@ class CoinController(
                 is Result.Success -> {
                     val coin = result.value
                     val catalogCoin = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }
-                    call.respond(success(coin.toDetailResponse(catalogCoin)))
+                    call.respond(coin.toDetailResponse(catalogCoin))
                 }
-                is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
+                is Result.Failure -> call.respond(HttpStatusCode.NotFound, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.COINS)
@@ -144,19 +143,19 @@ class CoinController(
         delete("/{id}") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@delete
             }
 
             val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "Invalid coin ID"))
                 return@delete
             }
 
             when (val result = coinService.deleteCoin(coinId, userId)) {
-                is Result.Success -> call.respond(success(mapOf("message" to "Coin deleted")))
-                is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
+                is Result.Success -> call.respond(mapOf("message" to "Coin deleted"))
+                is Result.Failure -> call.respond(HttpStatusCode.NotFound, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.COINS)
@@ -166,13 +165,13 @@ class CoinController(
         patch("/{id}/notes") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@patch
             }
 
             val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "Invalid coin ID"))
                 return@patch
             }
 
@@ -182,9 +181,9 @@ class CoinController(
                 is Result.Success -> {
                     val coin = result.value
                     val catalogCoin = coin.catalogCoinId?.let { catalogCoinRepository.findById(it) }
-                    call.respond(success(coin.toDetailResponse(catalogCoin)))
+                    call.respond(coin.toDetailResponse(catalogCoin))
                 }
-                is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
+                is Result.Failure -> call.respond(HttpStatusCode.NotFound, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.COINS)
@@ -194,13 +193,13 @@ class CoinController(
         get("/{id}/images") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@get
             }
 
             val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "Invalid coin ID"))
                 return@get
             }
 
@@ -209,12 +208,12 @@ class CoinController(
                     val coin = result.value
                     val obverseUrl = fileStorageService.createPresignedDownload(coin.obverseKey)
                     val reverseUrl = fileStorageService.createPresignedDownload(coin.reverseKey)
-                    call.respond(success(CoinImagesResponse(
+                    call.respond(CoinImagesResponse(
                         obverseUrl = obverseUrl.toString(),
                         reverseUrl = reverseUrl.toString(),
-                    )))
+                    ))
                 }
-                is Result.Failure -> call.respond(HttpStatusCode.NotFound, error(result.reason))
+                is Result.Failure -> call.respond(HttpStatusCode.NotFound, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.COINS)
@@ -224,30 +223,28 @@ class CoinController(
         post("/{id}/enrich") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@post
             }
 
             val coinId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (coinId == null) {
-                call.respond(HttpStatusCode.BadRequest, error("Invalid coin ID"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "Invalid coin ID"))
                 return@post
             }
 
             when (val result = enrichmentService.enrichCoin(coinId, userId)) {
                 is Result.Success -> {
                     val matchResult = result.value
-                    call.respond(success(matchResult.toDto()))
+                    call.respond(matchResult.toDto())
                 }
-                is Result.Failure -> {
-                    when {
-                        result.reason.contains("Unauthorized", ignoreCase = true) ->
-                            call.respond(HttpStatusCode.Forbidden, error(result.reason))
-                        result.reason.contains("not found", ignoreCase = true) ->
-                            call.respond(HttpStatusCode.NotFound, error(result.reason))
-                        else ->
-                            call.respond(HttpStatusCode.InternalServerError, error(result.reason))
-                    }
+                is Result.Failure -> when (result.error) {
+                    is CoinError.Unauthorized ->
+                        call.respond(HttpStatusCode.Forbidden, result.error.toErrorResponse())
+                    is CoinError.NotFound, is CoinError.SetNotFound ->
+                        call.respond(HttpStatusCode.NotFound, result.error.toErrorResponse())
+                    else ->
+                        call.respond(HttpStatusCode.InternalServerError, result.error.toErrorResponse())
                 }
             }
         }.describe {
@@ -258,7 +255,7 @@ class CoinController(
         get("/stats") {
             val userId = call.userUuidOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@get
             }
 
@@ -276,17 +273,14 @@ class CoinController(
                 maxValue = maxValue,
                 setId = setId,
             )) {
-                is Result.Success -> call.respond(success(result.value.toStatsResponse()))
-                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, error(result.reason))
+                is Result.Success -> call.respond(result.value.toStatsResponse())
+                is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
             }
         }.describe {
             tag(ApiTags.COINS)
             summary = "Get collection statistics"
         }
     }
-
-    private fun io.ktor.server.application.ApplicationCall.userUuidOrNull(): UUID? =
-        principal<JWTPrincipal>()?.userIdOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
     private fun mapToRecognitionResult(req: SaveCoinRequest): RecognitionResult =
         RecognitionResult(
@@ -499,20 +493,6 @@ class CoinController(
             "diameter" to (bc.matchableCoin.diameterMm != null),
             "composition" to (bc.matchableCoin.composition != null),
             "externalReference" to (bc.externalId != null),
-        )
-
-    private fun <T> success(data: T): ApiResponse<T> =
-        ApiResponse(
-            success = true,
-            data = data,
-            timestampMillis = timeProvider.nowMillis(),
-        )
-
-    private fun error(message: String): ApiResponse<Unit> =
-        ApiResponse(
-            success = false,
-            error = message,
-            timestampMillis = timeProvider.nowMillis(),
         )
 
     private fun String.minifiedJson(): String =

@@ -10,11 +10,10 @@ import com.vlatkogalev.app.api.dto.PresignedDownloadUrl
 import com.vlatkogalev.app.api.dto.PresignedUploadUrl
 import com.vlatkogalev.app.api.routes.ApiTags
 import com.vlatkogalev.platform.auth.userIdOrNull
-import com.vlatkogalev.platform.core.ApiResponse
+import com.vlatkogalev.platform.core.ErrorResponse
 import com.vlatkogalev.platform.core.config.AwsConfig
 import com.vlatkogalev.platform.core.config.loadAwsConfig
 import com.vlatkogalev.platform.core.storage.FileStorageService
-import com.vlatkogalev.platform.core.time.TimeProvider
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
@@ -30,7 +29,6 @@ import java.util.UUID
 
 class StorageController(
     private val fileStorageService: FileStorageService,
-    private val timeProvider: TimeProvider,
     config: AwsConfig = loadAwsConfig(),
 ) {
     private val uploadUrlTtlSeconds = config.uploadUrlTtlSeconds
@@ -41,13 +39,13 @@ class StorageController(
             val principal = call.principal<JWTPrincipal>()
             val userId = principal?.userIdOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@post
             }
 
             val payload = call.receive<CreateUploadUrlsRequest>()
             if (payload.fileCount !in 1..20) {
-                call.respond(HttpStatusCode.BadRequest, error("fileCount must be between 1 and 20"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "fileCount must be between 1 and 20"))
                 return@post
             }
 
@@ -66,11 +64,9 @@ class StorageController(
             }
 
             call.respond(
-                success(
-                    CreateUploadUrlsResponse(
-                        sessionId = uploadSession.sessionId,
-                        uploads = uploads,
-                    ),
+                CreateUploadUrlsResponse(
+                    sessionId = uploadSession.sessionId,
+                    uploads = uploads,
                 ),
             )
         }.describe {
@@ -82,24 +78,24 @@ class StorageController(
             val principal = call.principal<JWTPrincipal>()
             val userId = principal?.userIdOrNull()
             if (userId == null) {
-                call.respond(HttpStatusCode.Unauthorized, error("Invalid token"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse("UNAUTHORIZED", "Invalid token"))
                 return@post
             }
 
             val payload = call.receive<CreateDownloadUrlsRequest>()
             if (payload.objectKeys.isEmpty()) {
-                call.respond(HttpStatusCode.BadRequest, error("objectKeys must contain at least one key"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "objectKeys must contain at least one key"))
                 return@post
             }
 
             if (payload.objectKeys.size > 20) {
-                call.respond(HttpStatusCode.BadRequest, error("objectKeys can contain at most 20 keys"))
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("VALIDATION_ERROR", "objectKeys can contain at most 20 keys"))
                 return@post
             }
 
             val userPrefix = "users/$userId/"
             if (payload.objectKeys.any { it.isBlank() || !it.startsWith(userPrefix) }) {
-                call.respond(HttpStatusCode.Forbidden, error("Access denied for one or more requested object keys"))
+                call.respond(HttpStatusCode.Forbidden, ErrorResponse("FORBIDDEN", "Access denied for one or more requested object keys"))
                 return@post
             }
 
@@ -116,27 +112,11 @@ class StorageController(
             }
 
             call.respond(
-                success(
-                    CreateDownloadUrlsResponse(downloads = downloads),
-                ),
+                CreateDownloadUrlsResponse(downloads = downloads),
             )
         }.describe {
             tag(ApiTags.STORAGE)
             summary = "Create presigned S3 download URLs"
         }
     }
-
-    private fun <T> success(data: T): ApiResponse<T> =
-        ApiResponse(
-            success = true,
-            data = data,
-            timestampMillis = timeProvider.nowMillis(),
-        )
-
-    private fun error(message: String): ApiResponse<Unit> =
-        ApiResponse(
-            success = false,
-            error = message,
-            timestampMillis = timeProvider.nowMillis(),
-        )
 }

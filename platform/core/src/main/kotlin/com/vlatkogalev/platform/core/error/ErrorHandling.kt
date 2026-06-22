@@ -1,7 +1,6 @@
 package com.vlatkogalev.platform.core.error
 
-import com.vlatkogalev.platform.core.ApiResponse
-import com.vlatkogalev.platform.core.time.TimeProvider
+import com.vlatkogalev.platform.core.ErrorResponse
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -9,7 +8,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 
-fun Application.configureCore(timeProvider: TimeProvider = TimeProvider.System) {
+fun Application.configureCore() {
     install(ContentNegotiation) {
         json()
     }
@@ -18,10 +17,9 @@ fun Application.configureCore(timeProvider: TimeProvider = TimeProvider.System) 
         exception<Throwable> { call, cause ->
             call.respond(
                 HttpStatusCode.InternalServerError,
-                ApiResponse<Unit>(
-                    success = false,
-                    error = cause.message ?: "Unexpected server error",
-                    timestampMillis = timeProvider.nowMillis(),
+                ErrorResponse(
+                    code = "INTERNAL_ERROR",
+                    message = cause.message ?: "Unexpected server error",
                 ),
             )
         }
