@@ -6,7 +6,6 @@ import com.vlatkogalev.domain.coin.repository.CoinRepository
 import com.vlatkogalev.domain.coin.repository.EnrichmentAttemptsRepository
 import com.vlatkogalev.platform.core.Result
 import com.vlatkogalev.platform.core.StructuredLogger
-import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
@@ -21,217 +20,61 @@ class CoinEnrichmentServiceImpl(
 
     private val logger = StructuredLogger("CoinEnrichmentService")
 
+    private val cooldownChecker = CooldownChecker(enrichmentAttemptsRepository)
+    private val candidateFetcher = CandidateFetcher(catalogCoinRepository, providers)
+    private val persister = EnrichmentPersister(catalogCoinRepository, enrichmentAttemptsRepository)
+
     override suspend fun getOrMatch(recognition: RecognitionResult): MatchResult {
         val keys = recognition.toFingerprint().toKeys()
         val now = nowProvider()
         MatchMetrics.attempts.incrementAndGet()
 
-        val existingAttempt = enrichmentAttemptsRepository.findByHash(keys.hash)
-        val cooldownActive = existingAttempt != null &&
-            existingAttempt.pipelineVersion == ConfidenceConfig.PIPELINE_VERSION &&
-            Duration.between(existingAttempt.lastAttemptAt, now).toHours() < ConfidenceConfig.COOLDOWN_HOURS
+        val dbCoins = candidateFetcher.fetchDbCoins(recognition)
 
-        val dbCoins = catalogCoinRepository.findByRetrievalKey(
-            CountryAliasMapping.normalize(recognition.countryOrIssuer),
-            DenominationAliasMapping.normalize(recognition.denomination),
-            recognition.year,
-        )
-
-        if (cooldownActive) {
-            MatchMetrics.cacheHits.incrementAndGet()
-            if (dbCoins.isNotEmpty()) {
-                val candidates = dbCoins
-                    .filter { it.enrichedAt != null }
-                    .map { coin ->
-                    MatchCandidate(
-                        catalogCoin = coin,
-                        matchableCoin = coin.toMatchableCoin(),
-                        providerName = "Numista",
-                        externalId = null,
-                        score = 0,
-                        scoreBreakdown = emptyMap(),
-                    )
+        when (val cooldown = cooldownChecker.check(keys.hash, now)) {
+            is CooldownResult.Active -> {
+                MatchMetrics.cacheHits.incrementAndGet()
+                val dbCandidates = candidateFetcher.toDbCandidates(dbCoins)
+                if (dbCandidates.isNotEmpty()) {
+                    val result = matcher.match(recognition, dbCandidates)
+                    return result.copy(fingerprintHash = keys.hash, retrievalKey = keys.retrievalKey)
                 }
-                val result = matcher.match(recognition, candidates)
-                return result.copy(fingerprintHash = keys.hash, retrievalKey = keys.retrievalKey)
+                val cachedTier = runCatching { MatchTier.valueOf(cooldown.lastResult) }
+                    .getOrDefault(MatchTier.NO_MATCH)
+                return MatchResult(
+                    tier = cachedTier,
+                    bestCandidate = null,
+                    allCandidates = emptyList(),
+                    fingerprintHash = keys.hash,
+                    retrievalKey = keys.retrievalKey,
+                )
             }
-            val cachedTier = runCatching { MatchTier.valueOf(existingAttempt.lastResult) }
-                .getOrDefault(MatchTier.NO_MATCH)
-            return MatchResult(
-                tier = cachedTier,
-                bestCandidate = null,
-                allCandidates = emptyList(),
-                fingerprintHash = keys.hash,
-                retrievalKey = keys.retrievalKey,
-            )
+            CooldownResult.Expired -> Unit
         }
 
         MatchMetrics.numistaCalls.incrementAndGet()
 
-        val dbCandidates = dbCoins
-            .filter { it.enrichedAt != null }
-            .map { coin ->
-            MatchCandidate(
-                catalogCoin = coin,
-                matchableCoin = coin.toMatchableCoin(),
-                providerName = "Numista",
-                externalId = null,
-                score = 0,
-                scoreBreakdown = emptyMap(),
-            )
-        }
+        val dbCandidates = candidateFetcher.toDbCandidates(dbCoins)
+        val numistaCandidates = candidateFetcher.fetchProviderCandidates(recognition)
+        val allCandidates = candidateFetcher.deduplicate(dbCandidates + numistaCandidates)
 
-        val numistaCandidates = providers.flatMap { provider ->
-            when (val result = provider.findCandidates(recognition.toFingerprint())) {
-                is Result.Success -> result.value
-                is Result.Failure -> emptyList()
-            }
-        }.map { candidate ->
-            val existingCatalogCoin = catalogCoinRepository.findByProviderExternalId(
-                "Numista", candidate.externalReference.externalId
-            )
-            val matchableCoin = MatchableCoin(
-                countryOrIssuer = candidate.countryOrIssuer,
-                denomination = candidate.denomination,
-                yearStart = candidate.yearStart,
-                yearEnd = candidate.yearEnd,
-                composition = candidate.composition,
-                weightGrams = candidate.weightGrams,
-                diameterMm = candidate.diameterMm,
-                obverseLettering = candidate.obverseLettering,
-                reverseLettering = candidate.reverseLettering,
-                designers = candidate.designers,
-                thicknessMm = candidate.thicknessMm,
-            )
-            MatchCandidate(
-                catalogCoin = existingCatalogCoin,
-                matchableCoin = matchableCoin,
-                providerName = "Numista",
-                externalId = candidate.externalReference.externalId,
-                score = 0,
-                scoreBreakdown = emptyMap(),
-                catalogCandidate = candidate,
-            )
-        }
-
-        val allCandidates = (dbCandidates + numistaCandidates)
-            .distinctBy { candidate ->
-                when {
-                    candidate.externalId != null -> "${candidate.providerName}:${candidate.externalId}"
-                    candidate.catalogCoin?.id != null -> "catalog:${candidate.catalogCoin.id}"
-                    else -> "candidate:${candidate.matchableCoin.countryOrIssuer}|${candidate.matchableCoin.denomination}|${candidate.matchableCoin.yearStart}"
-                }
-            }
         logger.info("match retrievalKey=${keys.retrievalKey} query=${keys.searchQuery} dbCandidates=${dbCandidates.size} numistaCandidates=${numistaCandidates.size} allCandidates=${allCandidates.size}")
         val result = matcher.match(recognition, allCandidates)
         val topScore = result.allCandidates.firstOrNull()?.score
         val secondScore = result.allCandidates.getOrNull(1)?.score
         logger.info("match retrievalKey=${keys.retrievalKey} tier=${result.tier} topScore=$topScore secondScore=$secondScore candidateCount=${result.allCandidates.size}")
-        var finalResult = result.copy(fingerprintHash = keys.hash, retrievalKey = keys.retrievalKey)
+        val finalResult = result.copy(fingerprintHash = keys.hash, retrievalKey = keys.retrievalKey)
 
         MatchMetrics.candidateCountSum.addAndGet(allCandidates.size.toLong())
 
-        when (finalResult.tier) {
-            MatchTier.MATCHED, MatchTier.AMBIGUOUS -> {
-                if (finalResult.tier == MatchTier.MATCHED) MatchMetrics.matched.incrementAndGet()
-                else MatchMetrics.ambiguous.incrementAndGet()
-                val best = finalResult.bestCandidate!!
-                val linkedCoin: CatalogCoin = if (best.catalogCoin != null) {
-                    catalogCoinRepository.markEnrichmentSuccess(
-                        best.catalogCoin.id, now,
-                        best.catalogCandidate?.copy(
-                            externalReference = ExternalCoinReference(
-                                id = UUID.randomUUID(),
-                                catalogCoinId = best.catalogCoin.id,
-                                provider = best.providerName,
-                                externalId = best.externalId ?: "",
-                                externalUrl = null,
-                                lastSyncedAt = now,
-                                syncStatus = "synced",
-                                syncError = null,
-                                createdAt = now,
-                            ),
-                        ),
-                    )
-                    best.catalogCoin
-                } else {
-                    val candidate = best.catalogCandidate
-                    val newCoin = CatalogCoin(
-                        id = UUID.randomUUID(),
-                        fingerprint = recognition.toFingerprint(),
-                        title = candidate?.title,
-                        composition = candidate?.composition ?: best.matchableCoin.composition,
-                        weightGrams = candidate?.weightGrams ?: best.matchableCoin.weightGrams,
-                        diameterMm = candidate?.diameterMm ?: best.matchableCoin.diameterMm,
-                        obverseDescription = candidate?.obverseDescription,
-                        reverseDescription = candidate?.reverseDescription,
-                        historicalContext = candidate?.historicalContext,
-                        thumbnailUrl = candidate?.thumbnailUrl,
-                        numistaUrl = candidate?.numistaUrl,
-                        minYear = candidate?.yearStart,
-                        maxYear = candidate?.yearEnd,
-                        thicknessMm = candidate?.thicknessMm,
-                        shape = candidate?.shape,
-                        technique = candidate?.technique,
-                        orientation = candidate?.orientation,
-                        edgeDescription = candidate?.edgeDescription,
-                        obverseLettering = candidate?.obverseLettering,
-                        reverseLettering = candidate?.reverseLettering,
-                        obverseDesigners = candidate?.obverseDesigners ?: emptyList(),
-                        reverseDesigners = candidate?.reverseDesigners ?: emptyList(),
-                        obversePictureUrl = candidate?.obversePictureUrl,
-                        reversePictureUrl = candidate?.reversePictureUrl,
-                        reverseThumbnailUrl = candidate?.reverseThumbnailUrl,
-                        objectType = candidate?.objectType,
-                        demonetized = candidate?.demonetized,
-                        ruler = candidate?.ruler,
-                        mintName = candidate?.mintName,
-                        tags = candidate?.tags ?: emptyList(),
-                        catalogReferences = candidate?.catalogReferences ?: emptyList(),
-                        enrichedAt = now,
-                        lastEnrichmentAttemptAt = now,
-                        lastEnrichmentFailedAt = null,
-                        lastEnrichmentError = null,
-                        createdAt = now,
-                        updatedAt = now,
-                    )
-                    catalogCoinRepository.save(newCoin)
-                    if (best.externalId != null) {
-                        catalogCoinRepository.findOrCreateExternalReference(
-                            provider = best.providerName,
-                            externalId = best.externalId,
-                            catalogCoin = newCoin,
-                            now = now,
-                        )
-                    }
-                    newCoin
-                }
-                finalResult = finalResult.copy(
-                    bestCandidate = best.copy(catalogCoin = linkedCoin)
-                )
-            }
-            MatchTier.NO_MATCH -> MatchMetrics.noMatch.incrementAndGet()
-        }
-
-        check(
-            (finalResult.tier != MatchTier.MATCHED && finalResult.tier != MatchTier.AMBIGUOUS) ||
-            finalResult.bestCandidate?.catalogCoin != null
-        ) {
-            "MATCHED or AMBIGUOUS result must have a linked CatalogCoin"
-        }
-
-        enrichmentAttemptsRepository.upsert(
-            keys.hash, keys.retrievalKey, finalResult.tier.name, ConfidenceConfig.PIPELINE_VERSION
-        )
-
-        return finalResult
+        return persister.persist(recognition, finalResult, keys.hash, keys.retrievalKey, now)
     }
 
     override suspend fun enrichCoin(coinId: UUID, callerUserId: UUID): Result<MatchResult> {
         val coin = coinRepository.findById(coinId)
-            ?: return Result.Failure("Coin not found")
+            ?: return Result.Failure(CoinError.NotFound())
         if (coin.userId != callerUserId) {
-            return Result.Failure("Unauthorized")
+            return Result.Failure(CoinError.Unauthorized())
         }
 
         val matchResult = getOrMatch(coin.recognitionResult)
