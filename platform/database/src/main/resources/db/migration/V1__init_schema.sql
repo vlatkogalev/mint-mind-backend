@@ -88,15 +88,16 @@ CREATE INDEX IF NOT EXISTS idx_anonymous_installations_user_id
 CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    rc_customer_id VARCHAR(255) NOT NULL UNIQUE,
+    rc_customer_id VARCHAR(255),
     plan VARCHAR(32) NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
     status VARCHAR(32) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
     expires_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_rc_customer_id
-    ON subscriptions(rc_customer_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_subscriptions_rc_customer_id
+    ON subscriptions(rc_customer_id)
+    WHERE rc_customer_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id
     ON subscriptions(user_id);

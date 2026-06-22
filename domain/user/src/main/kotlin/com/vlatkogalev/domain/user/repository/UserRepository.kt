@@ -64,4 +64,10 @@ interface UserRepository {
     suspend fun confirmPasswordReset(token: String, newPasswordHash: String): PasswordResetConfirmationResult
 
     suspend fun deleteById(userId: UUID): Boolean
+
+    /**
+     * Atomically reassigns all coins from [fromUserId] to [toUserId],
+     * then deletes the [fromUserId] user record. Returns the number of coins reassigned.
+     */
+    suspend fun mergeAnonymousInto(fromUserId: UUID, toUserId: UUID): Int
 }

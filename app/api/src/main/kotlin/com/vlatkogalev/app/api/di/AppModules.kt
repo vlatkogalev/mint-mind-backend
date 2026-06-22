@@ -193,7 +193,7 @@ val appModule = module {
             passwordResetEmailSender = get<PasswordResetEmailSender>(),
         )
     }
-    single { SessionMergeService(get(), get()) }
+    single { SessionMergeService(get()) }
     single<FileStorageService> { S3FileStorageService() }
 
     single { UserAuthController(get(), get()) }

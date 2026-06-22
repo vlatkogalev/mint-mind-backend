@@ -53,6 +53,40 @@ class SubscriptionRepositoryImpl(
             updated > 0
         }
 
+    override suspend fun upsertByRevenueCatCustomerId(
+        userId: UUID?,
+        revenueCatCustomerId: String,
+        status: SubscriptionStatus,
+        expiresAt: Instant?,
+        plan: SubscriptionPlan?,
+    ): Boolean =
+        dbQuery(database) {
+            val updated = SubscriptionsTable.update({ SubscriptionsTable.rcCustomerId eq revenueCatCustomerId }) {
+                it[SubscriptionsTable.status] = status.name.lowercase()
+                it[SubscriptionsTable.expiresAt] = expiresAt?.let { OffsetDateTime.ofInstant(it, ZoneOffset.UTC) }
+                if (plan != null) {
+                    it[SubscriptionsTable.plan] = plan.name.lowercase()
+                }
+            }
+            if (updated > 0) return@dbQuery true
+
+            if (userId != null) {
+                val linked = SubscriptionsTable.update({
+                    (SubscriptionsTable.userId eq userId) and SubscriptionsTable.rcCustomerId.isNull()
+                }) {
+                    it[SubscriptionsTable.rcCustomerId] = revenueCatCustomerId
+                    it[SubscriptionsTable.status] = status.name.lowercase()
+                    it[SubscriptionsTable.expiresAt] = expiresAt?.let { OffsetDateTime.ofInstant(it, ZoneOffset.UTC) }
+                    if (plan != null) {
+                        it[SubscriptionsTable.plan] = plan.name.lowercase()
+                    }
+                }
+                return@dbQuery linked > 0
+            }
+
+            false
+        }
+
     private fun ResultRow.toSubscription(): Subscription =
         Subscription(
             id = this[SubscriptionsTable.id],

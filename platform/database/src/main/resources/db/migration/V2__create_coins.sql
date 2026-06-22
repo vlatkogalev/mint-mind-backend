@@ -142,6 +142,8 @@ CREATE INDEX IF NOT EXISTS idx_coins_user_id_year ON coins(user_id, year);
 CREATE INDEX IF NOT EXISTS idx_coins_set_id ON coins(set_id);
 CREATE INDEX IF NOT EXISTS idx_coins_catalog_coin_id ON coins(catalog_coin_id);
 CREATE INDEX IF NOT EXISTS idx_coins_created_at ON coins(created_at);
+CREATE INDEX IF NOT EXISTS idx_coins_stats_lookup
+    ON coins (user_id, value_high DESC, year ASC, mintage ASC);
 
 DROP TRIGGER IF EXISTS trg_coins_updated_at ON coins;
 CREATE TRIGGER trg_coins_updated_at

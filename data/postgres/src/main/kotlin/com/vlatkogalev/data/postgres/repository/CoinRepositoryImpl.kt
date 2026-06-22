@@ -183,21 +183,24 @@ class CoinRepositoryImpl(
         setId: UUID?,
     ): CoinCollectionStats =
         dbQuery(database) {
-            var query = CoinsTable
-                .selectAll()
-                .where { CoinsTable.userId eq userId }
+            var predicate: Op<Boolean> = CoinsTable.userId eq userId
+            country?.let { predicate = predicate and (CoinsTable.countryOrIssuer eq it) }
+            year?.let { predicate = predicate and (CoinsTable.year eq it) }
+            minValue?.let { predicate = predicate and (CoinsTable.valueHigh greaterEq it) }
+            maxValue?.let { predicate = predicate and (CoinsTable.valueLow lessEq it) }
+            setId?.let { predicate = predicate and (CoinsTable.setId eq it) }
 
-            country?.let { query = query.andWhere { CoinsTable.countryOrIssuer eq it } }
-            year?.let { query = query.andWhere { CoinsTable.year eq it } }
-            minValue?.let { query = query.andWhere { CoinsTable.valueHigh greaterEq it } }
-            maxValue?.let { query = query.andWhere { CoinsTable.valueLow lessEq it } }
-            setId?.let { query = query.andWhere { CoinsTable.setId eq it } }
+            // Project only the columns needed for the aggregates instead of loading every
+            // (wide) coin row into memory.
+            val valueRows = CoinsTable
+                .select(CoinsTable.valueLow, CoinsTable.valueHigh, CoinsTable.countryOrIssuer)
+                .where { predicate }
+                .toList()
 
-            val rows = query.toList()
-            val totalCoins = rows.size
-            val totalIssuers = rows.mapNotNull { it[CoinsTable.countryOrIssuer] }.distinct().size
+            val totalCoins = valueRows.size
+            val totalIssuers = valueRows.mapNotNull { it[CoinsTable.countryOrIssuer] }.distinct().size
 
-            val values = rows.mapNotNull { row ->
+            val values = valueRows.mapNotNull { row ->
                 val low = row[CoinsTable.valueLow]
                 val high = row[CoinsTable.valueHigh]
                 if (low != null && high != null) (low + high) / 2.0 else null

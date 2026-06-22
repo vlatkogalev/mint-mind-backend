@@ -299,6 +299,11 @@ class FakeUserRepository : UserRepository {
         if (throwOnDeleteById) error("deleteById failed")
         return users.remove(userId) != null
     }
+
+    override suspend fun mergeAnonymousInto(fromUserId: UUID, toUserId: UUID): Int {
+        users.remove(fromUserId)
+        return 0
+    }
 }
 
 class FakePasswordHasher : UserPasswordHasher {

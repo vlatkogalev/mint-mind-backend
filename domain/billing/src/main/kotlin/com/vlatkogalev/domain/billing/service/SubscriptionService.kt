@@ -21,7 +21,8 @@ class SubscriptionService(
 
     suspend fun handleRevenueCatEvent(event: RevenueCatSubscriptionEvent): Result<Unit> =
         try {
-            val updated = subscriptionRepository.updateFromRevenueCat(
+            val updated = subscriptionRepository.upsertByRevenueCatCustomerId(
+                userId = event.userId,
                 revenueCatCustomerId = event.revenueCatCustomerId,
                 status = event.type.toSubscriptionStatus(),
                 expiresAt = event.expiresAt,

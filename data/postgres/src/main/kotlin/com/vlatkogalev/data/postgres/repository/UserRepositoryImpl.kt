@@ -1,6 +1,7 @@
 package com.vlatkogalev.data.postgres.repository
 
 import com.vlatkogalev.data.postgres.tables.AnonymousInstallationsTable
+import com.vlatkogalev.data.postgres.tables.CoinsTable
 import com.vlatkogalev.data.postgres.tables.PasswordResetTokensTable
 import com.vlatkogalev.data.postgres.tables.ProfilesTable
 import com.vlatkogalev.data.postgres.tables.SubscriptionsTable
@@ -84,7 +85,7 @@ class UserRepositoryImpl(
             SubscriptionsTable.insert {
                 it[id] = UUID.randomUUID()
                 it[SubscriptionsTable.userId] = userId
-                it[SubscriptionsTable.rcCustomerId] = userId.toString()
+                it[SubscriptionsTable.rcCustomerId] = null
                 it[SubscriptionsTable.plan] = "free"
                 it[SubscriptionsTable.status] = "active"
             }
@@ -179,7 +180,7 @@ class UserRepositoryImpl(
             SubscriptionsTable.insert {
                 it[id] = UUID.randomUUID()
                 it[SubscriptionsTable.userId] = userId
-                it[SubscriptionsTable.rcCustomerId] = userId.toString()
+                it[SubscriptionsTable.rcCustomerId] = null
                 it[SubscriptionsTable.plan] = "free"
                 it[SubscriptionsTable.status] = "active"
             }
@@ -357,6 +358,15 @@ class UserRepositoryImpl(
     override suspend fun deleteById(userId: UUID): Boolean =
         dbQuery(database) {
             UsersTable.deleteWhere { UsersTable.id eq userId } > 0
+        }
+
+    override suspend fun mergeAnonymousInto(fromUserId: UUID, toUserId: UUID): Int =
+        dbQuery(database) {
+            val reassigned = CoinsTable.update({ CoinsTable.userId eq fromUserId }) {
+                it[userId] = toUserId
+            }
+            UsersTable.deleteWhere { UsersTable.id eq fromUserId }
+            reassigned
         }
 
     private fun ResultRow.toUserAccount(): UserAccount {
