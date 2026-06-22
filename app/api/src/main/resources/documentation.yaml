@@ -1627,10 +1627,14 @@ components:
           type: string
           nullable: true
           description: "CatalogCoin-only. Null when not enriched."
-        thumbnailUrl:
+        obverseThumbnailUrl:
           type: string
           nullable: true
-          description: "CatalogCoin-only. Null when not enriched."
+          description: "CatalogCoin obverse thumbnail. Null when not enriched."
+        reverseThumbnailUrl:
+          type: string
+          nullable: true
+          description: "CatalogCoin reverse thumbnail. Null when not enriched."
         minYear:
           type: integer
           format: int32
@@ -1855,6 +1859,14 @@ components:
           type: integer
           format: int64
           description: "Epoch milliseconds."
+        obverseThumbnailUrl:
+          type: string
+          nullable: true
+          description: "CatalogCoin obverse thumbnail. Null when the coin is not enriched."
+        reverseThumbnailUrl:
+          type: string
+          nullable: true
+          description: "CatalogCoin reverse thumbnail. Null when the coin is not enriched."
 
     CoinListResponse:
       type: object

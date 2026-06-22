@@ -96,7 +96,8 @@ data class CoinDataDto(
     val demonetized: Boolean? = null,
     val tags: List<String> = emptyList(),
     val numistaUrl: String? = null,
-    val thumbnailUrl: String? = null,
+    val obverseThumbnailUrl: String? = null,
+    val reverseThumbnailUrl: String? = null,
     val minYear: Int? = null,
     val maxYear: Int? = null,
 )
@@ -177,6 +178,8 @@ data class CoinSummaryResponse(
     val estimatedValueMean: Double?,
     val setId: String?,
     val createdAt: Long,
+    val obverseThumbnailUrl: String? = null,
+    val reverseThumbnailUrl: String? = null,
 )
 
 @Serializable

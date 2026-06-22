@@ -164,6 +164,8 @@ private class InMemoryCatalogCoinRepository : CatalogCoinRepository {
 
     override suspend fun findById(id: UUID): CatalogCoin? = coins[id]
 
+    override suspend fun findByIds(ids: List<UUID>): List<CatalogCoin> = ids.mapNotNull { coins[it] }
+
     override suspend fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin? {
         val reference = references.values.firstOrNull { it.provider == provider && it.externalId == externalId } ?: return null
         return coins[reference.catalogCoinId]

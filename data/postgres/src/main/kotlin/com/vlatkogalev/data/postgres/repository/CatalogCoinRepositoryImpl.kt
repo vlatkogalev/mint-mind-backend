@@ -64,6 +64,18 @@ class CatalogCoinRepositoryImpl(
             coin?.let { populateDetails(it) }
         }
 
+    override suspend fun findByIds(ids: List<UUID>): List<CatalogCoin> {
+        if (ids.isEmpty()) return emptyList()
+        val coins = dbQuery(database) {
+            CatalogCoinsTable
+                .selectAll()
+                .where { CatalogCoinsTable.id inList ids.toSet() }
+                .toList()
+                .map { it.toCatalogCoin() }
+        }
+        return populateDetailsBatch(coins)
+    }
+
     override suspend fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin? =
         dbQuery(database) {
             val ref = ExternalCoinReferencesTable

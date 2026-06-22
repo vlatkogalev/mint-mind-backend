@@ -11,6 +11,7 @@ interface CatalogCoinRepository {
     suspend fun findByFingerprint(fingerprint: CoinFingerprint): CatalogCoin?
     suspend fun findByRetrievalKey(country: String?, denomination: String?, year: Int?): List<CatalogCoin>
     suspend fun findById(id: UUID): CatalogCoin?
+    suspend fun findByIds(ids: List<UUID>): List<CatalogCoin>
     suspend fun findByProviderExternalId(provider: String, externalId: String): CatalogCoin?
     suspend fun save(catalogCoin: CatalogCoin): CatalogCoin
     suspend fun markEnrichmentSuccess(

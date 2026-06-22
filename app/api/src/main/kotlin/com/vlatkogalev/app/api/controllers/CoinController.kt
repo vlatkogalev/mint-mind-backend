@@ -104,7 +104,10 @@ class CoinController(
                     val nextCursor = if (coins.isNotEmpty() && coins.size >= limit) {
                         coins.last().createdAt.toEpochMilli()
                     } else null
-                    val summaries = coins.map { it.toSummaryResponse() }
+                    val catalogCoins = catalogCoinRepository
+                        .findByIds(coins.mapNotNull { it.catalogCoinId })
+                        .associateBy { it.id }
+                    val summaries = coins.map { it.toSummaryResponse(it.catalogCoinId?.let(catalogCoins::get)) }
                     call.respond(CoinListResponse(coins = summaries, nextCursor = nextCursor))
                 }
                 is Result.Failure -> call.respond(HttpStatusCode.BadRequest, result.error.toErrorResponse())
@@ -373,7 +376,8 @@ class CoinController(
                 demonetized = c?.demonetized,
                 tags = c?.tags ?: emptyList(),
                 numistaUrl = c?.numistaUrl,
-                thumbnailUrl = c?.thumbnailUrl,
+                obverseThumbnailUrl = c?.thumbnailUrl,
+                reverseThumbnailUrl = c?.reverseThumbnailUrl,
                 minYear = c?.minYear,
                 maxYear = c?.maxYear,
             ),
@@ -425,7 +429,7 @@ class CoinController(
         )
     }
 
-    private fun Coin.toSummaryResponse(): CoinSummaryResponse {
+    private fun Coin.toSummaryResponse(catalogCoin: CatalogCoin? = null): CoinSummaryResponse {
         val estimatedValueMean: Double? = run {
             val low = recognitionResult.valueLow
             val high = recognitionResult.valueHigh
@@ -444,20 +448,28 @@ class CoinController(
             estimatedValueMean = estimatedValueMean,
             setId = setId?.toString(),
             createdAt = createdAt.toEpochMilli(),
+            obverseThumbnailUrl = catalogCoin?.thumbnailUrl,
+            reverseThumbnailUrl = catalogCoin?.reverseThumbnailUrl,
         )
     }
 
-    private fun CoinCollectionStats.toStatsResponse(): CoinCollectionStatsResponse =
-        CoinCollectionStatsResponse(
+    private suspend fun CoinCollectionStats.toStatsResponse(): CoinCollectionStatsResponse {
+        val highlightCoins = listOfNotNull(highlights.mostValuable, highlights.mostAncient, highlights.rarest)
+        val catalogCoins = catalogCoinRepository
+            .findByIds(highlightCoins.mapNotNull { it.catalogCoinId })
+            .associateBy { it.id }
+        fun Coin.summary() = toSummaryResponse(catalogCoinId?.let(catalogCoins::get))
+        return CoinCollectionStatsResponse(
             totalCoins = totalCoins,
             totalIssuers = totalIssuers,
             estimatedTotalValueMean = estimatedTotalValueMean,
             highlights = CollectionHighlightsResponse(
-                mostValuable = highlights.mostValuable?.toSummaryResponse(),
-                mostAncient = highlights.mostAncient?.toSummaryResponse(),
-                rarest = highlights.rarest?.toSummaryResponse(),
+                mostValuable = highlights.mostValuable?.summary(),
+                mostAncient = highlights.mostAncient?.summary(),
+                rarest = highlights.rarest?.summary(),
             ),
         )
+    }
 
     private fun MatchResult.toDto(): MatchResultDto =
         MatchResultDto(
