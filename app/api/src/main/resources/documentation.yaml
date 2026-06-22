@@ -1359,7 +1359,7 @@ components:
 
     SaveCoinRequest:
       type: object
-      required: [ obverseKey, reverseKey, coinData, aiAnalysis, catalogueNumbers ]
+      required: [ obverseKey, reverseKey, overallConfidence, rawJson ]
       properties:
         obverseKey:
           type: string
@@ -1367,14 +1367,167 @@ components:
         reverseKey:
           type: string
           description: "S3 object key for the reverse image."
-        coinData:
-          $ref: "#/components/schemas/CoinDataDto"
-        aiAnalysis:
-          $ref: "#/components/schemas/AiAnalysisDto"
-        catalogueNumbers:
+        countryOrIssuer:
+          type: string
+          nullable: true
+        denomination:
+          type: string
+          nullable: true
+        seriesName:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          format: int32
+          nullable: true
+        era:
+          type: string
+          nullable: true
+        mintMark:
+          type: string
+          nullable: true
+        metalComposition:
+          type: string
+          nullable: true
+        weightGrams:
+          type: number
+          format: double
+          nullable: true
+        diameterMm:
+          type: number
+          format: double
+          nullable: true
+        thicknessMm:
+          type: number
+          format: double
+          nullable: true
+        edge:
+          type: string
+          nullable: true
+        obverseDescription:
+          type: string
+          nullable: true
+        reverseDescription:
+          type: string
+          nullable: true
+        historicalContext:
+          type: string
+          nullable: true
+        obverseLettering:
+          type: string
+          nullable: true
+        reverseLettering:
+          type: string
+          nullable: true
+        designerObverse:
+          type: string
+          nullable: true
+        designerReverse:
+          type: string
+          nullable: true
+        mintage:
+          type: integer
+          format: int64
+          nullable: true
+        overallConfidence:
+          type: string
+          enum: [ HIGH, MEDIUM, LOW ]
+        confidenceCountry:
+          type: string
+          nullable: true
+        confidenceDenomination:
+          type: string
+          nullable: true
+        confidenceSeries:
+          type: string
+          nullable: true
+        confidenceYear:
+          type: string
+          nullable: true
+        confidenceEra:
+          type: string
+          nullable: true
+        mintMarkStatus:
+          type: string
+          nullable: true
+        mintMarkConfidence:
+          type: string
+          nullable: true
+        estimatedGrade:
+          type: string
+          nullable: true
+        estimatedGradeValue:
+          type: string
+          nullable: true
+        gradeCode:
+          type: string
+          nullable: true
+        gradeConfidence:
+          type: string
+          nullable: true
+        rarityQualitative:
+          type: string
+          nullable: true
+        rarityScore:
+          type: number
+          format: double
+          nullable: true
+        valueLow:
+          type: number
+          format: double
+          nullable: true
+        valueHigh:
+          type: number
+          format: double
+          nullable: true
+        valueCurrency:
+          type: string
+          nullable: true
+        positiveFeatures:
           type: array
           items:
-            $ref: "#/components/schemas/CatalogueNumberDto"
+            type: string
+        negativeFeatures:
+          type: array
+          items:
+            type: string
+        supplySummary:
+          type: string
+          nullable: true
+        demandSummary:
+          type: string
+          nullable: true
+        valueDisclaimer:
+          type: string
+          nullable: true
+        analysisNotes:
+          type: string
+          nullable: true
+        obverseVisible:
+          type: boolean
+          nullable: true
+        reverseVisible:
+          type: boolean
+          nullable: true
+        imageFocus:
+          type: string
+          nullable: true
+        imageLighting:
+          type: string
+          nullable: true
+        imageResolution:
+          type: string
+          nullable: true
+        imageCropping:
+          type: string
+          nullable: true
+        imageIssues:
+          type: array
+          items:
+            type: string
+        rawJson:
+          type: string
+          description: "The original JSON string from the AI recognition response."
         notes:
           type: string
           nullable: true
@@ -1760,15 +1913,15 @@ components:
       properties:
         mostValuable:
           allOf:
-            - $ref: "#/components/schemas/CoinDetailResponse"
+            - $ref: "#/components/schemas/CoinSummaryResponse"
           nullable: true
         mostAncient:
           allOf:
-            - $ref: "#/components/schemas/CoinDetailResponse"
+            - $ref: "#/components/schemas/CoinSummaryResponse"
           nullable: true
         rarest:
           allOf:
-            - $ref: "#/components/schemas/CoinDetailResponse"
+            - $ref: "#/components/schemas/CoinSummaryResponse"
           nullable: true
 
     CreateCoinSetRequest:
@@ -2068,12 +2221,169 @@ components:
 
     DebugNumistaMatchRequest:
       type: object
-      required: [ coinData, aiAnalysis ]
+      required: [ overallConfidence, rawJson ]
       properties:
-        coinData:
-          $ref: "#/components/schemas/CoinDataDto"
-        aiAnalysis:
-          $ref: "#/components/schemas/AiAnalysisDto"
+        countryOrIssuer:
+          type: string
+          nullable: true
+        denomination:
+          type: string
+          nullable: true
+        seriesName:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          format: int32
+          nullable: true
+        era:
+          type: string
+          nullable: true
+        mintMark:
+          type: string
+          nullable: true
+        metalComposition:
+          type: string
+          nullable: true
+        weightGrams:
+          type: number
+          format: double
+          nullable: true
+        diameterMm:
+          type: number
+          format: double
+          nullable: true
+        thicknessMm:
+          type: number
+          format: double
+          nullable: true
+        edge:
+          type: string
+          nullable: true
+        obverseDescription:
+          type: string
+          nullable: true
+        reverseDescription:
+          type: string
+          nullable: true
+        historicalContext:
+          type: string
+          nullable: true
+        obverseLettering:
+          type: string
+          nullable: true
+        reverseLettering:
+          type: string
+          nullable: true
+        designerObverse:
+          type: string
+          nullable: true
+        designerReverse:
+          type: string
+          nullable: true
+        mintage:
+          type: integer
+          format: int64
+          nullable: true
+        overallConfidence:
+          type: string
+          enum: [ HIGH, MEDIUM, LOW ]
+        confidenceCountry:
+          type: string
+          nullable: true
+        confidenceDenomination:
+          type: string
+          nullable: true
+        confidenceSeries:
+          type: string
+          nullable: true
+        confidenceYear:
+          type: string
+          nullable: true
+        confidenceEra:
+          type: string
+          nullable: true
+        mintMarkStatus:
+          type: string
+          nullable: true
+        mintMarkConfidence:
+          type: string
+          nullable: true
+        estimatedGrade:
+          type: string
+          nullable: true
+        estimatedGradeValue:
+          type: string
+          nullable: true
+        gradeCode:
+          type: string
+          nullable: true
+        gradeConfidence:
+          type: string
+          nullable: true
+        rarityQualitative:
+          type: string
+          nullable: true
+        rarityScore:
+          type: number
+          format: double
+          nullable: true
+        valueLow:
+          type: number
+          format: double
+          nullable: true
+        valueHigh:
+          type: number
+          format: double
+          nullable: true
+        valueCurrency:
+          type: string
+          nullable: true
+        positiveFeatures:
+          type: array
+          items:
+            type: string
+        negativeFeatures:
+          type: array
+          items:
+            type: string
+        supplySummary:
+          type: string
+          nullable: true
+        demandSummary:
+          type: string
+          nullable: true
+        valueDisclaimer:
+          type: string
+          nullable: true
+        analysisNotes:
+          type: string
+          nullable: true
+        obverseVisible:
+          type: boolean
+          nullable: true
+        reverseVisible:
+          type: boolean
+          nullable: true
+        imageFocus:
+          type: string
+          nullable: true
+        imageLighting:
+          type: string
+          nullable: true
+        imageResolution:
+          type: string
+          nullable: true
+        imageCropping:
+          type: string
+          nullable: true
+        imageIssues:
+          type: array
+          items:
+            type: string
+        rawJson:
+          type: string
+          description: "The original JSON string from the AI recognition response."
 
     MetricsResponse:
       type: object

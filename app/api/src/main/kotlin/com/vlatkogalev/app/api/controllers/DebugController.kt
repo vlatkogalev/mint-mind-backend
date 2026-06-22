@@ -2,8 +2,6 @@
 
 package com.vlatkogalev.app.api.controllers
 
-import com.vlatkogalev.app.api.dto.AiAnalysisDto
-import com.vlatkogalev.app.api.dto.CoinDataDto
 import com.vlatkogalev.app.api.dto.DebugNumistaMatchRequest
 import com.vlatkogalev.app.api.dto.MatchCandidateDto
 import com.vlatkogalev.app.api.dto.MatchResultDto
@@ -28,7 +26,7 @@ class DebugController(
         post("/debug/numista-match") {
             val payload = call.receive<DebugNumistaMatchRequest>()
 
-            val recognitionResult = mapToRecognitionResult(payload.coinData, payload.aiAnalysis)
+            val recognitionResult = mapToRecognitionResult(payload)
             val matchResult = enrichmentService.getOrMatch(recognitionResult)
 
             val dto = MatchResultDto(
@@ -89,58 +87,58 @@ class DebugController(
         }
     }
 
-    private fun mapToRecognitionResult(coinData: CoinDataDto, aiAnalysis: AiAnalysisDto): RecognitionResult =
+    private fun mapToRecognitionResult(req: DebugNumistaMatchRequest): RecognitionResult =
         RecognitionResult(
-            overallConfidence = runCatching { Confidence.valueOf(aiAnalysis.overallConfidence.uppercase()) }.getOrDefault(Confidence.LOW),
-            countryOrIssuer = coinData.countryOrIssuer,
-            denomination = coinData.denomination,
-            seriesName = coinData.seriesName,
-            year = coinData.year,
-            era = coinData.era,
-            confidenceCountry = aiAnalysis.confidenceCountry,
-            confidenceDenomination = aiAnalysis.confidenceDenomination,
-            confidenceSeries = aiAnalysis.confidenceSeries,
-            confidenceYear = aiAnalysis.confidenceYear,
-            confidenceEra = aiAnalysis.confidenceEra,
-            mintMark = coinData.mintMark,
-            mintMarkStatus = aiAnalysis.mintMarkStatus,
-            mintMarkConfidence = aiAnalysis.mintMarkConfidence,
-            metalComposition = coinData.metalComposition,
-            estimatedGrade = aiAnalysis.estimatedGrade,
-            estimatedGradeValue = aiAnalysis.estimatedGradeValue,
-            gradeCode = aiAnalysis.gradeCode,
-            gradeConfidence = aiAnalysis.gradeConfidence,
-            rarityQualitative = aiAnalysis.rarityQualitative,
-            rarityScore = aiAnalysis.rarityScore,
-            valueLow = aiAnalysis.valueLow,
-            valueHigh = aiAnalysis.valueHigh,
-            valueCurrency = aiAnalysis.valueCurrency,
-            mintage = coinData.mintage,
-            obverseDescription = coinData.obverseDescription,
-            reverseDescription = coinData.reverseDescription,
-            weightGrams = coinData.weightGrams,
-            diameterMm = coinData.diameterMm,
-            thicknessMm = coinData.thicknessMm,
-            edge = coinData.edge,
-            designerObverse = coinData.designerObverse,
-            designerReverse = coinData.designerReverse,
-            positiveFeatures = aiAnalysis.positiveFeatures,
-            negativeFeatures = aiAnalysis.negativeFeatures,
-            supplySummary = aiAnalysis.supplySummary,
-            demandSummary = aiAnalysis.demandSummary,
-            valueDisclaimer = aiAnalysis.valueDisclaimer,
-            obverseLettering = coinData.obverseLettering,
-            reverseLettering = coinData.reverseLettering,
-            analysisNotes = aiAnalysis.analysisNotes,
-            historicalContext = coinData.historicalContext,
-            obverseVisible = aiAnalysis.obverseVisible,
-            reverseVisible = aiAnalysis.reverseVisible,
-            imageFocus = aiAnalysis.imageFocus,
-            imageLighting = aiAnalysis.imageLighting,
-            imageResolution = aiAnalysis.imageResolution,
-            imageCropping = aiAnalysis.imageCropping,
-            imageIssues = aiAnalysis.imageIssues,
-            rawJson = aiAnalysis.rawJson,
+            overallConfidence = runCatching { Confidence.valueOf(req.overallConfidence.uppercase()) }.getOrDefault(Confidence.LOW),
+            countryOrIssuer = req.countryOrIssuer,
+            denomination = req.denomination,
+            seriesName = req.seriesName,
+            year = req.year,
+            era = req.era,
+            confidenceCountry = req.confidenceCountry,
+            confidenceDenomination = req.confidenceDenomination,
+            confidenceSeries = req.confidenceSeries,
+            confidenceYear = req.confidenceYear,
+            confidenceEra = req.confidenceEra,
+            mintMark = req.mintMark,
+            mintMarkStatus = req.mintMarkStatus,
+            mintMarkConfidence = req.mintMarkConfidence,
+            metalComposition = req.metalComposition,
+            estimatedGrade = req.estimatedGrade,
+            estimatedGradeValue = req.estimatedGradeValue,
+            gradeCode = req.gradeCode,
+            gradeConfidence = req.gradeConfidence,
+            rarityQualitative = req.rarityQualitative,
+            rarityScore = req.rarityScore,
+            valueLow = req.valueLow,
+            valueHigh = req.valueHigh,
+            valueCurrency = req.valueCurrency,
+            mintage = req.mintage,
+            obverseDescription = req.obverseDescription,
+            reverseDescription = req.reverseDescription,
+            weightGrams = req.weightGrams,
+            diameterMm = req.diameterMm,
+            thicknessMm = req.thicknessMm,
+            edge = req.edge,
+            designerObverse = req.designerObverse,
+            designerReverse = req.designerReverse,
+            positiveFeatures = req.positiveFeatures,
+            negativeFeatures = req.negativeFeatures,
+            supplySummary = req.supplySummary,
+            demandSummary = req.demandSummary,
+            valueDisclaimer = req.valueDisclaimer,
+            obverseLettering = req.obverseLettering,
+            reverseLettering = req.reverseLettering,
+            analysisNotes = req.analysisNotes,
+            historicalContext = req.historicalContext,
+            obverseVisible = req.obverseVisible,
+            reverseVisible = req.reverseVisible,
+            imageFocus = req.imageFocus,
+            imageLighting = req.imageLighting,
+            imageResolution = req.imageResolution,
+            imageCropping = req.imageCropping,
+            imageIssues = req.imageIssues,
+            rawJson = req.rawJson,
         )
 
     private fun completenessOf(bc: MatchCandidate): Map<String, Boolean> =
