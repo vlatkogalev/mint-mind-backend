@@ -1,5 +1,6 @@
 package com.vlatkogalev.app.jobs
 
+import com.vlatkogalev.platform.core.StructuredLogger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,8 +16,9 @@ class MarketplaceJobScheduler(
     private val initialDelaySeconds: Long = 15,
     private val intervalSeconds: Long = 600,
 ) {
+    private val logger = StructuredLogger("MarketplaceJobScheduler")
     private val handler = CoroutineExceptionHandler { _, e ->
-        println("MarketplaceJobScheduler fatal error: ${e.message}")
+        logger.error("Fatal error in scheduler", throwable = e)
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)
     private var job: Job? = null
@@ -28,7 +30,7 @@ class MarketplaceJobScheduler(
                 try {
                     listingsJob.run()
                 } catch (e: Exception) {
-                    println("MarketplaceJobScheduler error: ${e.message}")
+                    logger.error("Job execution failed", throwable = e)
                 }
                 delay(intervalSeconds.seconds)
             }

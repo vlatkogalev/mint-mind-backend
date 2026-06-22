@@ -1,5 +1,6 @@
 package com.vlatkogalev.data.ebay
 
+import com.vlatkogalev.platform.core.StructuredLogger
 import com.vlatkogalev.platform.core.config.EbayConfig
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -16,6 +17,7 @@ class EbayMarketplaceFetcher(
     private val tokenProvider: EbayTokenProvider,
     private val config: EbayConfig,
 ) {
+    private val logger = StructuredLogger("EbayMarketplaceFetcher")
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
@@ -43,7 +45,8 @@ class EbayMarketplaceFetcher(
                                 parameter("offset", page * 200)
                             }.body()
                         response.itemSummaries ?: emptyList()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.error("Failed to fetch eBay listings page", mapOf("page" to page), e)
                         emptyList()
                     }
                 }

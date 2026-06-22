@@ -2,6 +2,7 @@ package com.vlatkogalev.app.jobs
 
 import com.vlatkogalev.domain.news.model.NewsArticle
 import com.vlatkogalev.domain.news.repository.NewsRepository
+import com.vlatkogalev.platform.core.StructuredLogger
 import org.jsoup.Jsoup
 import org.jsoup.safety.Safelist
 import java.time.Instant
@@ -16,6 +17,8 @@ class RssFeedFetcher(
     private val feedUrl: String = "https://coinweek.com/feed/",
     private val userAgent: String = "MintMind-RssBot/1.0",
 ) {
+    private val logger = StructuredLogger("RssFeedFetcher")
+
     private val excludedCategories = setOf(
         "dealers and companies",
         "bullion & precious metals",
@@ -87,9 +90,12 @@ class RssFeedFetcher(
                 newsRepository.saveAll(newArticles)
             }
 
-            println("News fetch: ${newArticles.size} inserted, ${items.size - newArticles.size} skipped")
+            logger.info(
+                "News fetch complete",
+                mapOf("inserted" to newArticles.size, "skipped" to (items.size - newArticles.size)),
+            )
         } catch (e: Exception) {
-            println("News fetch failed: ${e.message}")
+            logger.error("News fetch failed", throwable = e)
         }
     }
 
