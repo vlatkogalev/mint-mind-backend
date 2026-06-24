@@ -16,6 +16,7 @@ dependencies {
     implementation(ktorLibs.client.contentNegotiation)
     implementation(ktorLibs.serialization.kotlinx.json)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.jsoup)
 
     testImplementation(kotlin("test"))
 }
