@@ -125,8 +125,13 @@ class EbayCoinPricingService(
         rr.seriesName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
 
         if (includeGrade) {
-            rr.estimatedGradeValue?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-                ?: rr.estimatedGrade?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+            val gradeToken = buildString {
+                rr.gradeAbbreviation?.takeIf { it.isNotBlank() }?.let { abbr ->
+                    append(abbr)
+                    rr.gradeNumeric?.let { n -> append("-$n") }
+                }
+            }.takeIf { it.isNotBlank() }
+            gradeToken?.let { parts.add(it) }
         }
 
         return parts.joinToString(" ")

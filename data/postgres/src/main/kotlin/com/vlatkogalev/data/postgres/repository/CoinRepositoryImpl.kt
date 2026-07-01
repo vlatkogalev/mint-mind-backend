@@ -43,9 +43,9 @@ class CoinRepositoryImpl(
                 it[mintMarkStatus] = coin.recognitionResult.mintMarkStatus
                 it[mintMarkConfidence] = coin.recognitionResult.mintMarkConfidence
                 it[metalComposition] = coin.recognitionResult.metalComposition
-                it[estimatedGrade] = coin.recognitionResult.estimatedGrade
-                it[estimatedGradeValue] = coin.recognitionResult.estimatedGradeValue
-                it[gradeCode] = coin.recognitionResult.gradeCode
+                it[gradeName] = coin.recognitionResult.gradeName
+                it[gradeAbbreviation] = coin.recognitionResult.gradeAbbreviation
+                it[gradeNumeric] = coin.recognitionResult.gradeNumeric
                 it[gradeConfidence] = coin.recognitionResult.gradeConfidence
                 it[rarityQualitative] = coin.recognitionResult.rarityQualitative
                 it[rarityScore] = coin.recognitionResult.rarityScore
@@ -327,9 +327,9 @@ class CoinRepositoryImpl(
                 mintMarkStatus = this[CoinsTable.mintMarkStatus],
                 mintMarkConfidence = this[CoinsTable.mintMarkConfidence],
                 metalComposition = this[CoinsTable.metalComposition],
-                estimatedGrade = this[CoinsTable.estimatedGrade],
-                estimatedGradeValue = this[CoinsTable.estimatedGradeValue],
-                gradeCode = this[CoinsTable.gradeCode],
+                gradeName = this[CoinsTable.gradeName],
+                gradeAbbreviation = this[CoinsTable.gradeAbbreviation],
+                gradeNumeric = this[CoinsTable.gradeNumeric],
                 gradeConfidence = this[CoinsTable.gradeConfidence],
                 rarityQualitative = this[CoinsTable.rarityQualitative],
                 rarityScore = this[CoinsTable.rarityScore],

@@ -1442,18 +1442,23 @@ components:
         mintMarkConfidence:
           type: string
           nullable: true
-        estimatedGrade:
+        gradeName:
           type: string
           nullable: true
-        estimatedGradeValue:
+          description: "Full human-readable Sheldon grade label, e.g. 'About Uncirculated'."
+        gradeAbbreviation:
           type: string
           nullable: true
-        gradeCode:
-          type: string
+          description: "Standard short Sheldon letter code, e.g. 'AU'."
+        gradeNumeric:
+          type: integer
+          format: int32
           nullable: true
+          description: "Sheldon scale point value, e.g. 58."
         gradeConfidence:
           type: string
           nullable: true
+          description: "AI confidence in the grade assessment: high, medium, or low."
         rarityQualitative:
           type: string
           nullable: true
@@ -1675,18 +1680,23 @@ components:
         mintMarkConfidence:
           type: string
           nullable: true
-        estimatedGrade:
+        gradeName:
           type: string
           nullable: true
-        estimatedGradeValue:
+          description: "Full human-readable Sheldon grade label, e.g. 'About Uncirculated'."
+        gradeAbbreviation:
           type: string
           nullable: true
-        gradeCode:
-          type: string
+          description: "Standard short Sheldon letter code, e.g. 'AU'."
+        gradeNumeric:
+          type: integer
+          format: int32
           nullable: true
+          description: "Sheldon scale point value, e.g. 58."
         gradeConfidence:
           type: string
           nullable: true
+          description: "AI confidence in the grade assessment: high, medium, or low."
         rarityQualitative:
           type: string
           nullable: true
@@ -1840,12 +1850,19 @@ components:
           type: integer
           format: int64
           nullable: true
-        estimatedGrade:
+        gradeName:
           type: string
           nullable: true
-        estimatedGradeValue:
+          description: "Full Sheldon grade label."
+        gradeAbbreviation:
           type: string
           nullable: true
+          description: "Short Sheldon letter code."
+        gradeNumeric:
+          type: integer
+          format: int32
+          nullable: true
+          description: "Sheldon scale point value."
         estimatedValueMean:
           type: number
           format: double
@@ -2310,18 +2327,23 @@ components:
         mintMarkConfidence:
           type: string
           nullable: true
-        estimatedGrade:
+        gradeName:
           type: string
           nullable: true
-        estimatedGradeValue:
+          description: "Full human-readable Sheldon grade label, e.g. 'About Uncirculated'."
+        gradeAbbreviation:
           type: string
           nullable: true
-        gradeCode:
-          type: string
+          description: "Standard short Sheldon letter code, e.g. 'AU'."
+        gradeNumeric:
+          type: integer
+          format: int32
           nullable: true
+          description: "Sheldon scale point value, e.g. 58."
         gradeConfidence:
           type: string
           nullable: true
+          description: "AI confidence in the grade assessment: high, medium, or low."
         rarityQualitative:
           type: string
           nullable: true
